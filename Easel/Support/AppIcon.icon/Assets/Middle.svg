@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <!-- The loose stroke the pencil is finishing, ending at the pencil's tip. -->
-  <path d="M250 730C320 590 410 800 500 600" fill="none" stroke="#FFFFFF" stroke-width="78" stroke-linecap="round"/>
+  <path d="M250 730C320 590 410 800 500 600" fill="none" stroke="#FFFFFF" stroke-width="28" stroke-linecap="round"/>
 </svg>
