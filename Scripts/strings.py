@@ -218,6 +218,7 @@ S = {
 "Select.Invert": ("Invert Selection", "選択範囲を反転", "선택 영역 반전", "反选", "反轉選取範圍"),
 "Select.Lasso": ("Freehand", "フリーハンド", "자유형", "手绘", "手繪"),
 "Select.Magic": ("Magic Select", "自動選択", "자동 선택", "魔棒", "魔術棒"),
+"Select.Magnetic": ("Magnetic Lasso", "マグネット選択", "자석 올가미", "磁性套索", "磁性套索"),
 "Select.Rectangle": ("Rectangle", "長方形", "직사각형", "矩形", "矩形"),
 "Shape.Arrow": ("Arrow", "矢印", "화살표", "箭头", "箭頭"),
 "Shape.Ellipse": ("Ellipse", "楕円形", "타원", "椭圆", "橢圓"),

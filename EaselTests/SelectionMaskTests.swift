@@ -60,3 +60,40 @@ struct SelectionMaskTests {
         #expect(mask.bounds == CGRect(x: 4, y: 0, width: 4, height: 4))
     }
 }
+
+@Suite("Magnetic select")
+struct EdgeMapTests {
+    @Test func pointsSnapToTheNearestEdge() {
+        let size = CGSize(width: 40, height: 20)
+        let image = TestImages.halves(width: 40, height: 20)
+        let map = EdgeMap(pixels: Bitmap.pixels(of: image)!, scale: 1)
+        // The edge is between x 19 and 20; a point a few pixels off lands on it.
+        let snapped = map.snap(CGPoint(x: 15, y: 10), radius: 8)
+        #expect(abs(snapped.x - 20) <= 1.5)
+        #expect(snapped.y == 10.5 || abs(snapped.y - 10) <= 1)
+        // Far from any edge, the point stays put.
+        let flat = map.snap(CGPoint(x: 4, y: 10), radius: 3)
+        #expect(flat == CGPoint(x: 4, y: 10))
+        _ = size
+    }
+
+    @MainActor
+    @Test func aMagneticDragEndsInAClosedSelection() async throws {
+        let state = EditorState()
+        let size = CGSize(width: 40, height: 20)
+        state.attach(to: Composition(size: size, layers: [
+            Layer(name: "Halves", image: LayerImage(TestImages.halves(width: 40, height: 20)), canvasSize: size),
+        ])) { _ in }
+        state.viewportSize = CGSize(width: 400, height: 400)
+        state.tool = .select
+        state.selectionKind = .magnetic
+        state.toolBegan(at: CGPoint(x: 17, y: 2), pressure: 1)
+        for _ in 0..<100 where state.edgeMap == nil { try await Task.sleep(for: .milliseconds(10)) }
+        state.toolMoved(to: [CGPoint(x: 17, y: 10), CGPoint(x: 17, y: 18), CGPoint(x: 2, y: 18)].map { StrokePoint(location: $0) })
+        guard case .lasso(let points) = state.draftSelection?.shape else { Issue.record("no draft"); return }
+        // Points drawn beside the edge were pulled onto it.
+        #expect(points.contains { abs($0.x - 20) <= 1.5 })
+        state.toolEnded(isTap: false, at: CGPoint(x: 2, y: 18))
+        #expect(state.selection != nil)
+    }
+}

@@ -33,6 +33,10 @@ final class EditorState {
     var selectionKind: SelectionKind = .rectangle
     /// How different a colour may be and still be picked by magic select.
     var selectionTolerance = 0.15
+    /// The picture's edges, for magnetic select to cling to; worked out
+    /// when a magnetic drag starts.
+    @ObservationIgnored var edgeMap: EdgeMap?
+    @ObservationIgnored private var edgeMapSource: Composition?
     var cropAspect: CropAspect = .free {
         didSet { constrainCropRect() }
     }
@@ -432,6 +436,7 @@ final class EditorState {
             moveOrigin = MoveOrigin(layerID: layer.id, start: point, transform: layer.transform)
         case .select:
             guard selectionKind.isDrawn else { return }
+            if selectionKind == .magnetic { prepareEdgeMap() }
             draftSelection = Selection(shape: shape(for: selectionKind, from: point, to: point))
         case .shape:
             draftShape = ShapeSpec(
@@ -466,6 +471,8 @@ final class EditorState {
         case .select:
             guard let draft = draftSelection else { return }
             switch draft.shape {
+            case .lasso(let existing) where selectionKind == .magnetic:
+                draftSelection = Selection(shape: .lasso(existing + magneticPoints(points.map(\.location), after: existing.last)))
             case .lasso(let existing):
                 draftSelection = Selection(shape: .lasso(existing + points.map(\.location)))
             case .rectangle(let rect), .ellipse(let rect):
@@ -566,8 +573,39 @@ final class EditorState {
         switch kind {
         case .rectangle: return .rectangle(rect)
         case .ellipse: return .ellipse(rect)
-        case .lasso, .magic: return .lasso([start])
+        case .lasso, .magnetic, .magic: return .lasso([start])
         }
+    }
+
+    // MARK: - Magnetic select
+
+    /// Works out the picture's edges, unless they are already known for it.
+    private func prepareEdgeMap() {
+        let composition = composition
+        guard edgeMapSource != composition else { return }
+        edgeMapSource = composition
+        edgeMap = nil
+        Task { @MainActor in
+            let map = await Task.detached(priority: .userInitiated) { EdgeMap(composition: composition) }.value
+            if edgeMapSource == composition { edgeMap = map }
+        }
+    }
+
+    /// The finger's path pulled onto the nearest strong edge, with points
+    /// too close together left out so the outline stays smooth.
+    private func magneticPoints(_ points: [CGPoint], after previous: CGPoint?) -> [CGPoint] {
+        guard let edgeMap else { return points }
+        // About a fingertip's reach on screen.
+        let radius = max(4, 16 / max(viewport.scale, 0.0001))
+        var result: [CGPoint] = []
+        var last = previous
+        for point in points {
+            let snapped = edgeMap.snap(point, radius: radius)
+            if let last, hypot(snapped.x - last.x, snapped.y - last.y) < edgeMap.scale { continue }
+            result.append(snapped)
+            last = snapped
+        }
+        return result
     }
 
     // MARK: - Simple tool actions

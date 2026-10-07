@@ -106,6 +106,8 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
 /// The ways the selection tool draws.
 enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
     case rectangle, ellipse, lasso
+    /// A freehand outline that clings to the edges it is drawn along.
+    case magnetic
     /// A tap picks out the run of similar colour around it.
     case magic
 
@@ -116,6 +118,7 @@ enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
         case .rectangle: return "rectangle.dashed"
         case .ellipse: return "circle.dashed"
         case .lasso: return "lasso"
+        case .magnetic: return "lasso.badge.sparkles"
         case .magic: return "wand.and.rays"
         }
     }
@@ -125,6 +128,7 @@ enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
         case .rectangle: return "Select.Rectangle"
         case .ellipse: return "Select.Ellipse"
         case .lasso: return "Select.Lasso"
+        case .magnetic: return "Select.Magnetic"
         case .magic: return "Select.Magic"
         }
     }
