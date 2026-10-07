@@ -3,6 +3,8 @@ import SwiftUI
 /// What a finger or pencil does on the canvas.
 enum Tool: String, CaseIterable, Identifiable, Sendable {
     case move, select, crop
+    /// Bends the active layer: its corners in perspective, or as a sheet.
+    case transform
     case brush, eraser, fill, gradient, eyedropper
     case smudge, blur, mosaic, heal
     /// Paints with pixels copied from another part of the layer.
@@ -18,7 +20,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
     /// The tools as the carousel and rail group them: arranging, painting,
     /// retouching, adding.
     static let groups: [[Tool]] = [
-        [.move, .select, .crop],
+        [.move, .transform, .select, .crop],
         [.brush, .eraser, .fill, .gradient, .eyedropper],
         [.smudge, .blur, .mosaic, .heal, .clone],
         [.text, .shape, .pen, .nodes],
@@ -29,6 +31,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .move: return "arrow.up.and.down.and.arrow.left.and.right"
         case .select: return "rectangle.dashed"
         case .crop: return "crop"
+        case .transform: return "perspective"
         case .brush: return "paintbrush.pointed"
         case .eraser: return "eraser"
         case .fill: return "drop"
@@ -51,6 +54,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .move: return "Tool.Move"
         case .select: return "Tool.Select"
         case .crop: return "Tool.Crop"
+        case .transform: return "Tool.Transform"
         case .brush: return "Tool.Brush"
         case .eraser: return "Tool.Eraser"
         case .fill: return "Tool.Fill"
@@ -75,6 +79,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .move: return "v"
         case .select: return "m"
         case .crop: return "c"
+        case .transform: return "w"
         case .brush: return "b"
         case .eraser: return "e"
         case .fill: return "g"

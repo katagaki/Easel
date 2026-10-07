@@ -62,7 +62,15 @@ struct CanvasView: View {
     private func layerStack(_ viewport: CanvasViewport) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(composition.displayLayers) { layer in
-                if layer.isVisible {
+                if layer.isVisible, let bent = state.transformPreview, bent.layerID == layer.id {
+                    // A layer being bent shows as it will be: lined up with
+                    // the canvas, its mask already in it.
+                    LayerView(
+                        layer: Self.canvasAligned(layer, image: bent.image, canvasSize: composition.size),
+                        displayed: bent.image, preview: nil, strokes: [], maskStrokes: [], retouch: nil,
+                        canvasSize: composition.size, viewport: viewport, displayScale: displayScale
+                    )
+                } else if layer.isVisible {
                     LayerView(
                         layer: layer,
                         displayed: state.displayImage(for: layer),
@@ -86,6 +94,19 @@ struct CanvasView: View {
                 .offset(x: viewport.canvasFrame.minX, y: viewport.canvasFrame.minY)
         }
         .allowsHitTesting(false)
+    }
+
+    /// `layer` showing `image`, a shrunk copy of the whole canvas, instead
+    /// of its own pixels.
+    private static func canvasAligned(_ layer: Layer, image: CGImage, canvasSize: CGSize) -> Layer {
+        var shown = layer
+        shown.image = LayerImage(image)
+        shown.mask = nil
+        shown.transform = LayerTransform(
+            position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2),
+            scaleX: canvasSize.width / Double(image.width), scaleY: canvasSize.height / Double(image.height)
+        )
+        return shown
     }
 
     /// What the retouching brushes are doing to a layer right now.

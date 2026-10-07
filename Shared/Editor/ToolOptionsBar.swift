@@ -34,6 +34,7 @@ struct ToolOptionsBar: View {
         case .move: moveOptions
         case .select: selectOptions
         case .crop: cropOptions
+        case .transform: transformOptions
         case .text: textOptions
         case .shape: shapeOptions
         case .pen: penOptions
@@ -192,6 +193,31 @@ struct ToolOptionsBar: View {
                 .accessibilityIdentifier("applyCrop")
             }
         }
+    }
+
+    private var transformOptions: some View {
+        let draft = state.transformDraft
+        return Group {
+            GlassGroup {
+                GlassIconButton(symbol: "perspective", label: "Transform.Distort", isOn: state.transformMode == .distort) {
+                    state.setTransformMode(.distort)
+                }
+                GlassIconButton(symbol: "squareshape.split.3x3", label: "Transform.Warp", isOn: state.transformMode == .warp) {
+                    state.setTransformMode(.warp)
+                }
+            }
+            GlassGroup {
+                GlassIconButton(symbol: "xmark", label: "Transform.Reset") {
+                    state.resetTransformDraft()
+                }
+                GlassIconButton(symbol: "checkmark", label: "Transform.Apply", isOn: true) {
+                    state.applyTransform()
+                }
+                .accessibilityIdentifier("applyTransform")
+            }
+            .disabled(!(draft?.isChanged ?? false))
+        }
+        .disabled(state.activeLayer.map { state.composition.isLocked($0) } ?? true)
     }
 
     // MARK: - Adding

@@ -16,6 +16,7 @@ final class EditorState {
             if activeLayerID != oldValue {
                 isEditingMask = false
                 activeGroupID = nil
+                if tool == .transform { cancelTransform() }
             }
         }
     }
@@ -94,6 +95,13 @@ final class EditorState {
     var draftGradient: (start: CGPoint, end: CGPoint)?
     /// The crop tool's frame, in canvas pixels; nil until the tool is picked.
     var cropRect: CGRect?
+    /// The layer the Transform tool is bending, and how.
+    var transformDraft: TransformDraft?
+    var transformMode: TransformMode = .distort
+    /// The bent layer as it will look, canvas-aligned and shrunk.
+    var transformPreview: LayerPreview?
+    @ObservationIgnored var transformDrag: TransformDrag?
+    @ObservationIgnored var transformPreviewTask: Task<Void, Never>?
 
     // MARK: View
 
@@ -279,6 +287,7 @@ final class EditorState {
         pendingStrokes.removeAll { composition.index(of: $0.layerID) == nil }
         if let preview = layerPreview, composition.index(of: preview.layerID) == nil { layerPreview = nil }
         if tool == .crop { cropRect = composition.canvasRect }
+        if tool == .transform { cancelTransform() }
         if let selection, !composition.canvasRect.intersects(selection.bounds(in: composition.size)) {
             self.selection = nil
         }
@@ -370,6 +379,13 @@ final class EditorState {
             constrainCropRect()
         } else {
             cropRect = nil
+        }
+        if tool == .transform {
+            beginTransformDraft()
+        } else if old == .transform {
+            transformPreviewTask?.cancel()
+            transformDraft = nil
+            transformPreview = nil
         }
     }
 
@@ -491,6 +507,8 @@ final class EditorState {
             penBegan(at: point)
         case .nodes:
             nodesBegan(at: point)
+        case .transform:
+            transformBegan(at: point)
         case .shape:
             draftShape = ShapeSpec(
                 kind: shapeKind, start: point, end: point, isFilled: shapeIsFilled,
@@ -549,6 +567,8 @@ final class EditorState {
             penMoved(to: last.location)
         case .nodes:
             nodesMoved(to: last.location)
+        case .transform:
+            transformMoved(to: last.location)
         case .shape:
             draftShape?.end = last.location
         case .gradient:
@@ -608,6 +628,8 @@ final class EditorState {
             vectorDrag = nil
         case .nodes:
             nodesEnded(isTap: isTap, at: point)
+        case .transform:
+            transformEnded()
         case .shape:
             defer { draftShape = nil }
             guard let spec = draftShape, spec.isMeaningful else { return }
@@ -644,6 +666,12 @@ final class EditorState {
         draftShape = nil
         draftGradient = nil
         cropDrag = nil
+        if let drag = transformDrag, var draft = transformDraft {
+            for handle in drag.handles { draft.points[handle.index] = handle.origin }
+            transformDraft = draft
+            transformDrag = nil
+            updateTransformPreview()
+        }
         if let origin = moveOrigin {
             update { $0[origin.layerID]?.transform = origin.transform }
             moveOrigin = nil

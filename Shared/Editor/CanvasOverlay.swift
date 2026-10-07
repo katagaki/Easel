@@ -70,6 +70,10 @@ struct CanvasOverlay: View {
             drawVectorEditing(layer, in: &context, transform: transform)
         }
 
+        if state.tool == .transform, let draft = state.transformDraft {
+            drawTransform(draft, in: &context, transform: transform)
+        }
+
         if state.tool == .clone, let source = state.cloneSource {
             drawCloneSource(at: currentCloneSource ?? source, in: &context, transform: transform)
         }
@@ -106,6 +110,40 @@ struct CanvasOverlay: View {
                 context.fill(box, with: .color(isSelected ? .accentColor : .white))
                 context.stroke(box, with: .color(.accentColor), lineWidth: 1.5)
             }
+        }
+    }
+
+    /// The bent layer's outline, its grid when warping, and its handles.
+    private func drawTransform(_ draft: TransformDraft, in context: inout GraphicsContext, transform: CGAffineTransform) {
+        let shape = draft.shape
+        var lines = Path()
+        let steps = 24
+        // The edges, and in warp the grid lines between the handles.
+        let fractions: [Double] = draft.mode == .warp ? [0, 1.0 / 3, 2.0 / 3, 1] : [0, 1]
+        for fraction in fractions {
+            lines.move(to: shape.point(0, fraction).applying(transform))
+            for step in 1...steps { lines.addLine(to: shape.point(Double(step) / Double(steps), fraction).applying(transform)) }
+            lines.move(to: shape.point(fraction, 0).applying(transform))
+            for step in 1...steps { lines.addLine(to: shape.point(fraction, Double(step) / Double(steps)).applying(transform)) }
+        }
+        context.stroke(lines, with: .color(.black.opacity(0.4)), lineWidth: 2.5)
+        context.stroke(lines, with: .color(.accentColor), lineWidth: 1.25)
+        if draft.mode == .warp {
+            // Each corner's pulls, as lines to the points beside it.
+            var pulls = Path()
+            for corner in [0, 3, 12, 15] {
+                for neighbour in draft.handlesMoving(with: corner).dropFirst() where neighbour != 5 && neighbour != 6 && neighbour != 9 && neighbour != 10 {
+                    pulls.move(to: draft.points[corner].applying(transform))
+                    pulls.addLine(to: draft.points[neighbour].applying(transform))
+                }
+            }
+            context.stroke(pulls, with: .color(.accentColor.opacity(0.7)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+        }
+        for point in draft.points {
+            let center = point.applying(transform)
+            let knob = Path(ellipseIn: CGRect(x: center.x - 7, y: center.y - 7, width: 14, height: 14))
+            context.fill(knob, with: .color(.white))
+            context.stroke(knob, with: .color(.accentColor), lineWidth: 2)
         }
     }
 
