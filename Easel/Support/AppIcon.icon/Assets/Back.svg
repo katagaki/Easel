@@ -4,7 +4,7 @@
     reach out past its top right corner. Every layer shares the same transform,
     which fits the whole drawing into the same margins as the Tables icon.
   -->
-  <g transform="translate(512 512) scale(0.931) translate(-544 -512)">
+  <g transform="translate(512 512) scale(0.92) translate(-522 -530)">
     <rect x="196" y="308" width="520" height="520" rx="80" fill="#FFFFFF"/>
   </g>
 </svg>
