@@ -9,21 +9,7 @@ struct LayerFiltersPanel: View {
     var body: some View {
         Group {
             if let layer = state.activeLayer {
-                if layer.filters.isEmpty {
-                    ContentUnavailableView {
-                        Label("LayerFilters.Empty", systemImage: "camera.filters")
-                    } description: {
-                        Text("LayerFilters.Empty.Detail")
-                    } actions: {
-                        AddFilterMenu(state: state) {
-                            Label("LayerFilters.Add", systemImage: "plus")
-                        }
-                        .buttonStyle(.glassProminent)
-                        .accessibilityIdentifier("addFilterEmpty")
-                    }
-                } else {
-                    filterList(layer)
-                }
+                filterList(layer)
             } else {
                 ContentUnavailableView("Error.NoLayer", systemImage: "square.3.layers.3d")
             }
@@ -44,11 +30,23 @@ struct LayerFiltersPanel: View {
                 // set it off. Removing is in each filter's menu.
                 .onMove { state.moveFilters(from: $0, to: $1) }
             } footer: {
-                Text("LayerFilters.Footer")
+                if !layer.filters.isEmpty { Text("LayerFilters.Footer") }
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        // Under the same bar as when there are filters: a menu to add one
+        // placed in the empty view itself would not open.
+        .overlay {
+            if layer.filters.isEmpty {
+                ContentUnavailableView {
+                    Label("LayerFilters.Empty", systemImage: "camera.filters")
+                } description: {
+                    Text("LayerFilters.Empty.Detail")
+                }
+                .allowsHitTesting(false)
+            }
+        }
         // At the top, where a half-height sheet still shows them.
         .safeAreaInset(edge: .top, spacing: 0) {
             HStack(spacing: 10) {
@@ -59,6 +57,7 @@ struct LayerFiltersPanel: View {
                         .frame(height: 40)
                         .contentShape(.capsule)
                 }
+                .buttonStyle(.plain)
                 .glassEffect(.regular.interactive(), in: .capsule)
                 .accessibilityIdentifier("addFilter")
                 Spacer()
@@ -242,8 +241,6 @@ struct AddFilterMenu<Label: View>: View {
         } label: {
             label
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
     }
 }
 
