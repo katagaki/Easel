@@ -101,10 +101,12 @@ struct EdgeMapTests {
 @Suite("Object select")
 struct ObjectSelectorTests {
     @Test func masksScaleUpToTheCanvas() throws {
-        // Left column selected in a 2 by 2 mask.
-        let scaled = try #require(ObjectSelector.scale([255, 0, 255, 0], width: 2, height: 2, to: CGSize(width: 20, height: 20)))
-        #expect(scaled.count == 400)
-        #expect(scaled[10 * 20 + 1] > 200)
-        #expect(scaled[10 * 20 + 18] < 50)
+        // Left half selected in a 4 by 4 mask; scaling smooths the edge but
+        // keeps each side.
+        let mask: [UInt8] = (0..<16).map { $0 % 4 < 2 ? 255 : 0 }
+        let scaled = try #require(ObjectSelector.scale(mask, width: 4, height: 4, to: CGSize(width: 40, height: 40)))
+        #expect(scaled.count == 1600)
+        #expect(scaled[20 * 40 + 2] > 200)
+        #expect(scaled[20 * 40 + 37] < 50)
     }
 }
