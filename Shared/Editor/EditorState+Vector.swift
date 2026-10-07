@@ -97,3 +97,213 @@ extension EditorState {
         penPath = nil
     }
 }
+
+// MARK: - Editing points
+
+extension EditorState {
+    /// What a touch at a canvas point grabs on the active vector layer:
+    /// the picked point's handles first, then any point.
+    private func vectorHit(at point: CGPoint) -> VectorDrag? {
+        guard let layer = activeLayer, let content = layer.vector, !layer.isLocked else { return nil }
+        let toCanvas = layer.affineTransform
+        let reach = vectorReachInCanvas
+        func near(_ local: CGPoint) -> Bool {
+            let canvas = local.applying(toCanvas)
+            return hypot(canvas.x - point.x, canvas.y - point.y) < reach
+        }
+        if let selected = selectedNode, selected.layerID == layer.id,
+           content.paths.indices.contains(selected.path),
+           content.paths[selected.path].nodes.indices.contains(selected.node) {
+            let node = content.paths[selected.path].nodes[selected.node]
+            if let handle = node.controlOut, near(handle) { return .handleOut(selected) }
+            if let handle = node.controlIn, near(handle) { return .handleIn(selected) }
+        }
+        for (pathIndex, path) in content.paths.enumerated() {
+            for (nodeIndex, node) in path.nodes.enumerated() where near(node.point) {
+                let ref = VectorNodeRef(layerID: layer.id, path: pathIndex, node: nodeIndex)
+                return .anchor(ref, original: node.mapped(toCanvas), start: point)
+            }
+        }
+        return nil
+    }
+
+    func nodesBegan(at point: CGPoint) {
+        vectorDrag = vectorHit(at: point)
+        switch vectorDrag {
+        case .anchor(let ref, _, _): selectedNode = ref
+        default: break
+        }
+    }
+
+    func nodesMoved(to point: CGPoint) {
+        guard let drag = vectorDrag else { return }
+        switch drag {
+        case .anchor(let ref, let original, let start):
+            // Where the point and its handles began on the canvas, moved by
+            // the drag, then into the layer's coordinates as they are now.
+            let delta = CGPoint(x: point.x - start.x, y: point.y - start.y)
+            moveNode(ref) { layer in
+                original.offset(by: delta).mapped(layer.affineTransform.inverted())
+            }
+        case .handleOut(let ref), .handleIn(let ref):
+            let isOut = if case .handleOut = drag { true } else { false }
+            moveNode(ref) { layer in
+                guard var node = layer.vector?.paths[ref.path].nodes[ref.node] else { return nil }
+                let local = layer.localPoint(point)
+                if isOut { node.controlOut = local } else { node.controlIn = local }
+                if node.isSmooth {
+                    // The other handle stays in line, keeping its length.
+                    let other = isOut ? node.controlIn : node.controlOut
+                    let length = other.map { hypot($0.x - node.point.x, $0.y - node.point.y) }
+                        ?? hypot(local.x - node.point.x, local.y - node.point.y)
+                    let angle = atan2(local.y - node.point.y, local.x - node.point.x) + .pi
+                    let mirrored = CGPoint(x: node.point.x + cos(angle) * length, y: node.point.y + sin(angle) * length)
+                    if isOut { node.controlIn = mirrored } else { node.controlOut = mirrored }
+                }
+                return node
+            }
+        case .penHandle:
+            break
+        }
+    }
+
+    func nodesEnded(isTap: Bool, at point: CGPoint) {
+        defer { vectorDrag = nil }
+        guard isTap, vectorDrag == nil else { return }
+        // A tap on nothing: another vector layer is picked, or the point let go.
+        if let hit = composition.layers.last(where: { $0.isVector && $0.isVisible && $0.contains(point) }),
+           hit.id != activeLayerID {
+            activeLayerID = hit.id
+        }
+        selectedNode = nil
+    }
+
+    private func moveNode(_ ref: VectorNodeRef, _ make: (Layer) -> VectorNode?) {
+        guard let layer = composition[ref.layerID], let node = make(layer) else { return }
+        updateVector(ref.layerID) { content in
+            guard content.paths.indices.contains(ref.path),
+                  content.paths[ref.path].nodes.indices.contains(ref.node) else { return }
+            content.paths[ref.path].nodes[ref.node] = node
+        }
+    }
+
+    // MARK: Point commands
+
+    /// The picked point, if it still exists.
+    var selectedVectorNode: VectorNode? {
+        guard let ref = selectedNode, let content = composition[ref.layerID]?.vector,
+              content.paths.indices.contains(ref.path),
+              content.paths[ref.path].nodes.indices.contains(ref.node) else { return nil }
+        return content.paths[ref.path].nodes[ref.node]
+    }
+
+    /// The path the commands below act on: the picked point's.
+    var selectedVectorPath: VectorPath? {
+        guard let ref = selectedNode, let content = composition[ref.layerID]?.vector,
+              content.paths.indices.contains(ref.path) else { return nil }
+        return content.paths[ref.path]
+    }
+
+    func deleteSelectedNode() {
+        guard let ref = selectedNode, selectedVectorNode != nil else { return }
+        updateVector(ref.layerID) { content in
+            content.paths[ref.path].nodes.remove(at: ref.node)
+            if content.paths[ref.path].nodes.count < 2 { content.paths.remove(at: ref.path) }
+        }
+        selectedNode = nil
+        // Nothing left to draw: the layer goes too.
+        if composition[ref.layerID]?.vector?.paths.isEmpty == true { deleteLayer(ref.layerID) }
+    }
+
+    /// A sharp corner gets handles along its neighbours; a curve loses them.
+    func toggleSmooth() {
+        guard let ref = selectedNode, let path = selectedVectorPath, var node = selectedVectorNode else { return }
+        if node.isSmooth || node.controlIn != nil || node.controlOut != nil {
+            node.controlIn = nil
+            node.controlOut = nil
+            node.isSmooth = false
+        } else {
+            let count = path.nodes.count
+            let previous = ref.node > 0 ? path.nodes[ref.node - 1].point : (path.isClosed ? path.nodes[count - 1].point : nil)
+            let next = ref.node < count - 1 ? path.nodes[ref.node + 1].point : (path.isClosed ? path.nodes[0].point : nil)
+            let from = previous ?? node.point
+            let to = next ?? node.point
+            let angle = atan2(to.y - from.y, to.x - from.x)
+            let lengthOut = next.map { hypot($0.x - node.point.x, $0.y - node.point.y) / 3 } ?? 0
+            let lengthIn = previous.map { hypot($0.x - node.point.x, $0.y - node.point.y) / 3 } ?? 0
+            node.controlOut = CGPoint(x: node.point.x + cos(angle) * lengthOut, y: node.point.y + sin(angle) * lengthOut)
+            node.controlIn = CGPoint(x: node.point.x - cos(angle) * lengthIn, y: node.point.y - sin(angle) * lengthIn)
+            node.isSmooth = true
+        }
+        let updated = node
+        updateVector(ref.layerID) { $0.paths[ref.path].nodes[ref.node] = updated }
+    }
+
+    /// Adds a point halfway along the segment after the picked one, without
+    /// changing the shape.
+    func insertNodeAfterSelected() {
+        guard let ref = selectedNode, let path = selectedVectorPath else { return }
+        let count = path.nodes.count
+        guard ref.node < count - 1 || path.isClosed else { return }
+        let nextIndex = (ref.node + 1) % count
+        let start = path.nodes[ref.node]
+        let end = path.nodes[nextIndex]
+        let split = VectorNode.split(from: start, to: end)
+        updateVector(ref.layerID) { content in
+            content.paths[ref.path].nodes[ref.node].controlOut = split.startOut
+            content.paths[ref.path].nodes[nextIndex].controlIn = split.endIn
+            content.paths[ref.path].nodes.insert(split.middle, at: ref.node + 1)
+        }
+        selectedNode = VectorNodeRef(layerID: ref.layerID, path: ref.path, node: ref.node + 1)
+    }
+
+    func toggleClosed() {
+        guard let ref = selectedNode, let path = selectedVectorPath else { return }
+        updateVector(ref.layerID) { $0.paths[ref.path].isClosed = !path.isClosed }
+    }
+
+    // MARK: Colours
+
+    /// Changes the picked point's path, or every path in the active vector
+    /// layer when no point is picked.
+    func updateVectorStyle(_ change: (inout VectorPath) -> Void) {
+        guard let layer = activeLayer, layer.isVector, !layer.isLocked else { return }
+        let only = selectedNode?.layerID == layer.id ? selectedNode?.path : nil
+        updateVector(layer.id) { content in
+            for index in content.paths.indices where only == nil || only == index {
+                change(&content.paths[index])
+            }
+        }
+    }
+
+    /// The path whose colours the bar shows.
+    var styledVectorPath: VectorPath? {
+        if let path = selectedVectorPath, selectedNode?.layerID == activeLayerID { return path }
+        return activeLayer?.vector?.paths.first
+    }
+}
+
+extension VectorNode {
+    /// The node with its point and handles carried through `transform`.
+    func mapped(_ transform: CGAffineTransform) -> VectorNode {
+        VectorNode(
+            point: point.applying(transform), controlIn: controlIn?.applying(transform),
+            controlOut: controlOut?.applying(transform), isSmooth: isSmooth
+        )
+    }
+
+    /// The segment from `start` to `end` cut in half (de Casteljau): the new
+    /// middle point, and the shortened handles either side of it.
+    static func split(from start: VectorNode, to end: VectorNode) -> (startOut: CGPoint?, middle: VectorNode, endIn: CGPoint?) {
+        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2) }
+        guard start.controlOut != nil || end.controlIn != nil else {
+            return (nil, VectorNode(point: mid(start.point, end.point)), nil)
+        }
+        let p0 = start.point, p1 = start.controlOut ?? start.point
+        let p2 = end.controlIn ?? end.point, p3 = end.point
+        let a = mid(p0, p1), b = mid(p1, p2), c = mid(p2, p3)
+        let d = mid(a, b), e = mid(b, c)
+        let middle = mid(d, e)
+        return (a, VectorNode(point: middle, controlIn: d, controlOut: e, isSmooth: true), c)
+    }
+}

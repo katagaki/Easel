@@ -66,6 +66,8 @@ struct CanvasOverlay: View {
 
         if state.tool == .pen, let target = state.penPath, let layer = composition[target.layerID] {
             drawVectorEditing(layer, in: &context, transform: transform)
+        } else if state.tool == .nodes, let layer = state.activeLayer, layer.isVector, layer.isVisible {
+            drawVectorEditing(layer, in: &context, transform: transform)
         }
 
         if let crop = state.cropRect {

@@ -446,6 +446,8 @@ final class EditorState {
             draftSelection = Selection(shape: shape(for: selectionKind, from: point, to: point))
         case .pen:
             penBegan(at: point)
+        case .nodes:
+            nodesBegan(at: point)
         case .shape:
             draftShape = ShapeSpec(
                 kind: shapeKind, start: point, end: point, isFilled: shapeIsFilled,
@@ -490,6 +492,8 @@ final class EditorState {
             }
         case .pen:
             penMoved(to: last.location)
+        case .nodes:
+            nodesMoved(to: last.location)
         case .shape:
             draftShape?.end = last.location
         case .gradient:
@@ -539,6 +543,8 @@ final class EditorState {
             }
         case .pen:
             vectorDrag = nil
+        case .nodes:
+            nodesEnded(isTap: isTap, at: point)
         case .shape:
             defer { draftShape = nil }
             guard let spec = draftShape, spec.isMeaningful else { return }

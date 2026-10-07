@@ -134,3 +134,95 @@ struct PenToolTests {
         #expect(state.composition.layers.filter(\.isVector).count == 2)
     }
 }
+
+@MainActor
+@Suite("Editing points")
+struct NodeToolTests {
+    /// An editor holding one 100 by 100 square drawn from (50, 50).
+    private func editor() -> EditorState {
+        let state = EditorState()
+        state.attach(to: .blank(size: CGSize(width: 200, height: 200))) { _ in }
+        state.viewportSize = CGSize(width: 400, height: 400)
+        state.addShapeLayer(ShapeSpec(kind: .rectangle, start: CGPoint(x: 50, y: 50), end: CGPoint(x: 150, y: 150),
+                                      isFilled: true, lineWidth: 2, color: .black))
+        state.tool = .nodes
+        return state
+    }
+
+    private func canvasPoint(_ state: EditorState, path: Int = 0, node: Int) -> CGPoint {
+        let layer = state.activeLayer!
+        return layer.vector!.paths[path].nodes[node].point.applying(layer.affineTransform)
+    }
+
+    @Test func draggingAPointMovesIt() {
+        let state = editor()
+        state.toolBegan(at: CGPoint(x: 150, y: 150), pressure: 1)
+        state.toolMoved(to: [StrokePoint(location: CGPoint(x: 180, y: 190))])
+        state.toolEnded(isTap: false, at: CGPoint(x: 180, y: 190))
+        let moved = canvasPoint(state, node: 2)
+        #expect(abs(moved.x - 180) < 0.01 && abs(moved.y - 190) < 0.01)
+        // The others stay put.
+        let still = canvasPoint(state, node: 0)
+        #expect(abs(still.x - 50) < 0.01 && abs(still.y - 50) < 0.01)
+    }
+
+    @Test func smoothingAddsHandlesAndHandlesMirror() throws {
+        let state = editor()
+        state.toolBegan(at: CGPoint(x: 150, y: 50), pressure: 1)
+        state.toolEnded(isTap: true, at: CGPoint(x: 150, y: 50))
+        state.toggleSmooth()
+        let node = try #require(state.selectedVectorNode)
+        #expect(node.isSmooth && node.controlIn != nil && node.controlOut != nil)
+        // Drag the outgoing handle; the incoming one turns to stay in line.
+        let layer = try #require(state.activeLayer)
+        let out = node.controlOut!.applying(layer.affineTransform)
+        state.toolBegan(at: out, pressure: 1)
+        state.toolMoved(to: [StrokePoint(location: CGPoint(x: 150, y: 90))])
+        state.toolEnded(isTap: false, at: CGPoint(x: 150, y: 90))
+        let after = try #require(state.selectedVectorNode)
+        let anchor = after.point
+        let inAngle = atan2(after.controlIn!.y - anchor.y, after.controlIn!.x - anchor.x)
+        let outAngle = atan2(after.controlOut!.y - anchor.y, after.controlOut!.x - anchor.x)
+        #expect(abs(abs(inAngle - outAngle) - .pi) < 0.01)
+    }
+
+    @Test func addingAPointKeepsTheShape() throws {
+        let state = editor()
+        state.toolBegan(at: CGPoint(x: 50, y: 50), pressure: 1)
+        state.toolEnded(isTap: true, at: CGPoint(x: 50, y: 50))
+        state.insertNodeAfterSelected()
+        #expect(state.activeLayer?.vector?.paths[0].nodes.count == 5)
+        let middle = canvasPoint(state, node: 1)
+        #expect(abs(middle.x - 100) < 0.01 && abs(middle.y - 50) < 0.01)
+    }
+
+    @Test func deletingPointsDownToNothingRemovesTheLayer() {
+        let state = editor()
+        let layers = state.composition.layers.count
+        for _ in 0..<3 {
+            let point = canvasPoint(state, node: 0)
+            state.toolBegan(at: point, pressure: 1)
+            state.toolEnded(isTap: true, at: point)
+            state.deleteSelectedNode()
+        }
+        #expect(state.composition.layers.count == layers - 1)
+    }
+
+    @Test func coloursChangeOnThePath() throws {
+        let state = editor()
+        state.updateVectorStyle { $0.stroke = RGBAColor(red: 1, green: 0, blue: 0); $0.fill = nil }
+        let path = try #require(state.activeLayer?.vector?.paths.first)
+        #expect(path.fill == nil && path.stroke != nil)
+        let image = CompositionRenderer.render(state.composition)
+        // Hollow now: the middle shows the white background.
+        #expect(TestImages.pixel(image, x: 100, y: 100).red > 240)
+        #expect(TestImages.isRed(image, x: 50, y: 100))
+    }
+
+    @Test func halvingACurveKeepsItsMiddle() {
+        let start = VectorNode(point: .zero, controlOut: CGPoint(x: 0, y: 10))
+        let end = VectorNode(point: CGPoint(x: 10, y: 0), controlIn: CGPoint(x: 10, y: 10))
+        let split = VectorNode.split(from: start, to: end)
+        #expect(split.middle.point == CGPoint(x: 5, y: 7.5))
+    }
+}

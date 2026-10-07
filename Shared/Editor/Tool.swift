@@ -8,6 +8,8 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
     case text, shape
     /// Draws paths point by point: tap for a corner, drag for a curve.
     case pen
+    /// Edits a vector layer's points, handles and colours.
+    case nodes
 
     var id: String { rawValue }
 
@@ -17,7 +19,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         [.move, .select, .crop],
         [.brush, .eraser, .fill, .gradient, .eyedropper],
         [.smudge, .blur, .mosaic, .heal],
-        [.text, .shape, .pen],
+        [.text, .shape, .pen, .nodes],
     ]
 
     var symbolName: String {
@@ -37,6 +39,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .text: return "textformat"
         case .shape: return "square.on.circle"
         case .pen: return "pencil.tip"
+        case .nodes: return "point.topleft.down.to.point.bottomright.curvepath"
         }
     }
 
@@ -57,6 +60,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .text: return "Tool.Text"
         case .shape: return "Tool.Shape"
         case .pen: return "Tool.Pen"
+        case .nodes: return "Tool.Nodes"
         }
     }
 
@@ -79,6 +83,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .text: return "t"
         case .shape: return "u"
         case .pen: return "p"
+        case .nodes: return "a"
         }
     }
 

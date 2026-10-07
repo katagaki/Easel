@@ -34,6 +34,7 @@ struct ToolOptionsBar: View {
         case .text: textOptions
         case .shape: shapeOptions
         case .pen: penOptions
+        case .nodes: nodeOptions
         }
     }
 
@@ -229,6 +230,69 @@ struct ToolOptionsBar: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var nodeOptions: some View {
+        if let path = state.styledVectorPath {
+            GlassGroup {
+                GlassIconButton(
+                    symbol: path.fill == nil ? "square" : "square.fill", label: "Options.Fill", isOn: path.fill != nil
+                ) {
+                    state.updateVectorStyle { $0.fill = $0.fill == nil ? state.color : nil }
+                }
+                .accessibilityIdentifier("vectorFill")
+                if let fill = path.fill {
+                    VectorColorWell(color: fill) { color in state.updateVectorStyle { $0.fill = color } }
+                }
+            }
+            GlassGroup {
+                GlassIconButton(
+                    symbol: "scribble", label: "Options.Stroke", isOn: path.stroke != nil
+                ) {
+                    state.updateVectorStyle { $0.stroke = $0.stroke == nil ? state.color : nil }
+                }
+                .accessibilityIdentifier("vectorStroke")
+                if let stroke = path.stroke {
+                    VectorColorWell(color: stroke) { color in state.updateVectorStyle { $0.stroke = color } }
+                    OptionSlider(
+                        value: Binding(
+                            get: { BrushSizeScale.position(for: path.strokeWidth) },
+                            set: { value in state.updateVectorStyle { $0.strokeWidth = BrushSizeScale.size(at: value) } }
+                        ),
+                        label: "Options.LineWidth", valueText: "\(Int(path.strokeWidth.rounded())) px"
+                    )
+                }
+            }
+            if let node = state.selectedVectorNode {
+                GlassGroup {
+                    GlassIconButton(
+                        symbol: node.isSmooth ? "point.topleft.down.curvedto.point.bottomright.up" : "chevron.up",
+                        label: node.isSmooth ? "Options.MakeCorner" : "Options.MakeSmooth"
+                    ) {
+                        state.toggleSmooth()
+                    }
+                    GlassIconButton(symbol: "plus.circle", label: "Options.AddPoint") {
+                        state.insertNodeAfterSelected()
+                    }
+                    GlassIconButton(symbol: "minus.circle", label: "Options.DeletePoint") {
+                        state.deleteSelectedNode()
+                    }
+                    .accessibilityIdentifier("deletePoint")
+                    GlassIconButton(
+                        symbol: state.selectedVectorPath?.isClosed == true ? "circle.dashed" : "circle",
+                        label: state.selectedVectorPath?.isClosed == true ? "Options.OpenPath" : "Options.ClosePath"
+                    ) {
+                        state.toggleClosed()
+                    }
+                }
+            }
+        } else {
+            Text("Options.PickVectorLayer")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
         }
     }
 
@@ -489,5 +553,21 @@ struct SelectionMenuItems: View {
             Button("Select.CropToSelection", systemImage: "crop") { state.cropToSelection() }
                 .disabled(!hasSelection)
         }
+    }
+}
+
+/// A colour well for one of a vector path's colours.
+private struct VectorColorWell: View {
+    let color: RGBAColor
+    let set: (RGBAColor) -> Void
+
+    var body: some View {
+        ColorPicker(
+            "Options.Color",
+            selection: Binding(get: { color.color }, set: { set(RGBAColor($0)) }),
+            supportsOpacity: true
+        )
+        .labelsHidden()
+        .frame(width: 40, height: 40)
     }
 }
