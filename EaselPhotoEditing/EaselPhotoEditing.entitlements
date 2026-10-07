@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Shared with the Photos extension, for the layers of photos edited in
+	     place that are too large to ride along in the photo's adjustment data. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.tsubuzaki.Easel</string>
+	</array>
+</dict>
+</plist>

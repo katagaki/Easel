@@ -1,0 +1,327 @@
+import CoreGraphics
+import CoreImage
+import CoreImage.CIFilterBuiltins
+
+/// The blur and mosaic brushes: the whole layer is blurred or tiled once, and
+/// the stroke decides where that shows through.
+enum RetouchEffect {
+    /// How strongly a brush of this size and strength blurs, in canvas pixels.
+    static func blurRadius(for settings: BrushSettings) -> Double {
+        1 + settings.size * 0.3 * settings.opacity
+    }
+
+    /// The side of a mosaic tile, in canvas pixels.
+    static func mosaicCell(for settings: BrushSettings) -> Double {
+        max(2, settings.size * 0.6 * settings.opacity)
+    }
+
+    /// The layer's pixels with the effect applied everywhere. Tiles line up
+    /// with the canvas's top left, so strokes made separately share a grid.
+    static func image(_ kind: Stroke.Kind, settings: BrushSettings, of image: CGImage) -> CGImage {
+        ImageProcessing.apply({ input in
+            switch kind {
+            case .blur:
+                let filter = CIFilter.gaussianBlur()
+                filter.inputImage = input.clampedToExtent()
+                filter.radius = Float(blurRadius(for: settings))
+                return filter.outputImage ?? input
+            case .mosaic:
+                let filter = CIFilter.pixellate()
+                filter.inputImage = input.clampedToExtent()
+                let cell = mosaicCell(for: settings)
+                filter.scale = Float(cell)
+                // Tile corners fall on `center`; Core Image's y runs up, so
+                // the canvas's top left is the extent's top left corner.
+                filter.center = CGPoint(x: 0, y: input.extent.maxY)
+                return filter.outputImage ?? input
+            case .paint, .erase, .heal:
+                return input
+            }
+        }, to: image)
+    }
+}
+
+extension Painter {
+    /// `effect` laid over `image` through the stroke: fully where it was
+    /// drawn, fading out over its soft edge, and not at all elsewhere.
+    static func apply(_ effect: CGImage, onto image: CGImage, through stroke: Stroke) -> CGImage {
+        let size = CGSize(width: image.width, height: image.height)
+        let rect = CGRect(origin: .zero, size: size)
+        return Bitmap.render(size: size) { context in
+            Bitmap.draw(image, in: rect, context: context)
+            context.beginTransparencyLayer(auxiliaryInfo: nil)
+            stroke.asMask.paint(in: context, canvasSize: size)
+            context.setBlendMode(.sourceIn)
+            Bitmap.draw(effect, in: rect, context: context)
+            context.endTransparencyLayer()
+        }
+    }
+
+    /// How much of each pixel a stroke covers, 0...1, over `region` of the
+    /// canvas, top row first.
+    static func coverage(of stroke: Stroke, in region: CGRect, canvasSize: CGSize) -> [Float] {
+        let width = Int(region.width)
+        let height = Int(region.height)
+        let image = Bitmap.render(size: region.size) { context in
+            context.translateBy(x: -region.minX, y: -region.minY)
+            stroke.asMask.paint(in: context, canvasSize: canvasSize)
+        }
+        guard let pixels = Bitmap.pixels(of: image) else { return [Float](repeating: 0, count: width * height) }
+        return (0..<(width * height)).map { Float(pixels.bytes[$0 * 4 + 3]) / 255 }
+    }
+}
+
+/// Pushes paint along a drag, the way a finger drags wet paint: each dab
+/// lays down what the brush picked up, and picks up some of what it lands on.
+struct Smudger: Sendable {
+    private(set) var pixels: PixelBuffer
+    let settings: BrushSettings
+    /// 255 where the selection allows change, or nil for everywhere.
+    private let allowed: [UInt8]?
+    /// The paint the brush carries, one premultiplied RGBA pixel per spot
+    /// under it, as a square the brush's diameter across.
+    private var carried: [Float]
+    private let diameter: Int
+    private var lastDab: CGPoint
+
+    init(pixels: PixelBuffer, settings: BrushSettings, selection: Selection?, start: CGPoint) {
+        self.pixels = pixels
+        self.settings = settings
+        allowed = selection.map {
+            Bitmap.mask(for: $0.path(in: CGSize(width: pixels.width, height: pixels.height)),
+                        width: pixels.width, height: pixels.height)
+        }
+        diameter = max(2, Int(settings.size.rounded()))
+        carried = [Float](repeating: 0, count: diameter * diameter * 4)
+        lastDab = start
+        pickUp(at: start)
+    }
+
+    /// The radius in canvas pixels.
+    private var radius: Double { Double(diameter) / 2 }
+
+    /// Fills the brush with what lies under it.
+    private mutating func pickUp(at center: CGPoint) {
+        let originX = Int((center.x - radius).rounded())
+        let originY = Int((center.y - radius).rounded())
+        for row in 0..<diameter {
+            for column in 0..<diameter {
+                let x = min(max(originX + column, 0), pixels.width - 1)
+                let y = min(max(originY + row, 0), pixels.height - 1)
+                let source = (y * pixels.width + x) * 4
+                let target = (row * diameter + column) * 4
+                for channel in 0..<4 { carried[target + channel] = Float(pixels.bytes[source + channel]) }
+            }
+        }
+    }
+
+    /// Drags the brush to `point`, dabbing along the way. Returns the canvas
+    /// area that changed.
+    mutating func drag(to point: CGPoint) -> CGRect? {
+        let distance = hypot(point.x - lastDab.x, point.y - lastDab.y)
+        // Dabs close enough together that the smear reads as continuous.
+        let spacing = max(1, radius * 0.2)
+        guard distance >= spacing else { return nil }
+        var changed = CGRect.null
+        let steps = Int(distance / spacing)
+        for step in 1...steps {
+            let t = Double(step) * spacing / distance
+            let center = CGPoint(x: lastDab.x + (point.x - lastDab.x) * t, y: lastDab.y + (point.y - lastDab.y) * t)
+            changed = changed.union(dab(at: center))
+        }
+        lastDab = CGPoint(
+            x: lastDab.x + (point.x - lastDab.x) * Double(steps) * spacing / distance,
+            y: lastDab.y + (point.y - lastDab.y) * Double(steps) * spacing / distance
+        )
+        return changed.isNull ? nil : changed
+    }
+
+    private mutating func dab(at center: CGPoint) -> CGRect {
+        let originX = Int((center.x - radius).rounded())
+        let originY = Int((center.y - radius).rounded())
+        let strength = Float(min(max(settings.opacity, 0), 1))
+        // A soft brush fades from its core; a hard one only at the very rim.
+        let core = Float(1 - min(max(settings.softness, 0), 1)) * 0.9
+        let width = pixels.width
+        let height = pixels.height
+        let diameter = diameter
+        let radius = radius
+        let allowed = allowed
+        // Worked on as locals, so the pixels and the brush's paint can both
+        // change in the same pass.
+        var carried = carried
+        defer { self.carried = carried }
+        pixels.bytes.withUnsafeMutableBufferPointer { bytes in
+            for row in 0..<diameter {
+                let y = originY + row
+                guard y >= 0, y < height else { continue }
+                for column in 0..<diameter {
+                    let x = originX + column
+                    guard x >= 0, x < width else { continue }
+                    let dx = (Double(column) + 0.5 - radius) / radius
+                    let dy = (Double(row) + 0.5 - radius) / radius
+                    let reach = Float(sqrt(dx * dx + dy * dy))
+                    guard reach < 1 else { continue }
+                    let index = y * width + x
+                    if let allowed, allowed[index] == 0 { continue }
+                    let falloff = reach <= core ? 1 : max(0, (1 - reach) / max(1 - core, 0.0001))
+                    let weight = strength * falloff
+                    let pixel = index * 4
+                    let brush = (row * diameter + column) * 4
+                    for channel in 0..<4 {
+                        let under = Float(bytes[pixel + channel])
+                        let laid = under + (carried[brush + channel] - under) * weight
+                        bytes[pixel + channel] = UInt8(min(max(laid.rounded(), 0), 255))
+                        // The brush keeps most of its paint and takes on a
+                        // little of what it passes over, so smears run out.
+                        carried[brush + channel] = laid
+                    }
+                }
+            }
+        }
+        return CGRect(x: originX, y: originY, width: diameter, height: diameter)
+            .intersection(CGRect(x: 0, y: 0, width: width, height: height))
+    }
+
+    /// The pixels in `rect` as an image, for showing a smear as it happens.
+    func patch(_ rect: CGRect) -> CGImage? {
+        let rect = rect.integral.intersection(CGRect(x: 0, y: 0, width: pixels.width, height: pixels.height))
+        guard rect.width >= 1, rect.height >= 1 else { return nil }
+        let width = Int(rect.width)
+        let height = Int(rect.height)
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        for row in 0..<height {
+            let source = ((Int(rect.minY) + row) * pixels.width + Int(rect.minX)) * 4
+            bytes.replaceSubrange((row * width * 4)..<((row + 1) * width * 4), with: pixels.bytes[source..<(source + width * 4)])
+        }
+        return PixelBuffer(width: width, height: height, bytes: bytes).makeImage()
+    }
+}
+
+/// The healing brush — a sticking plaster over whatever is painted: the
+/// area is filled with the colour of what surrounds it and the grain of a
+/// clean patch nearby, so a blemish or stray mark disappears into its
+/// background.
+enum Healer {
+    static func heal(_ image: CGImage, with stroke: Stroke) -> CGImage {
+        let canvasSize = CGSize(width: image.width, height: image.height)
+        let canvas = CGRect(origin: .zero, size: canvasSize)
+        let radius = max(2, stroke.settings.size / 2)
+        let marked = stroke.bounds.intersection(canvas).integral
+        guard !marked.isNull, marked.width >= 1, marked.height >= 1 else { return image }
+
+        // Enough room around the mark to find its surroundings and a clean
+        // patch to borrow texture from.
+        let region = marked.insetBy(dx: -radius * 3, dy: -radius * 3).intersection(canvas).integral
+        guard let cropped = image.cropping(to: region), let pixels = Bitmap.pixels(of: cropped) else { return image }
+        let width = pixels.width
+        let height = pixels.height
+        let count = width * height
+        let mask = Painter.coverage(of: stroke, in: region, canvasSize: canvasSize)
+
+        // The mark's surroundings, averaged inward: a blur that counts only
+        // pixels outside the mark, so the mark's own colour is left out.
+        let known = mask.map { $0 > 0.02 ? Float(0) : 1 }
+        let blurRadius = max(2, Int(radius))
+        var weights = known
+        boxBlur(&weights, width: width, height: height, radius: blurRadius, passes: 2)
+        var smooth = [[Float]](repeating: [], count: 4)
+        for channel in 0..<4 {
+            var values = (0..<count).map { Float(pixels.bytes[$0 * 4 + channel]) * known[$0] }
+            boxBlur(&values, width: width, height: height, radius: blurRadius, passes: 2)
+            smooth[channel] = (0..<count).map { weights[$0] > 0.0001 ? values[$0] / weights[$0] : 0 }
+        }
+
+        // Grain from the cleanest patch beside the mark, its own colour
+        // taken out so only the texture carries over.
+        let offset = cleanestOffset(mask: mask, width: width, height: height, distance: Int(radius * 2))
+        let detailRadius = max(1, Int(radius / 3))
+        var result = pixels
+        for channel in 0..<4 {
+            var source = [Float](repeating: 0, count: count)
+            for y in 0..<height {
+                for x in 0..<width {
+                    let sx = min(max(x + offset.x, 0), width - 1)
+                    let sy = min(max(y + offset.y, 0), height - 1)
+                    source[y * width + x] = Float(pixels.bytes[(sy * width + sx) * 4 + channel])
+                }
+            }
+            var coarse = source
+            boxBlur(&coarse, width: width, height: height, radius: detailRadius, passes: 2)
+            for index in 0..<count where mask[index] > 0 {
+                let filled = smooth[channel][index] + (source[index] - coarse[index])
+                let original = Float(pixels.bytes[index * 4 + channel])
+                let mixed = original + (filled - original) * mask[index]
+                result.bytes[index * 4 + channel] = UInt8(min(max(mixed.rounded(), 0), 255))
+            }
+        }
+        // Premultiplied colour may not exceed its alpha.
+        for index in 0..<count where mask[index] > 0 {
+            let alpha = result.bytes[index * 4 + 3]
+            for channel in 0..<3 where result.bytes[index * 4 + channel] > alpha {
+                result.bytes[index * 4 + channel] = alpha
+            }
+        }
+
+        guard let healed = result.makeImage() else { return image }
+        return Bitmap.render(size: canvasSize) { context in
+            Bitmap.draw(image, in: canvas, context: context)
+            context.clear(region)
+            Bitmap.draw(healed, in: region, context: context)
+        }
+    }
+
+    /// Of the four directions, the shift by `distance` whose source overlaps
+    /// the mark least.
+    private static func cleanestOffset(mask: [Float], width: Int, height: Int, distance: Int) -> (x: Int, y: Int) {
+        let candidates = [(distance, 0), (-distance, 0), (0, distance), (0, -distance)]
+        var best = candidates[0]
+        var bestScore = Float.infinity
+        for (dx, dy) in candidates {
+            var score: Float = 0
+            for y in 0..<height {
+                for x in 0..<width where mask[y * width + x] > 0 {
+                    let sx = x + dx
+                    let sy = y + dy
+                    // Off the region counts as bad as landing on the mark.
+                    if sx < 0 || sy < 0 || sx >= width || sy >= height {
+                        score += 1
+                    } else {
+                        score += mask[sy * width + sx]
+                    }
+                }
+            }
+            if score < bestScore {
+                bestScore = score
+                best = (dx, dy)
+            }
+        }
+        return best
+    }
+
+    /// Repeated box blurs, which together approach a Gaussian, each in time
+    /// independent of the radius.
+    static func boxBlur(_ values: inout [Float], width: Int, height: Int, radius: Int, passes: Int) {
+        var scratch = [Float](repeating: 0, count: values.count)
+        for _ in 0..<passes {
+            blurLines(values, into: &scratch, count: height, length: width, stride: 1, lineStride: width, radius: radius)
+            blurLines(scratch, into: &values, count: width, length: height, stride: width, lineStride: 1, radius: radius)
+        }
+    }
+
+    private static func blurLines(
+        _ input: [Float], into output: inout [Float], count: Int, length: Int, stride: Int, lineStride: Int, radius: Int
+    ) {
+        let window = Float(radius * 2 + 1)
+        for line in 0..<count {
+            let base = line * lineStride
+            func value(_ position: Int) -> Float { input[base + min(max(position, 0), length - 1) * stride] }
+            var sum: Float = 0
+            for position in -radius...radius { sum += value(position) }
+            for position in 0..<length {
+                output[base + position * stride] = sum / window
+                sum += value(position + radius + 1) - value(position - radius)
+            }
+        }
+    }
+}

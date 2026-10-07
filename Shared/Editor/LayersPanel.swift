@@ -1,0 +1,307 @@
+import PhotosUI
+import SwiftUI
+
+/// The layer stack, top layer first, with the active layer's opacity and
+/// blend mode beneath it and ways to add, copy and combine layers.
+struct LayersPanel: View {
+    let composition: Composition
+    @Bindable var state: EditorState
+
+    @State private var renaming: Layer?
+    @State private var newName = ""
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(composition.layers.reversed()) { layer in
+                    LayerRow(
+                        layer: layer, isActive: layer.id == state.activeLayerID,
+                        toggleVisibility: { state.setVisibility(!layer.isVisible, of: layer.id) }
+                    )
+                    .contentShape(.rect)
+                    .onTapGesture { state.activeLayerID = layer.id }
+                    .listRowBackground(layer.id == state.activeLayerID ? Color.accentColor.opacity(0.18) : nil)
+                    .contextMenu { menuItems(for: layer) }
+                    .swipeActions(edge: .trailing) {
+                        Button("Layers.Delete", systemImage: "trash", role: .destructive) {
+                            state.deleteLayer(layer.id)
+                        }
+                        .disabled(!state.canDelete(layer.id))
+                        Button("Layers.Duplicate", systemImage: "plus.square.on.square") {
+                            state.duplicateLayer(layer.id)
+                        }
+                        .tint(.indigo)
+                    }
+                    .accessibilityIdentifier("layer.\(layer.name)")
+                    .accessibilityAddTraits(layer.id == state.activeLayerID ? .isSelected : [])
+                }
+                .onMove { source, destination in
+                    state.moveLayers(fromDisplayed: source, toDisplayed: destination)
+                }
+            }
+
+            if let layer = state.activeLayer {
+                Section("Layers.Section.Appearance") {
+                    LabeledSlider(
+                        label: "Layers.Opacity",
+                        value: Binding(
+                            get: { layer.opacity },
+                            set: { value in state.updateActiveLayer { $0.opacity = value } }
+                        ),
+                        valueText: "\(Int((layer.opacity * 100).rounded()))%"
+                    )
+                    .accessibilityIdentifier("layerOpacity")
+                    Picker("Layers.BlendMode", selection: Binding(
+                        get: { layer.blendMode },
+                        set: { value in state.updateActiveLayer { $0.blendMode = value } }
+                    )) {
+                        ForEach(Array(LayerBlendMode.groups.enumerated()), id: \.offset) { _, group in
+                            Section {
+                                ForEach(group) { mode in
+                                    Text(mode.label).tag(mode)
+                                }
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("blendMode")
+                    Toggle("Layers.Lock", isOn: Binding(
+                        get: { layer.isLocked },
+                        set: { state.setLocked($0, of: layer.id) }
+                    ))
+                    Button {
+                        openFilters()
+                    } label: {
+                        LabeledContent {
+                            Text(verbatim: layer.activeFilters.isEmpty ? "" : "\(layer.activeFilters.count)")
+                        } label: {
+                            Label("Panel.Filters.Title", systemImage: EditorPanel.filters.symbolName)
+                        }
+                    }
+                    .accessibilityIdentifier("layerFilters")
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .safeAreaInset(edge: .bottom) {
+            LayerActionsBar(state: state)
+                .padding(.bottom, 8)
+        }
+        .modifier(LayersPanelChrome(state: state))
+        .alert("Layers.Rename.Title", isPresented: Binding(
+            get: { renaming != nil }, set: { if !$0 { renaming = nil } }
+        )) {
+            TextField("Layers.Rename.Placeholder", text: $newName)
+            Button("Common.Cancel", role: .cancel) { renaming = nil }
+            Button("Layers.Rename.Confirm") {
+                if let renaming { state.rename(renaming.id, to: newName) }
+                renaming = nil
+            }
+        }
+    }
+
+    @Environment(\.panelPlacement) private var placement
+
+    /// On iPhone, the layers sheet goes down before the filters one comes up:
+    /// swapped in place, the new sheet would keep the full height.
+    private func openFilters() {
+        guard placement == .sheet else {
+            state.presentedPanel = .filters
+            return
+        }
+        state.presentedPanel = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            state.presentedPanel = .filters
+        }
+    }
+
+    @ViewBuilder
+    private func menuItems(for layer: Layer) -> some View {
+        Section {
+            Button("Layers.Rename", systemImage: "pencil") {
+                newName = layer.name
+                renaming = layer
+            }
+            Button("Layers.Duplicate", systemImage: "plus.square.on.square") { state.duplicateLayer(layer.id) }
+            Button(layer.isLocked ? "Layers.Unlock" : "Layers.Lock", systemImage: layer.isLocked ? "lock.open" : "lock") {
+                state.setLocked(!layer.isLocked, of: layer.id)
+            }
+        }
+        Section {
+            Button("Layers.MoveUp", systemImage: "arrow.up") { state.moveLayer(layer.id, by: 1) }
+                .disabled(composition.layers.last?.id == layer.id)
+            Button("Layers.MoveDown", systemImage: "arrow.down") { state.moveLayer(layer.id, by: -1) }
+                .disabled(composition.layers.first?.id == layer.id)
+            Button("Layers.MergeDown", systemImage: "square.2.layers.3d.bottom.filled") { state.mergeDown(layer.id) }
+                .disabled(!composition.canMergeDown(layer.id))
+            if layer.isText {
+                Button("Layers.Rasterize", systemImage: "square.grid.3x3.square") { state.rasterizeLayer(layer.id) }
+            }
+            if layer.hasActiveFilters {
+                Button("LayerFilters.ApplyAll", systemImage: "square.and.arrow.down.on.square") {
+                    state.applyFilters(of: layer.id)
+                }
+            }
+        }
+        Section {
+            Button("Layers.Delete", systemImage: "trash", role: .destructive) { state.deleteLayer(layer.id) }
+                .disabled(!state.canDelete(layer.id))
+        }
+    }
+}
+
+/// One layer in the list: a thumbnail on a checkerboard, its name, and
+/// what sets it apart — hidden, locked, a blend mode, less than full opacity.
+private struct LayerRow: View {
+    let layer: Layer
+    let isActive: Bool
+    let toggleVisibility: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            let thumbnail = layer.image.thumbnail()
+            ZStack {
+                Checkerboard(squareSize: 5)
+                Image(decorative: thumbnail, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            }
+            .frame(width: 44, height: 44)
+            .clipShape(.rect(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(isActive ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: isActive ? 2 : 1)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    if layer.isText {
+                        Image(systemName: "textformat")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(layer.name)
+                        .lineLimit(1)
+                }
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .opacity(layer.isVisible ? 1 : 0.5)
+
+            Spacer(minLength: 0)
+
+            if layer.hasActiveFilters {
+                Image(systemName: EditorPanel.filters.symbolName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Panel.Filters.Title")
+            }
+            if layer.isLocked {
+                Image(systemName: "lock.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Layers.Locked")
+            }
+            Button(action: toggleVisibility) {
+                Image(systemName: layer.isVisible ? "eye" : "eye.slash")
+                    .foregroundStyle(layer.isVisible ? Color.primary : Color.secondary)
+                    .frame(width: 36, height: 36)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(layer.isVisible ? "Layers.Hide" : "Layers.Show")
+            .accessibilityIdentifier("visibility.\(layer.name)")
+        }
+    }
+
+    private var detail: String? {
+        var parts: [String] = []
+        if layer.blendMode != .normal { parts.append(layer.blendMode.label) }
+        if layer.opacity < 0.995 { parts.append("\(Int((layer.opacity * 100).rounded()))%") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+/// Adding, copying and combining layers.
+struct LayerActionsBar: View {
+    @Bindable var state: EditorState
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var isPickingPhotos = false
+
+    var body: some View {
+        let active = state.activeLayer
+        GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 10) {
+                GlassGroup {
+                    GlassMenuButton(symbol: "plus", label: "Layers.Add") {
+                        Button("Layers.NewLayer", systemImage: "square.badge.plus") { state.addEmptyLayer() }
+                        // The picker is presented from outside the menu,
+                        // which is gone by the time a picker inside it would show.
+                        Button("Layers.ImportPhotos", systemImage: "photo.on.rectangle") { isPickingPhotos = true }
+                        Button("Layers.ImportFiles", systemImage: "folder") { state.isImportingFiles = true }
+                        Button("Layers.Paste", systemImage: "doc.on.clipboard") {
+                            if let item = ImageImport.pasteboardImage() {
+                                state.addImageLayers([item])
+                            } else {
+                                state.errorMessage = String(localized: "Error.NothingToPaste")
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("addLayer")
+                    GlassIconButton(symbol: "plus.square.on.square", label: "Layers.Duplicate") {
+                        if let active { state.duplicateLayer(active.id) }
+                    }
+                    .disabled(active == nil)
+                    GlassIconButton(symbol: "square.2.layers.3d.bottom.filled", label: "Layers.MergeDown") {
+                        if let active { state.mergeDown(active.id) }
+                    }
+                    .disabled(active.map { !state.composition.canMergeDown($0.id) } ?? true)
+                    GlassIconButton(symbol: "trash", label: "Layers.Delete") {
+                        if let active { state.deleteLayer(active.id) }
+                    }
+                    .disabled(active.map { !state.canDelete($0.id) } ?? true)
+                    .accessibilityIdentifier("deleteLayer")
+                }
+                GlassGroup {
+                    GlassMenuButton(symbol: "ellipsis", label: "Layers.More") {
+                        Button("Layers.Copy", systemImage: "doc.on.doc") {
+                            if let image = state.copiedImage() { ImageImport.copyToPasteboard(image) }
+                        }
+                        .disabled(active == nil)
+                        Button("Layers.Flatten", systemImage: "square.3.layers.3d.down.right") { state.flatten() }
+                            .disabled(state.composition.layers.count < 2)
+                    }
+                }
+            }
+        }
+        .photosPicker(isPresented: $isPickingPhotos, selection: $photoItems, matching: .images, photoLibrary: .shared())
+        .onChange(of: photoItems) { _, items in
+            guard !items.isEmpty else { return }
+            photoItems = []
+            Task {
+                let result = await ImageImport.load(items)
+                state.addImageLayers(result.images)
+                if result.failed { state.errorMessage = String(localized: "Error.ImportFailed") }
+            }
+        }
+    }
+}
+
+/// On iPhone the layers sheet closes with Done; beside the canvas on iPad
+/// the inspector is simply there, under its title.
+private struct LayersPanelChrome: ViewModifier {
+    let state: EditorState
+    @Environment(\.panelPlacement) private var placement
+
+    func body(content: Content) -> some View {
+        switch placement {
+        case .sheet: content.panelActions(confirm: { state.presentedPanel = nil })
+        case .inspector: content.panelActions()
+        }
+    }
+}

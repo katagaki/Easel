@@ -1,0 +1,295 @@
+import SwiftUI
+
+/// The picture on its workspace: a checkerboard where it is transparent,
+/// every layer mixed the way it will be exported, and the outlines of
+/// whatever the tool in hand is doing.
+///
+/// Each layer is its own image view, scaled and turned by the GPU, so moving
+/// or zooming never redraws pixels and a stroke redraws only its own layer.
+struct CanvasView: View {
+    let composition: Composition
+    @Bindable var state: EditorState
+    var history: CompositionHistory
+    @Environment(\.displayScale) private var displayScale
+
+    var body: some View {
+        let viewport = state.viewport
+        ZStack(alignment: .topLeading) {
+            Color(.secondarySystemBackground)
+
+            // Only the part on screen is drawn: zoomed in, the whole canvas
+            // would be many screens of squares.
+            let visible = viewport.canvasFrame.intersection(CGRect(origin: .zero, size: state.viewportSize))
+            if !visible.isNull {
+                Checkerboard(phase: CGSize(
+                    width: visible.minX - viewport.canvasFrame.minX, height: visible.minY - viewport.canvasFrame.minY
+                ))
+                .frame(width: visible.width, height: visible.height)
+                .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+                .offset(x: visible.minX, y: visible.minY)
+            }
+
+            layerStack(viewport)
+
+            CanvasOverlay(composition: composition, state: state, viewport: viewport)
+                .allowsHitTesting(false)
+
+            CanvasInteraction(
+                began: { point, pressure in
+                    state.toolBegan(at: state.viewport.canvasPoint(point), pressure: pressure)
+                },
+                moved: { samples in
+                    let viewport = state.viewport
+                    state.toolMoved(to: samples.map {
+                        StrokePoint(location: viewport.canvasPoint($0.0), pressure: $0.1)
+                    })
+                },
+                ended: { isTap, point in
+                    state.toolEnded(isTap: isTap, at: state.viewport.canvasPoint(point))
+                },
+                cancelled: { state.toolCancelled() },
+                zoomed: { factor, anchor in state.zoom(by: factor, around: anchor) },
+                panned: { state.pan(by: $0) },
+                undo: { history.undo() },
+                redo: { history.redo() }
+            )
+            .accessibilityIdentifier("canvas")
+        }
+        .clipped()
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { state.viewportSize = $0 }
+    }
+
+    private func layerStack(_ viewport: CanvasViewport) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(composition.layers) { layer in
+                if layer.isVisible {
+                    LayerView(
+                        layer: layer,
+                        displayed: state.displayImage(for: layer),
+                        preview: state.layerPreview?.layerID == layer.id ? state.layerPreview?.image : nil,
+                        strokes: strokes(on: layer.id),
+                        retouch: retouch(on: layer.id),
+                        canvasSize: composition.size,
+                        viewport: viewport,
+                        displayScale: displayScale
+                    )
+                }
+            }
+        }
+        .frame(width: state.viewportSize.width, height: state.viewportSize.height, alignment: .topLeading)
+        // Blend modes mix with the layers beneath, not with the checkerboard.
+        .compositingGroup()
+        .mask(alignment: .topLeading) {
+            Rectangle()
+                .frame(width: viewport.canvasFrame.width, height: viewport.canvasFrame.height)
+                .offset(x: viewport.canvasFrame.minX, y: viewport.canvasFrame.minY)
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// What the retouching brushes are doing to a layer right now.
+    private func retouch(on layerID: Layer.ID) -> RetouchOverlay? {
+        let strokes = strokes(on: layerID).filter { !$0.kind.isPaint }
+        let smudge = state.smudge?.layerID == layerID ? state.smudge?.patches ?? [] : []
+        guard !strokes.isEmpty || !smudge.isEmpty else { return nil }
+        let effect = state.retouchEffect.flatMap { $0.layerID == layerID ? $0 : nil }
+        return RetouchOverlay(
+            effectStrokes: strokes.filter { $0.kind == effect?.kind },
+            effectImage: effect?.image,
+            healStrokes: strokes.filter { $0.kind == .heal },
+            smudgePatches: smudge
+        )
+    }
+
+    private func strokes(on layerID: Layer.ID) -> [Stroke] {
+        var strokes = state.pendingStrokes.filter { $0.layerID == layerID }.map(\.stroke)
+        if let active = state.activeStroke, state.activeLayerID == layerID { strokes.append(active) }
+        return strokes
+    }
+}
+
+/// Retouching shown over a layer before it is painted in.
+struct RetouchOverlay {
+    /// Blur or mosaic strokes, and the blurred or tiled layer they reveal.
+    var effectStrokes: [Stroke]
+    var effectImage: CGImage?
+    /// Where the healing brush has been, shown until it heals.
+    var healStrokes: [Stroke]
+    /// The smudged pixels so far, canvas-aligned.
+    var smudgePatches: [(rect: CGRect, image: CGImage)]
+}
+
+/// One layer, placed on screen, with any strokes not yet painted into it.
+private struct LayerView: View {
+    let layer: Layer
+    /// The layer's pixels as they show, filters applied.
+    let displayed: CGImage
+    let preview: CGImage?
+    let strokes: [Stroke]
+    let retouch: RetouchOverlay?
+    let canvasSize: CGSize
+    let viewport: CanvasViewport
+    let displayScale: Double
+
+    var body: some View {
+        let image = preview ?? displayed
+        let transform = layer.transform
+        let size = layer.image.size
+        let scale = viewport.scale
+        // Past twice the screen's resolution, pixels show as squares, which
+        // is what someone zoomed that far in is looking for.
+        let pixelScale = scale * abs(transform.scaleX) * displayScale
+        let content = Image(decorative: image, scale: 1)
+            .resizable()
+            .interpolation(pixelScale > 2 ? .none : .high)
+            .frame(width: size.width * abs(transform.scaleX) * scale, height: size.height * abs(transform.scaleY) * scale)
+            .scaleEffect(x: transform.scaleX < 0 ? -1 : 1, y: transform.scaleY < 0 ? -1 : 1)
+            .rotationEffect(.radians(transform.rotation))
+            .position(viewport.screenPoint(transform.position))
+
+        let paintStrokes = strokes.filter(\.kind.isPaint)
+        Group {
+            if paintStrokes.isEmpty && retouch == nil {
+                content
+            } else {
+                ZStack(alignment: .topLeading) {
+                    content
+                    if let retouch { RetouchPreview(retouch: retouch, canvasSize: canvasSize, viewport: viewport) }
+                    StrokePreview(strokes: paintStrokes, canvasSize: canvasSize, viewport: viewport)
+                }
+                // The strokes and the layer become one before the layer's
+                // opacity and blend mode apply, and the eraser cuts only
+                // this layer.
+                .compositingGroup()
+            }
+        }
+        .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height, alignment: .topLeading)
+        .opacity(layer.opacity)
+        .blendMode(layer.blendMode.swiftUI)
+    }
+}
+
+/// The retouching brushes' work in progress: the blur or mosaic showing
+/// through the stroke, the smear so far, and a translucent band where the
+/// healing brush has been.
+private struct RetouchPreview: View {
+    let retouch: RetouchOverlay
+    let canvasSize: CGSize
+    let viewport: CanvasViewport
+
+    var body: some View {
+        let frame = viewport.canvasFrame
+        ZStack(alignment: .topLeading) {
+            if !retouch.smudgePatches.isEmpty {
+                Canvas { context, _ in
+                    for patch in retouch.smudgePatches {
+                        context.draw(
+                            Image(decorative: patch.image, scale: 1),
+                            in: patch.rect.applying(viewport.transform)
+                        )
+                    }
+                }
+            }
+            if let image = retouch.effectImage, !retouch.effectStrokes.isEmpty {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+                    .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height, alignment: .topLeading)
+                    .mask(alignment: .topLeading) {
+                        StrokePreview(
+                            strokes: retouch.effectStrokes.map(\.asMask), canvasSize: canvasSize, viewport: viewport
+                        )
+                    }
+            }
+            if !retouch.healStrokes.isEmpty {
+                StrokePreview(
+                    strokes: retouch.healStrokes.map {
+                        var band = $0.asMask
+                        band.settings.color = RGBAColor(red: 1, green: 0.55, blue: 0.4)
+                        band.settings.opacity = 0.45
+                        return band
+                    },
+                    canvasSize: canvasSize, viewport: viewport
+                )
+            }
+        }
+        .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height, alignment: .topLeading)
+    }
+}
+
+/// Strokes drawn the way `Stroke.paint` will paint them, in screen space.
+private struct StrokePreview: View {
+    let strokes: [Stroke]
+    let canvasSize: CGSize
+    let viewport: CanvasViewport
+
+    var body: some View {
+        Canvas { context, _ in
+            let transform = viewport.transform
+            let scale = viewport.scale
+            for stroke in strokes {
+                var layer = context
+                if let clip = stroke.clip {
+                    layer.clip(to: Path(clip.path(in: canvasSize)).applying(transform), style: FillStyle(eoFill: true))
+                }
+                layer.blendMode = stroke.isEraser ? .destinationOut : .normal
+                layer.opacity = stroke.settings.opacity
+                layer.drawLayer { group in
+                    // As when painting: the stroke is drawn solid, and only
+                    // put down at the brush's opacity and blend mode.
+                    group.opacity = 1
+                    group.blendMode = .normal
+                    if stroke.settings.featherRadius > 0.5 {
+                        group.addFilter(.blur(radius: stroke.settings.featherRadius * scale * 0.5))
+                    }
+                    let color = stroke.isEraser ? Color.black : stroke.settings.color.withAlpha(1).color
+                    if stroke.points.contains(where: { $0.pressure < 0.999 }) && stroke.settings.usesPressure {
+                        for segment in stroke.segments {
+                            var path = Path()
+                            path.move(to: segment.from.applying(transform))
+                            path.addLine(to: segment.to.applying(transform))
+                            group.stroke(path, with: .color(color), style: StrokeStyle(
+                                lineWidth: segment.width * scale, lineCap: .round, lineJoin: .round
+                            ))
+                        }
+                    } else {
+                        group.stroke(
+                            Path(stroke.smoothedPath).applying(transform), with: .color(color),
+                            style: StrokeStyle(lineWidth: stroke.settings.size * scale, lineCap: .round, lineJoin: .round)
+                        )
+                    }
+                }
+            }
+        }
+        .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height)
+    }
+}
+
+/// The grey and white squares that stand for transparency.
+struct Checkerboard: View {
+    var squareSize: CGFloat = 8
+    /// How far into the pattern the view starts, so a part of a larger
+    /// board lines up with the rest of it.
+    var phase: CGSize = .zero
+
+    var body: some View {
+        Canvas { context, size in
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white))
+            var path = Path()
+            let firstColumn = Int((phase.width / squareSize).rounded(.down))
+            let firstRow = Int((phase.height / squareSize).rounded(.down))
+            let columns = Int(ceil(size.width / squareSize)) + 1
+            let rows = Int(ceil(size.height / squareSize)) + 1
+            for row in firstRow..<(firstRow + rows) {
+                for column in firstColumn..<(firstColumn + columns) where (row + column) % 2 != 0 {
+                    path.addRect(CGRect(
+                        x: CGFloat(column) * squareSize - phase.width, y: CGFloat(row) * squareSize - phase.height,
+                        width: squareSize, height: squareSize
+                    ))
+                }
+            }
+            context.fill(path, with: .color(Color(white: 0.86)))
+        }
+    }
+}
