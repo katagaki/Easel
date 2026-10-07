@@ -7246,6 +7246,41 @@
         }
       }
     },
+    "Options.PenAddsToLayer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Paths to Current Layer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のレイヤーにパスを追加"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "현재 레이어에 패스 추가"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将路径添加到当前图层"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將路徑加入目前圖層"
+          }
+        }
+      }
+    },
     "Options.PencilPressure": {
       "extractionState": "manual",
       "localizations": {

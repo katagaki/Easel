@@ -64,11 +64,23 @@ extension EditorState {
             vectorDrag = .penHandle(node, start: point)
             return
         }
-        // A new path on a layer of its own.
         let path = VectorPath(
             nodes: [VectorNode(point: point)], isClosed: false,
             fill: shapeIsFilled ? color : nil, stroke: color, strokeWidth: shapeLineWidth
         )
+        // Into the vector layer in hand, so a drawing's paths stay together.
+        if penAddsToLayer, let layer = activeLayer, layer.isVector, !composition.isLocked(layer),
+           let count = layer.vector?.paths.count {
+            var added = path
+            added.nodes = [VectorNode(point: layer.localPoint(point))]
+            updateVector(layer.id) { $0.paths.append(added) }
+            penPath = VectorPathRef(layerID: layer.id, path: count)
+            let node = VectorNodeRef(layerID: layer.id, path: count, node: 0)
+            selectedNode = node
+            vectorDrag = .penHandle(node, start: point)
+            return
+        }
+        // Otherwise on a layer of its own.
         let layer = Layer.vector([path], name: String(localized: "Layer.DefaultName.Path"))
         update { $0.insert(layer, above: activeLayerID) }
         activeLayerID = layer.id

@@ -217,6 +217,15 @@ struct ToolOptionsBar: View {
                     label: "Options.LineWidth", valueText: "\(Int(state.shapeLineWidth.rounded())) px"
                 )
             }
+            GlassGroup {
+                GlassIconButton(
+                    symbol: state.penAddsToLayer ? "square.stack.3d.up.fill" : "square.stack.3d.up",
+                    label: "Options.PenAddsToLayer", isOn: state.penAddsToLayer
+                ) {
+                    state.penAddsToLayer.toggle()
+                }
+                .accessibilityIdentifier("penAddsToLayer")
+            }
             if state.penPath != nil {
                 GlassGroup {
                     GlassIconButton(symbol: "checkmark", label: "Options.FinishPath", isOn: true) {

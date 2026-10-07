@@ -68,6 +68,9 @@ final class EditorState {
     var smudge: SmudgeSession?
     /// The path the pen is adding points to.
     var penPath: VectorPathRef?
+    /// Whether a new pen path joins the active vector layer rather than
+    /// starting a layer of its own.
+    var penAddsToLayer = true
     /// The point picked out for editing.
     var selectedNode: VectorNodeRef?
     @ObservationIgnored var vectorDrag: VectorDrag?

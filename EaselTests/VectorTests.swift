@@ -124,13 +124,29 @@ struct PenToolTests {
         #expect(abs(into.x - 60) < 0.01)
     }
 
-    @Test func finishingLeavesThePathOpen() throws {
+    @Test func finishedPathsLeaveTheNextOneOnTheSameLayer() throws {
         let state = editor()
         tap(state, 20, 20)
         tap(state, 80, 80)
         state.finishPath()
         tap(state, 150, 150)
-        // A new path on a new layer.
+        tap(state, 180, 120)
+        #expect(state.composition.layers.filter(\.isVector).count == 1)
+        let layer = try #require(state.activeLayer)
+        #expect(layer.vector?.paths.count == 2)
+        #expect(layer.vector?.paths[0].isClosed == false)
+        // The first path did not move when the layer grew.
+        let first = layer.vector!.paths[0].nodes[0].point.applying(layer.affineTransform)
+        #expect(abs(first.x - 20) < 0.01 && abs(first.y - 20) < 0.01)
+    }
+
+    @Test func pathsCanStartLayersOfTheirOwn() {
+        let state = editor()
+        state.penAddsToLayer = false
+        tap(state, 20, 20)
+        tap(state, 80, 80)
+        state.finishPath()
+        tap(state, 150, 150)
         #expect(state.composition.layers.filter(\.isVector).count == 2)
     }
 }
