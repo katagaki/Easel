@@ -40,6 +40,15 @@ enum PhotoEditPayload {
         }
     }
 
+    /// Deletes the copy kept in the shared container for this adjustment
+    /// data, once nothing refers to it: the edit was replaced, reverted or
+    /// never saved.
+    static func discard(_ data: Data?) {
+        guard let data, case .file(let name) = try? PropertyListDecoder().decode(Stored.self, from: data),
+              let url = folder?.appending(path: name) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
     /// Whether `decode` would find the composition, without reading it.
     static func isAvailable(_ data: Data) -> Bool {
         switch try? PropertyListDecoder().decode(Stored.self, from: data) {

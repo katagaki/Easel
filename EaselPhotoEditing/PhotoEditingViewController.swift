@@ -44,6 +44,9 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
                 return
             }
             let output = try? await session.output(for: composition)
+            // Photos saves the edit once it has the output; the layers of
+            // the edit it replaces are no longer needed.
+            if output != nil { PhotoEditPayload.discard(session.previousPayload) }
             completionHandler(output)
         }
     }

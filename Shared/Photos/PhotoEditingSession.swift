@@ -24,6 +24,13 @@ struct PhotoEditingSession: @unchecked Sendable {
     /// Whether the composition came back from an earlier Easel edit.
     let isResumed: Bool
 
+    /// The layers saved with the edit this session started from, which a
+    /// new edit replaces.
+    var previousPayload: Data? {
+        guard let data = input.adjustmentData, data.formatIdentifier == Self.formatIdentifier else { return nil }
+        return data.data
+    }
+
     /// Whether adjustment data is Easel's, carrying layers that can be read
     /// back over the original photo.
     static func canHandle(_ adjustmentData: PHAdjustmentData) -> Bool {

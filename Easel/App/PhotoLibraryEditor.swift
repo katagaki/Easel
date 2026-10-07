@@ -102,7 +102,15 @@ struct PhotoLibraryEditor: View {
         Task {
             do {
                 let output = try await session.output(for: composition)
-                try await Self.apply(output, to: asset)
+                do {
+                    try await Self.apply(output, to: asset)
+                } catch {
+                    // Not saved: the copy just written is not needed.
+                    PhotoEditPayload.discard(output.adjustmentData?.data)
+                    throw error
+                }
+                // The edit it replaced no longer needs its layers kept.
+                PhotoEditPayload.discard(session.previousPayload)
                 dismiss()
             } catch {
                 // Declining the system's "Allow Easel to modify this photo?"
@@ -118,6 +126,7 @@ struct PhotoLibraryEditor: View {
         Task {
             do {
                 try await Self.revert(asset)
+                PhotoEditPayload.discard(session?.previousPayload)
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription

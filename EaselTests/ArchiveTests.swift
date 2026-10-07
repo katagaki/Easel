@@ -118,3 +118,21 @@ struct PhotoEditPayloadTests {
         #expect(PhotoEditPayload.decode(Data()) == nil)
     }
 }
+
+@Suite("Photo edit clean-up")
+struct PhotoEditCleanupTests {
+    @Test func discardingRemovesTheKeptCopy() throws {
+        let archive = Data(repeating: 9, count: PhotoEditPayload.inlineLimit + 10)
+        let data = try PhotoEditPayload.encode(archive)
+        #expect(PhotoEditPayload.isAvailable(data))
+        PhotoEditPayload.discard(data)
+        #expect(!PhotoEditPayload.isAvailable(data))
+    }
+
+    @Test func discardingInlineDataIsHarmless() throws {
+        let data = try PhotoEditPayload.encode(Data([1, 2, 3]))
+        PhotoEditPayload.discard(data)
+        PhotoEditPayload.discard(nil)
+        #expect(PhotoEditPayload.decode(data) == Data([1, 2, 3]))
+    }
+}
