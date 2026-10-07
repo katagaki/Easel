@@ -132,6 +132,14 @@ struct EditScope: Equatable {
     var kind: Kind
 
     init(from old: Composition, to new: Composition) {
+        if old.size == new.size, old.layers == new.layers, old.groups.map(\.id) == new.groups.map(\.id) {
+            // A group's opacity slider or name: a run of them is one step.
+            let changed = zip(old.groups, new.groups).first { $0 != $1 }
+            if let (before, after) = changed, before.isVisible == after.isVisible, before.isExpanded == after.isExpanded {
+                self.init(layerID: after.id, kind: before.opacity != after.opacity ? .opacity : .name)
+                return
+            }
+        }
         guard old.size == new.size, old.layers.map(\.id) == new.layers.map(\.id) else {
             self.init(layerID: nil, kind: .other)
             return

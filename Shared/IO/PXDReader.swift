@@ -32,6 +32,7 @@ enum PXDReader {
         for row in rows { children[row.parent ?? "", default: []].append(row) }
 
         var layers: [Layer] = []
+        var groups: [LayerGroup] = []
         var skipped = 0
 
         /// Bottom first: Pixelmator lists layers top first.
@@ -42,11 +43,14 @@ enum PXDReader {
                 let flags = info["flags"].map { Blob.uint64($0) } ?? 1
                 // A layer that is another's mask is not drawn by itself.
                 if flags & 0x10 != 0 { continue }
-                let own = Inherited(
-                    isVisible: inherited.isVisible && flags & 1 != 0,
-                    opacity: inherited.opacity * (info["opacity"].map { Double(Blob.bigShort($0)) / 100 } ?? 1),
+                // Groups show and fade their layers themselves; only the
+                // layer's own settings are taken here.
+                var own = Inherited(
+                    isVisible: flags & 1 != 0,
+                    opacity: info["opacity"].map { Double(Blob.bigShort($0)) / 100 } ?? 1,
                     pivot: inherited.pivot, rotation: inherited.rotation
                 )
+                own.groupID = inherited.groupID
                 switch row.type {
                 case 4:
                     // A group: its rotation turns its layers about its centre.
@@ -57,6 +61,12 @@ enum PXDReader {
                         group.pivot = group.pivot ?? center
                         group.rotation += angle
                     }
+                    let folder = LayerGroup(
+                        name: info["name"].map { Blob.string($0) } ?? String(localized: "Layer.DefaultName.Group"),
+                        parentID: inherited.groupID, isVisible: own.isVisible, opacity: own.opacity
+                    )
+                    groups.append(folder)
+                    group.groupID = folder.id
                     visit(row.identifier, inherited: group)
                 case 1:
                     if let layer = rasterLayer(row, info: info, files: files, canvas: canvas, inherited: own) {
@@ -85,7 +95,9 @@ enum PXDReader {
             layers.append(layer)
         }
         guard !layers.isEmpty else { throw Failure.notPixelmator }
-        return Composition(size: canvas, layers: layers)
+        var composition = Composition(size: canvas, layers: layers, groups: groups)
+        composition.normalizeGroups()
+        return composition
     }
 
     /// What a group passes down to the layers in it.
@@ -95,6 +107,7 @@ enum PXDReader {
         /// The centre groups turn their layers about, and by how much.
         var pivot: CGPoint?
         var rotation = 0.0
+        var groupID: UUID?
     }
 
     private static func rasterLayer(
@@ -135,7 +148,8 @@ enum PXDReader {
             ),
             opacity: min(max(inherited.opacity, 0), 1),
             blendMode: info["blendMode"].map { PSDReader.blendMode(Blob.reversedTag($0)) } ?? .normal,
-            isVisible: inherited.isVisible
+            isVisible: inherited.isVisible,
+            groupID: inherited.groupID
         )
     }
 

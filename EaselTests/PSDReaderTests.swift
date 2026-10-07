@@ -135,8 +135,12 @@ struct PSDReaderTests {
         ]).build()
         let composition = try PSDReader.composition(from: data)
         #expect(composition.size == CGSize(width: 20, height: 10))
-        // Group boundaries are left out.
+        // Group records become a group around the layers between them.
         #expect(composition.layers.map(\.name) == ["Back", "青い", "Ghost"])
+        #expect(composition.groups.map(\.name) == ["Grp"])
+        #expect(composition.layers[0].groupID == nil)
+        #expect(composition.layers[1].groupID == composition.groups[0].id)
+        #expect(composition.layers[2].groupID == composition.groups[0].id)
         let blue = composition.layers[1]
         #expect(blue.image.size == CGSize(width: 8, height: 6))
         #expect(blue.transform.position == CGPoint(x: 14, y: 5))

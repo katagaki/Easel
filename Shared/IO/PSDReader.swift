@@ -55,8 +55,9 @@ enum PSDReader {
         let layerSectionLength = isLarge ? Int(try reader.uint64()) : Int(try reader.uint32())
         let layerSectionEnd = reader.offset + layerSectionLength
         var layers: [Layer] = []
-        if layerSectionLength > 0 {
-            layers = (try? readLayers(&reader, isLarge: isLarge, format: format, canvas: canvas)) ?? []
+        var groups: [LayerGroup] = []
+        if layerSectionLength > 0, let read = try? readLayers(&reader, isLarge: isLarge, format: format, canvas: canvas) {
+            (layers, groups) = read
         }
         guard reader.seek(to: layerSectionEnd) else { throw Failure.damaged }
 
@@ -70,7 +71,9 @@ enum PSDReader {
         }
         // Layers that cannot be scaled down are bounded by the canvas cap.
         guard width <= Bitmap.maximumDimension, height <= Bitmap.maximumDimension else { throw Failure.unsupported }
-        return Composition(size: canvas, layers: layers)
+        var composition = Composition(size: canvas, layers: layers, groups: groups)
+        composition.normalizeGroups()
+        return composition
     }
 
     /// The embedded ICC profile (resource 1039), which says what the RGB
@@ -111,6 +114,9 @@ enum PSDReader {
         var isHidden = false
         var name = ""
         var isGroupBoundary = false
+        /// 1 or 2: a group folder's own record, above its layers; 3: the
+        /// divider below them.
+        var sectionType = 0
         var mask: MaskRecord?
 
         var width: Int { right - left }
@@ -128,9 +134,9 @@ enum PSDReader {
 
     private static func readLayers(
         _ reader: inout BigEndianReader, isLarge: Bool, format: PixelFormat, canvas: CGSize
-    ) throws -> [Layer] {
+    ) throws -> (layers: [Layer], groups: [LayerGroup]) {
         let infoLength = isLarge ? Int(try reader.uint64()) : Int(try reader.uint32())
-        guard infoLength > 0 else { return [] }
+        guard infoLength > 0 else { return ([], []) }
         // Negative: the first alpha channel is the merged result's
         // transparency. The count is what matters.
         let count = abs(Int(try reader.int16()))
@@ -140,6 +146,10 @@ enum PSDReader {
         }
 
         var layers: [Layer] = []
+        var groups: [LayerGroup] = []
+        // Records run bottom first: a group's divider, its layers, then the
+        // group's own record with its name and settings.
+        var open: [UUID] = []
         for record in records {
             var planes: [Int: [UInt8]] = [:]
             for channel in record.channels {
@@ -153,6 +163,20 @@ enum PSDReader {
                     )
                 }
                 guard reader.seek(to: end) else { throw Failure.damaged }
+            }
+            if record.sectionType == 3 {
+                let group = LayerGroup(name: "", parentID: open.last)
+                groups.append(group)
+                open.append(group.id)
+                continue
+            }
+            if record.sectionType == 1 || record.sectionType == 2, let id = open.popLast(),
+               let index = groups.firstIndex(where: { $0.id == id }) {
+                groups[index].name = record.name.isEmpty ? String(localized: "Layer.DefaultName.Group") : record.name
+                groups[index].opacity = Double(record.opacity) / 255
+                groups[index].isVisible = !record.isHidden
+                groups[index].isExpanded = record.sectionType == 1
+                continue
             }
             guard !record.isGroupBoundary, record.width > 0, record.height > 0,
                   let image = makeImage(planes, width: record.width, height: record.height, format: format)
@@ -171,9 +195,10 @@ enum PSDReader {
             if let maskRecord = record.mask {
                 layer.mask = makeMask(maskRecord, plane: planes[-2], layer: record)
             }
+            layer.groupID = open.last
             layers.append(layer)
         }
-        return layers
+        return (layers, groups)
     }
 
     private static func readRecord(_ reader: inout BigEndianReader, isLarge: Bool) throws -> LayerRecord {
@@ -240,6 +265,7 @@ enum PSDReader {
                 // 1 and 2 open a group folder, 3 closes it: neither has pixels.
                 let type = try reader.uint32()
                 record.isGroupBoundary = (1...3).contains(type)
+                record.sectionType = Int(type)
             default:
                 break
             }

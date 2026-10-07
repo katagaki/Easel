@@ -10,12 +10,15 @@ struct Composition: Equatable, Sendable {
     var size: CGSize
     /// Bottom first, the order they are drawn in.
     var layers: [Layer]
+    /// The folders layers are kept in; see `LayerGroup`.
+    var groups: [LayerGroup] = []
 
     static let defaultSize = CGSize(width: 2048, height: 1536)
 
-    init(size: CGSize, layers: [Layer]) {
+    init(size: CGSize, layers: [Layer], groups: [LayerGroup] = []) {
         self.size = size
         self.layers = layers
+        self.groups = groups
     }
 
     /// A new picture: a white background to paint on.
@@ -67,6 +70,9 @@ struct Composition: Equatable, Sendable {
     /// Puts `layer` just above the layer with `id`, or on top.
     mutating func insert(_ layer: Layer, above id: Layer.ID?) {
         if let id, let index = index(of: id) {
+            var layer = layer
+            // Into the same group, so the group stays in one piece.
+            if layer.groupID == nil { layer.groupID = layers[index].groupID }
             layers.insert(layer, at: index + 1)
         } else {
             layers.append(layer)
@@ -142,6 +148,7 @@ struct Composition: Equatable, Sendable {
             name: String(localized: "Layer.DefaultName.Background"), image: LayerImage(image), canvasSize: size
         )
         layers = [layer]
+        groups = []
         return layer.id
     }
 

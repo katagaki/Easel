@@ -34,6 +34,7 @@ enum CompositionArchive {
         var width: Double
         var height: Double
         var layers: [LayerRecord]
+        var groups: [LayerGroup]?
     }
 
     struct LayerRecord: Codable {
@@ -50,6 +51,7 @@ enum CompositionArchive {
         var blendMode: LayerBlendMode
         var isVisible: Bool
         var isLocked: Bool
+        var groupID: UUID?
         /// Whether the layer is still the plain fill a new document starts
         /// with; absent when it is not.
         var isBlank: Bool?
@@ -144,11 +146,13 @@ enum CompositionArchive {
                 filters: layer.filters.isEmpty ? nil : layer.filters,
                 maskFile: maskFile, maskEnabled: layer.mask.map(\.isEnabled), transform: layer.transform,
                 opacity: layer.opacity, blendMode: layer.blendMode, isVisible: layer.isVisible, isLocked: layer.isLocked,
+                groupID: layer.groupID,
                 isBlank: layer.image.isBlank ? true : nil
             ))
         }
         return Manifest(
-            version: currentVersion, width: composition.size.width, height: composition.size.height, layers: records
+            version: currentVersion, width: composition.size.width, height: composition.size.height, layers: records,
+            groups: composition.groups.isEmpty ? nil : composition.groups
         )
     }
 
@@ -175,14 +179,20 @@ enum CompositionArchive {
                     image: LayerImage(try ImageCodec.decode(data), encoded: data), isEnabled: record.maskEnabled ?? true
                 )
             }
-            return Layer(
+            var layer = Layer(
                 id: record.id, name: record.name, image: image, text: record.text, vector: record.vector,
                 filters: record.filters ?? [], mask: mask, transform: record.transform,
                 opacity: record.opacity, blendMode: record.blendMode, isVisible: record.isVisible,
                 isLocked: record.isLocked
             )
+            layer.groupID = record.groupID
+            return layer
         }
-        return Composition(size: CGSize(width: manifest.width, height: manifest.height), layers: layers)
+        var composition = Composition(
+            size: CGSize(width: manifest.width, height: manifest.height), layers: layers, groups: manifest.groups ?? []
+        )
+        composition.normalizeGroups()
+        return composition
     }
 }
 

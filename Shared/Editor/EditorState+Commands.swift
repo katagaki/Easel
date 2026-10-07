@@ -52,11 +52,8 @@ extension EditorState {
     /// Reorders from a list shown top layer first, the reverse of the order
     /// layers are stored in.
     func moveLayers(fromDisplayed source: IndexSet, toDisplayed destination: Int) {
-        update { composition in
-            var displayed = Array(composition.layers.reversed())
-            displayed.move(fromOffsets: source, toOffset: destination)
-            composition.layers = displayed.reversed()
-        }
+        guard let first = source.first else { return }
+        update { $0.moveLayer(fromRow: first, toRow: destination) }
     }
 
     func setVisibility(_ isVisible: Bool, of id: Layer.ID) {
@@ -570,4 +567,115 @@ extension EditorState {
 /// Why no object could be selected, carried back from Vision.
 struct ObjectSelectionError: Error, Sendable {
     let message: String
+}
+
+// MARK: - Groups
+
+extension EditorState {
+    /// Puts the active layer into a new group, in the group it was in.
+    func groupActiveLayer() {
+        guard let layer = activeLayer else { return }
+        var created: LayerGroup?
+        update { composition in
+            let group = LayerGroup(name: composition.nextGroupName(), parentID: layer.groupID)
+            composition.groups.append(group)
+            composition[layer.id]?.groupID = group.id
+            composition.normalizeGroups()
+            created = group
+        }
+        activeGroupID = created?.id
+    }
+
+    /// Lets go of a group, its layers and groups moving up into its parent.
+    func ungroup(_ groupID: UUID) {
+        update { composition in
+            guard let group = composition.group(groupID) else { return }
+            for index in composition.layers.indices where composition.layers[index].groupID == groupID {
+                composition.layers[index].groupID = group.parentID
+            }
+            for index in composition.groups.indices where composition.groups[index].parentID == groupID {
+                composition.groups[index].parentID = group.parentID
+            }
+            composition.groups.removeAll { $0.id == groupID }
+            composition.normalizeGroups()
+        }
+        if activeGroupID == groupID { activeGroupID = nil }
+    }
+
+    /// Moves a layer into a group, or out of every group with nil.
+    func moveLayer(_ id: Layer.ID, toGroup groupID: UUID?) {
+        update { composition in
+            guard let index = composition.index(of: id) else { return }
+            var layer = composition.layers.remove(at: index)
+            layer.groupID = groupID
+            // On top of the group it joins, or of the whole stack.
+            if let groupID, let last = composition.layers.lastIndex(where: { other in
+                other.groupID == groupID || composition.ancestors(of: other.groupID).contains { $0.id == groupID }
+            }) {
+                composition.layers.insert(layer, at: last + 1)
+            } else {
+                composition.layers.append(layer)
+            }
+            composition.normalizeGroups()
+        }
+    }
+
+    func updateGroup(_ groupID: UUID, _ change: (inout LayerGroup) -> Void) {
+        update { composition in
+            guard let index = composition.groups.firstIndex(where: { $0.id == groupID }) else { return }
+            change(&composition.groups[index])
+        }
+    }
+
+    /// Whether deleting a group would leave the picture with a layer.
+    func canDeleteGroup(_ groupID: UUID) -> Bool {
+        composition.layers(in: groupID).count < composition.layers.count
+    }
+
+    func deleteGroup(_ groupID: UUID) {
+        guard canDeleteGroup(groupID) else { return }
+        update { composition in
+            let doomed = Set(composition.layers(in: groupID).map(\.id))
+            composition.layers.removeAll { doomed.contains($0.id) }
+            composition.normalizeGroups()
+        }
+        activeGroupID = nil
+        if activeLayerID.flatMap({ composition.index(of: $0) }) == nil {
+            activeLayerID = composition.layers.last?.id
+        }
+    }
+
+    /// Draws a group's layers into one, which takes the group's place.
+    func mergeGroup(_ groupID: UUID) {
+        let size = composition.size
+        var mergedID: Layer.ID?
+        update { composition in
+            guard let group = composition.group(groupID) else { return }
+            let members = composition.layers(in: groupID)
+            guard let first = members.first, let position = composition.index(of: first.id) else { return }
+            // As the group shows them, groups above it left out.
+            var inner = composition
+            inner.groups = inner.groups.map { other in
+                var other = other
+                if other.id == groupID || composition.group(groupID, isInside: other.id) {
+                    other.isVisible = true
+                    other.opacity = 1
+                }
+                return other
+            }
+            let shown = inner.displayLayers.filter { layer in members.contains { $0.id == layer.id } }
+            var merged = Layer(
+                name: group.name, image: LayerImage(CompositionRenderer.render(layers: shown, size: size)), canvasSize: size
+            )
+            merged.opacity = group.opacity
+            merged.isVisible = group.isVisible
+            merged.groupID = group.parentID
+            let doomed = Set(members.map(\.id))
+            composition.layers.removeAll { doomed.contains($0.id) }
+            composition.layers.insert(merged, at: min(position, composition.layers.count))
+            composition.normalizeGroups()
+            mergedID = merged.id
+        }
+        if let mergedID { activeLayerID = mergedID }
+    }
 }

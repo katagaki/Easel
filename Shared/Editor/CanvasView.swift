@@ -61,7 +61,7 @@ struct CanvasView: View {
 
     private func layerStack(_ viewport: CanvasViewport) -> some View {
         ZStack(alignment: .topLeading) {
-            ForEach(composition.layers) { layer in
+            ForEach(composition.displayLayers) { layer in
                 if layer.isVisible {
                     LayerView(
                         layer: layer,

@@ -13,81 +13,26 @@ struct LayersPanel: View {
     var body: some View {
         List {
             Section {
-                ForEach(composition.layers.reversed()) { layer in
-                    LayerRow(
-                        layer: layer, isActive: layer.id == state.activeLayerID,
-                        isEditingMask: layer.id == state.activeLayerID && state.isEditingMask,
-                        toggleVisibility: { state.setVisibility(!layer.isVisible, of: layer.id) },
-                        editMask: {
-                            state.activeLayerID = layer.id
-                            state.isEditingMask = true
-                        }
-                    )
-                    .contentShape(.rect)
-                    .onTapGesture {
-                        state.activeLayerID = layer.id
-                        state.isEditingMask = false
+                ForEach(composition.layerListRows) { row in
+                    switch row {
+                    case .group(let group, let depth):
+                        GroupRow(group: group, state: state)
+                            .padding(.leading, CGFloat(depth) * 16)
+                            .moveDisabled(true)
+                    case .layer(let layer, let depth):
+                        layerRow(layer)
+                            .padding(.leading, CGFloat(depth) * 16)
                     }
-                    .listRowBackground(layer.id == state.activeLayerID ? Color.accentColor.opacity(0.18) : nil)
-                    .contextMenu { menuItems(for: layer) }
-                    .swipeActions(edge: .trailing) {
-                        Button("Layers.Delete", systemImage: "trash", role: .destructive) {
-                            state.deleteLayer(layer.id)
-                        }
-                        .disabled(!state.canDelete(layer.id))
-                        Button("Layers.Duplicate", systemImage: "plus.square.on.square") {
-                            state.duplicateLayer(layer.id)
-                        }
-                        .tint(.indigo)
-                    }
-                    .accessibilityIdentifier("layer.\(layer.name)")
-                    .accessibilityAddTraits(layer.id == state.activeLayerID ? .isSelected : [])
                 }
                 .onMove { source, destination in
                     state.moveLayers(fromDisplayed: source, toDisplayed: destination)
                 }
             }
 
-            if let layer = state.activeLayer {
-                Section("Layers.Section.Appearance") {
-                    LabeledSlider(
-                        label: "Layers.Opacity",
-                        value: Binding(
-                            get: { layer.opacity },
-                            set: { value in state.updateActiveLayer { $0.opacity = value } }
-                        ),
-                        valueText: "\(Int((layer.opacity * 100).rounded()))%"
-                    )
-                    .accessibilityIdentifier("layerOpacity")
-                    Picker("Layers.BlendMode", selection: Binding(
-                        get: { layer.blendMode },
-                        set: { value in state.updateActiveLayer { $0.blendMode = value } }
-                    )) {
-                        ForEach(Array(LayerBlendMode.groups.enumerated()), id: \.offset) { _, group in
-                            Section {
-                                ForEach(group) { mode in
-                                    Text(mode.label).tag(mode)
-                                }
-                            }
-                        }
-                    }
-                    .accessibilityIdentifier("blendMode")
-                    Toggle("Layers.Lock", isOn: Binding(
-                        get: { layer.isLocked },
-                        set: { state.setLocked($0, of: layer.id) }
-                    ))
-                    Button {
-                        openFilters()
-                    } label: {
-                        LabeledContent {
-                            Text(verbatim: layer.activeFilters.isEmpty ? "" : "\(layer.activeFilters.count)")
-                        } label: {
-                            Label("Panel.Filters.Title", systemImage: EditorPanel.filters.symbolName)
-                        }
-                    }
-                    .accessibilityIdentifier("layerFilters")
-                }
-                MaskSection(layer: layer, state: state)
+            if let groupID = state.activeGroupID, let group = composition.group(groupID) {
+                GroupSection(group: group, state: state)
+            } else if let layer = state.activeLayer {
+                layerSections(layer)
             }
         }
         .listStyle(.insetGrouped)
@@ -107,6 +52,82 @@ struct LayersPanel: View {
                 renaming = nil
             }
         }
+    }
+
+    private func layerRow(_ layer: Layer) -> some View {
+                    LayerRow(
+                        layer: layer, isActive: layer.id == state.activeLayerID,
+                        isEditingMask: layer.id == state.activeLayerID && state.isEditingMask,
+                        toggleVisibility: { state.setVisibility(!layer.isVisible, of: layer.id) },
+                        editMask: {
+                            state.activeLayerID = layer.id
+                            state.isEditingMask = true
+                        }
+                    )
+                    .contentShape(.rect)
+                    .onTapGesture {
+                        state.activeLayerID = layer.id
+                        state.isEditingMask = false
+                    }
+                    .listRowBackground(
+                        layer.id == state.activeLayerID && state.activeGroupID == nil ? Color.accentColor.opacity(0.18) : nil
+                    )
+                    .contextMenu { menuItems(for: layer) }
+                    .swipeActions(edge: .trailing) {
+                        Button("Layers.Delete", systemImage: "trash", role: .destructive) {
+                            state.deleteLayer(layer.id)
+                        }
+                        .disabled(!state.canDelete(layer.id))
+                        Button("Layers.Duplicate", systemImage: "plus.square.on.square") {
+                            state.duplicateLayer(layer.id)
+                        }
+                        .tint(.indigo)
+                    }
+                    .accessibilityIdentifier("layer.\(layer.name)")
+                    .accessibilityAddTraits(layer.id == state.activeLayerID ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private func layerSections(_ layer: Layer) -> some View {
+            Section("Layers.Section.Appearance") {
+                LabeledSlider(
+                    label: "Layers.Opacity",
+                    value: Binding(
+                        get: { layer.opacity },
+                        set: { value in state.updateActiveLayer { $0.opacity = value } }
+                    ),
+                    valueText: "\(Int((layer.opacity * 100).rounded()))%"
+                )
+                .accessibilityIdentifier("layerOpacity")
+                Picker("Layers.BlendMode", selection: Binding(
+                    get: { layer.blendMode },
+                    set: { value in state.updateActiveLayer { $0.blendMode = value } }
+                )) {
+                    ForEach(Array(LayerBlendMode.groups.enumerated()), id: \.offset) { _, group in
+                        Section {
+                            ForEach(group) { mode in
+                                Text(mode.label).tag(mode)
+                            }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("blendMode")
+                Toggle("Layers.Lock", isOn: Binding(
+                    get: { layer.isLocked },
+                    set: { state.setLocked($0, of: layer.id) }
+                ))
+                Button {
+                    openFilters()
+                } label: {
+                    LabeledContent {
+                        Text(verbatim: layer.activeFilters.isEmpty ? "" : "\(layer.activeFilters.count)")
+                    } label: {
+                        Label("Panel.Filters.Title", systemImage: EditorPanel.filters.symbolName)
+                    }
+                }
+                .accessibilityIdentifier("layerFilters")
+            }
+            MaskSection(layer: layer, state: state)
     }
 
     @Environment(\.panelPlacement) private var placement
@@ -150,6 +171,22 @@ struct LayersPanel: View {
             if layer.hasActiveFilters {
                 Button("LayerFilters.ApplyAll", systemImage: "square.and.arrow.down.on.square") {
                     state.applyFilters(of: layer.id)
+                }
+            }
+        }
+        Section {
+            Button("Groups.Group", systemImage: "folder.badge.plus") {
+                state.activeLayerID = layer.id
+                state.groupActiveLayer()
+            }
+            if !composition.groups.isEmpty {
+                Menu("Groups.MoveTo", systemImage: "folder") {
+                    Button("Groups.NoGroup") { state.moveLayer(layer.id, toGroup: nil) }
+                        .disabled(layer.groupID == nil)
+                    ForEach(composition.groups) { group in
+                        Button(group.name) { state.moveLayer(layer.id, toGroup: group.id) }
+                            .disabled(layer.groupID == group.id)
+                    }
                 }
             }
         }
@@ -319,6 +356,8 @@ struct LayerActionsBar: View {
                             if let image = state.copiedImage() { ImageImport.copyToPasteboard(image) }
                         }
                         .disabled(active == nil)
+                        Button("Groups.Group", systemImage: "folder.badge.plus") { state.groupActiveLayer() }
+                            .disabled(active == nil)
                         Button("Layers.Flatten", systemImage: "square.3.layers.3d.down.right") { state.flatten() }
                             .disabled(state.composition.layers.count < 2)
                     }
@@ -394,6 +433,99 @@ private struct MaskSection: View {
             Text("Mask.Title")
         } footer: {
             if layer.mask != nil { Text("Mask.Footer") }
+        }
+    }
+}
+
+/// A group's line in the Layers panel: a folder that opens and closes, with
+/// its own eye.
+private struct GroupRow: View {
+    let group: LayerGroup
+    let state: EditorState
+
+    var body: some View {
+        let isActive = state.activeGroupID == group.id
+        HStack(spacing: 10) {
+            Button {
+                state.updateGroup(group.id) { $0.isExpanded.toggle() }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .rotationEffect(.degrees(group.isExpanded ? 90 : 0))
+                    .frame(width: 24, height: 36)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(group.isExpanded ? "Groups.Collapse" : "Groups.Expand")
+            Image(systemName: group.isExpanded ? "folder" : "folder.fill")
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 36)
+            Text(group.name)
+                .lineLimit(1)
+                .opacity(group.isVisible ? 1 : 0.5)
+            if group.opacity < 0.995 {
+                Text(verbatim: "\(Int((group.opacity * 100).rounded()))%")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            if group.isLocked {
+                Image(systemName: "lock.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Button {
+                state.updateGroup(group.id) { $0.isVisible.toggle() }
+            } label: {
+                Image(systemName: group.isVisible ? "eye" : "eye.slash")
+                    .foregroundStyle(group.isVisible ? Color.primary : Color.secondary)
+                    .frame(width: 36, height: 36)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(group.isVisible ? "Layers.Hide" : "Layers.Show")
+        }
+        .contentShape(.rect)
+        .onTapGesture { state.activeGroupID = group.id }
+        .listRowBackground(isActive ? Color.accentColor.opacity(0.18) : nil)
+        .contextMenu {
+            Button("Groups.Ungroup", systemImage: "folder.badge.minus") { state.ungroup(group.id) }
+            Button("Groups.Merge", systemImage: "square.2.layers.3d.bottom.filled") { state.mergeGroup(group.id) }
+            Button("Groups.Delete", systemImage: "trash", role: .destructive) { state.deleteGroup(group.id) }
+                .disabled(!state.canDeleteGroup(group.id))
+        }
+        .accessibilityIdentifier("group.\(group.name)")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+}
+
+/// A picked group's settings: its name, opacity and lock, and the ways to
+/// take it apart.
+private struct GroupSection: View {
+    let group: LayerGroup
+    let state: EditorState
+
+    var body: some View {
+        Section("Groups.Section") {
+            TextField("Layers.Rename.Placeholder", text: Binding(
+                get: { group.name },
+                set: { value in
+                    let trimmed = value.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty { state.updateGroup(group.id) { $0.name = trimmed } }
+                }
+            ))
+            LabeledSlider(
+                label: "Layers.Opacity",
+                value: Binding(get: { group.opacity }, set: { value in state.updateGroup(group.id) { $0.opacity = value } }),
+                valueText: "\(Int((group.opacity * 100).rounded()))%"
+            )
+            .accessibilityIdentifier("groupOpacity")
+            Toggle("Layers.Lock", isOn: Binding(
+                get: { group.isLocked }, set: { value in state.updateGroup(group.id) { $0.isLocked = value } }
+            ))
+            Button("Groups.Ungroup", systemImage: "folder.badge.minus") { state.ungroup(group.id) }
+            Button("Groups.Merge", systemImage: "square.2.layers.3d.bottom.filled") { state.mergeGroup(group.id) }
+            Button("Groups.Delete", systemImage: "trash", role: .destructive) { state.deleteGroup(group.id) }
+                .disabled(!state.canDeleteGroup(group.id))
         }
     }
 }

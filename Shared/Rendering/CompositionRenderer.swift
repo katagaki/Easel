@@ -3,7 +3,7 @@ import CoreGraphics
 /// Flattens layers into one image, the way the canvas shows them.
 enum CompositionRenderer {
     static func render(_ composition: Composition, background: RGBAColor? = nil) -> CGImage {
-        render(layers: composition.layers, size: composition.size, background: background)
+        render(layers: composition.displayLayers, size: composition.size, background: background)
     }
 
     static func render(layers: [Layer], size: CGSize, background: RGBAColor? = nil) -> CGImage {
@@ -42,7 +42,7 @@ enum CompositionRenderer {
                 context.fill(CGRect(origin: .zero, size: size))
             }
             context.scaleBy(x: size.width / composition.size.width, y: size.height / composition.size.height)
-            draw(composition.layers, in: context)
+            draw(composition.displayLayers, in: context)
         }
     }
 
@@ -52,7 +52,7 @@ enum CompositionRenderer {
         guard composition.canvasRect.contains(point) else { return nil }
         let image = Bitmap.render(size: CGSize(width: 1, height: 1)) { context in
             context.translateBy(x: -point.x.rounded(.down), y: -point.y.rounded(.down))
-            draw(composition.layers, in: context)
+            draw(composition.displayLayers, in: context)
         }
         guard let pixels = Bitmap.pixels(of: image) else { return nil }
         let sample = pixels.color(x: 0, y: 0)

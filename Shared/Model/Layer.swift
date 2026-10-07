@@ -24,11 +24,13 @@ struct Layer: Identifiable, Equatable, Sendable {
     var blendMode: LayerBlendMode = .normal
     var isVisible = true
     var isLocked = false
+    /// The group the layer is in, if any.
+    var groupID: UUID?
 
     init(
         id: UUID = UUID(), name: String, image: LayerImage, text: TextContent? = nil, vector: VectorContent? = nil,
         filters: [LayerFilter] = [], mask: LayerMask? = nil, transform: LayerTransform, opacity: Double = 1,
-        blendMode: LayerBlendMode = .normal, isVisible: Bool = true, isLocked: Bool = false
+        blendMode: LayerBlendMode = .normal, isVisible: Bool = true, isLocked: Bool = false, groupID: UUID? = nil
     ) {
         self.id = id
         self.name = name
@@ -42,6 +44,7 @@ struct Layer: Identifiable, Equatable, Sendable {
         self.blendMode = blendMode
         self.isVisible = isVisible
         self.isLocked = isLocked
+        self.groupID = groupID
     }
 
     /// A layer covering the canvas exactly, the way painting needs it.

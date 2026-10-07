@@ -12,8 +12,15 @@ final class EditorState {
         didSet { toolDidChange(from: oldValue) }
     }
     var activeLayerID: Layer.ID? {
-        didSet { if activeLayerID != oldValue { isEditingMask = false } }
+        didSet {
+            if activeLayerID != oldValue {
+                isEditingMask = false
+                activeGroupID = nil
+            }
+        }
     }
+    /// A group picked in the Layers panel, which the Move tool moves whole.
+    var activeGroupID: UUID?
     /// Whether painting goes into the active layer's mask rather than its
     /// pixels: the brush hides, the eraser reveals.
     var isEditingMask = false
@@ -117,6 +124,7 @@ final class EditorState {
     /// starts from the result of the one before.
     @ObservationIgnored private var queue: Task<Void, Never>?
     @ObservationIgnored private var moveOrigin: MoveOrigin?
+    @ObservationIgnored private var groupMoveOrigin: (start: CGPoint, layers: [(Layer.ID, LayerTransform)])?
     @ObservationIgnored private var cropDrag: CropDrag?
     /// The adjustment or filter preview being worked out, which a newer one
     /// replaces.
@@ -384,11 +392,13 @@ final class EditorState {
     /// Why the active layer cannot be painted on, if it cannot.
     func paintingBlocker() -> String? {
         guard let layer = activeLayer else { return String(localized: "Error.NoLayer") }
-        if layer.isLocked { return String(localized: "Error.LayerLocked") }
+        if composition.isLocked(layer) { return String(localized: "Error.LayerLocked") }
         if editsMask, ![Tool.brush, .eraser, .gradient].contains(tool) {
             return String(localized: "Error.MaskTool")
         }
-        if !layer.isVisible { return String(localized: "Error.LayerHidden") }
+        if !layer.isVisible || composition.ancestors(of: layer.groupID).contains(where: { !$0.isVisible }) {
+            return String(localized: "Error.LayerHidden")
+        }
         return nil
     }
 
@@ -438,7 +448,13 @@ final class EditorState {
             guard paintingBlocker() == nil else { return }
             beginSmudge(at: point)
         case .move:
-            guard let layer = activeLayer, !layer.isLocked else { return }
+            if let groupID = activeGroupID, let group = composition.group(groupID) {
+                guard !group.isLocked else { return }
+                let members = composition.layers(in: groupID).filter { !composition.isLocked($0) }
+                groupMoveOrigin = (point, members.map { ($0.id, $0.transform) })
+                return
+            }
+            guard let layer = activeLayer, !composition.isLocked(layer) else { return }
             moveOrigin = MoveOrigin(layerID: layer.id, start: point, transform: layer.transform)
         case .select:
             guard selectionKind.isDrawn else { return }
@@ -473,6 +489,18 @@ final class EditorState {
         case .smudge:
             continueSmudge(to: points.map(\.location))
         case .move:
+            if let group = groupMoveOrigin {
+                let dx = last.location.x - group.start.x, dy = last.location.y - group.start.y
+                update { composition in
+                    for (id, transform) in group.layers {
+                        var moved = transform
+                        moved.position.x += dx
+                        moved.position.y += dy
+                        composition[id]?.transform = moved
+                    }
+                }
+                return
+            }
             guard let origin = moveOrigin else { return }
             var transform = origin.transform
             transform.position.x += last.location.x - origin.start.x
@@ -530,6 +558,7 @@ final class EditorState {
             }
         case .move:
             moveOrigin = nil
+            groupMoveOrigin = nil
             if isTap { selectLayer(at: point) }
         case .select:
             defer { draftSelection = nil }
@@ -584,6 +613,12 @@ final class EditorState {
         if let origin = moveOrigin {
             update { $0[origin.layerID]?.transform = origin.transform }
             moveOrigin = nil
+        }
+        if let group = groupMoveOrigin {
+            update { composition in
+                for (id, transform) in group.layers { composition[id]?.transform = transform }
+            }
+            groupMoveOrigin = nil
         }
     }
 
