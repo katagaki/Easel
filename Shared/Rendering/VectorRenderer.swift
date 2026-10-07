@@ -28,7 +28,7 @@ enum VectorRenderer {
             if let fill = path.fill, path.isClosed {
                 context.addPath(cgPath)
                 context.setFillColor(fill.cgColor)
-                context.fillPath()
+                context.fillPath(using: .evenOdd)
             }
             if let stroke = path.stroke, path.strokeWidth > 0 {
                 context.addPath(cgPath)

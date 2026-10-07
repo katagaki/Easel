@@ -368,3 +368,25 @@ extension VectorNode {
         return (a, VectorNode(point: middle, controlIn: d, controlOut: e, isSmooth: true), c)
     }
 }
+
+// MARK: - Combining shapes
+
+extension EditorState {
+    /// Whether the active vector layer has shapes to combine.
+    var canCombineShapes: Bool {
+        (activeLayer?.vector?.paths.filter { $0.isClosed && $0.nodes.count > 2 }.count ?? 0) >= 2
+    }
+
+    /// Combines the active vector layer's closed shapes into one; open
+    /// paths are left as they are.
+    func combineShapes(_ operation: VectorBoolean) {
+        guard let layer = activeLayer, let content = layer.vector, !composition.isLocked(layer),
+              let combined = operation.apply(to: content.paths) else { return }
+        updateVector(layer.id) { content in
+            let open = content.paths.filter { !($0.isClosed && $0.nodes.count > 2) }
+            content.paths = [combined] + open
+        }
+        selectedNode = nil
+        additionalNodes = []
+    }
+}

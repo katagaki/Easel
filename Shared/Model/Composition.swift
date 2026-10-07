@@ -130,6 +130,20 @@ struct Composition: Equatable, Sendable {
         guard canMergeDown(id), let index = index(of: id) else { return nil }
         let lower = layers[index - 1]
         let upper = layers[index]
+        // Two vector layers that mix plainly stay one vector layer.
+        if var lowerVector = lower.vector, let upperVector = upper.vector,
+           upper.blendMode == .normal, upper.opacity == lower.opacity, upper.filters.isEmpty, upper.mask == nil {
+            let toLower = upper.affineTransform.concatenating(lower.affineTransform.inverted())
+            lowerVector.paths += upperVector.paths.map { path in
+                var path = path.mappingNodes { $0.mapped(toLower) }
+                path.id = UUID()
+                return path
+            }
+            var merged = lower
+            merged.setVector(lowerVector)
+            layers.replaceSubrange((index - 1)...index, with: [merged])
+            return merged.id
+        }
         let merged = CompositionRenderer.render(
             layers: [lower.with(opacity: 1, blendMode: .normal), upper], size: size
         )
@@ -235,12 +249,7 @@ struct Composition: Equatable, Sendable {
             if let vector = layers[index].vector {
                 // Paths are scaled and drawn again rather than stretched.
                 let scaled = VectorContent(paths: vector.paths.map { path in
-                    var path = path
-                    path.nodes = path.nodes.map { node in
-                        func scale(_ point: CGPoint) -> CGPoint { CGPoint(x: point.x * scaleX, y: point.y * scaleY) }
-                        return VectorNode(point: scale(node.point), controlIn: node.controlIn.map(scale),
-                                          controlOut: node.controlOut.map(scale), isSmooth: node.isSmooth)
-                    }
+                    var path = path.mappingNodes { $0.mapped(CGAffineTransform(scaleX: scaleX, y: scaleY)) }
                     path.strokeWidth *= (scaleX + scaleY) / 2
                     return path
                 })

@@ -297,3 +297,70 @@ struct MultiplePointTests {
         #expect(!state.composition.layers.contains { $0.isVector })
     }
 }
+
+@Suite("Combining shapes")
+struct VectorBooleanTests {
+    private let black = RGBAColor.black
+
+    private func square(_ x: Double, _ y: Double, _ size: Double) -> VectorPath {
+        VectorPath.shape(ShapeSpec(kind: .rectangle, start: CGPoint(x: x, y: y), end: CGPoint(x: x + size, y: y + size),
+                                   isFilled: true, lineWidth: 1, color: .black))[0]
+    }
+
+    private func render(_ path: VectorPath) -> CGImage {
+        Bitmap.render(size: CGSize(width: 100, height: 100)) { VectorRenderer.draw(VectorContent(paths: [path]), in: $0) }
+    }
+
+    private func filled(_ image: CGImage, _ x: Int, _ y: Int) -> Bool { TestImages.pixel(image, x: x, y: y).alpha > 200 }
+
+    @Test func uniteCoversBoth() throws {
+        let path = try #require(VectorBoolean.unite.apply(to: [square(10, 10, 40), square(30, 30, 40)]))
+        let image = render(path)
+        #expect(filled(image, 15, 15) && filled(image, 65, 65) && filled(image, 40, 40))
+        #expect(!filled(image, 65, 15))
+    }
+
+    @Test func subtractCutsAHole() throws {
+        let path = try #require(VectorBoolean.subtract.apply(to: [square(10, 10, 60), square(30, 30, 20)]))
+        #expect(path.extraContours?.count == 1)
+        let image = render(path)
+        #expect(filled(image, 15, 15))
+        #expect(!filled(image, 40, 40))
+    }
+
+    @Test func intersectKeepsTheOverlap() throws {
+        let path = try #require(VectorBoolean.intersect.apply(to: [square(10, 10, 40), square(30, 30, 40)]))
+        let image = render(path)
+        #expect(filled(image, 40, 40))
+        #expect(!filled(image, 15, 15) && !filled(image, 65, 65))
+    }
+
+    @Test func excludeDropsTheOverlap() throws {
+        let path = try #require(VectorBoolean.exclude.apply(to: [square(10, 10, 40), square(30, 30, 40)]))
+        let image = render(path)
+        #expect(filled(image, 15, 15) && filled(image, 65, 65))
+        #expect(!filled(image, 40, 40))
+    }
+
+    @Test func curvesStayCurves() throws {
+        let circle = VectorPath.shape(ShapeSpec(kind: .ellipse, start: .zero, end: CGPoint(x: 40, y: 40), isFilled: true,
+                                                lineWidth: 1, color: .black))[0]
+        let path = try #require(VectorBoolean.unite.apply(to: [circle, square(20, 20, 40)]))
+        #expect(path.nodes.contains { $0.controlIn != nil || $0.controlOut != nil })
+    }
+
+    @Test func oneShapeIsNothingToCombine() {
+        #expect(VectorBoolean.unite.apply(to: [square(0, 0, 10)]) == nil)
+    }
+
+    @Test func mergingVectorLayersKeepsThemVectors() {
+        let a = Layer.vector([square(10, 10, 20)], name: "A")
+        let b = Layer.vector([square(50, 50, 20)], name: "B")
+        var composition = Composition(size: CGSize(width: 100, height: 100), layers: [a, b])
+        composition.mergeDown(b.id)
+        #expect(composition.layers.count == 1)
+        #expect(composition.layers[0].vector?.paths.count == 2)
+        let image = CompositionRenderer.render(composition)
+        #expect(filled(image, 15, 15) && filled(image, 60, 60))
+    }
+}

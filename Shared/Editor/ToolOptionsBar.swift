@@ -287,6 +287,24 @@ struct ToolOptionsBar: View {
                     )
                 }
             }
+            if state.canCombineShapes {
+                GlassGroup {
+                    GlassMenuButton(symbol: "square.on.square.squareshape.controlhandles", label: "Vector.Combine") {
+                        ForEach(VectorBoolean.allCases) { operation in
+                            Button {
+                                state.combineShapes(operation)
+                            } label: {
+                                Label {
+                                    Text(verbatim: operation.label)
+                                } icon: {
+                                    Image(systemName: operation.symbolName)
+                                }
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("combineShapes")
+                }
+            }
             if let node = state.selectedVectorNode {
                 GlassGroup {
                     GlassIconButton(

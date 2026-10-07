@@ -26,22 +26,39 @@ struct VectorPath: Codable, Equatable, Sendable, Identifiable {
     var id = UUID()
     var nodes: [VectorNode]
     var isClosed: Bool
+    /// Further closed outlines filled along with this one — the holes and
+    /// pieces left when shapes are combined. Filled even-odd, so a contour
+    /// inside another cuts it out. Optional so older files still open.
+    var extraContours: [[VectorNode]]?
     var fill: RGBAColor?
     var stroke: RGBAColor?
     var strokeWidth: Double
 
     var cgPath: CGPath {
         let path = CGMutablePath()
-        guard let first = nodes.first else { return path }
+        Self.add(nodes, closed: isClosed, to: path)
+        for contour in extraContours ?? [] { Self.add(contour, closed: true, to: path) }
+        return path
+    }
+
+    private static func add(_ nodes: [VectorNode], closed: Bool, to path: CGMutablePath) {
+        guard let first = nodes.first else { return }
         path.move(to: first.point)
         for (previous, node) in zip(nodes, nodes.dropFirst()) {
-            Self.addSegment(from: previous, to: node, to: path)
+            addSegment(from: previous, to: node, to: path)
         }
-        if isClosed, nodes.count > 1, let last = nodes.last {
-            Self.addSegment(from: last, to: first, to: path)
+        if closed, nodes.count > 1, let last = nodes.last {
+            addSegment(from: last, to: first, to: path)
             path.closeSubpath()
         }
-        return path
+    }
+
+    /// Every node, in this outline and any others, changed alike.
+    func mappingNodes(_ change: (VectorNode) -> VectorNode) -> VectorPath {
+        var copy = self
+        copy.nodes = nodes.map(change)
+        copy.extraContours = extraContours?.map { $0.map(change) }
+        return copy
     }
 
     private static func addSegment(from start: VectorNode, to end: VectorNode, to path: CGMutablePath) {
@@ -60,9 +77,7 @@ struct VectorPath: Codable, Equatable, Sendable, Identifiable {
     }
 
     func offset(by delta: CGPoint) -> VectorPath {
-        var copy = self
-        copy.nodes = nodes.map { $0.offset(by: delta) }
-        return copy
+        mappingNodes { $0.offset(by: delta) }
     }
 }
 
