@@ -54,6 +54,7 @@ struct CanvasView: View {
                     state.toolEnded(isTap: isTap, at: state.viewport.canvasPoint(point))
                 },
                 cancelled: { state.toolCancelled() },
+                hovered: { point in state.hoverPoint = point.map { state.viewport.canvasPoint($0) } },
                 zoomed: { factor, anchor in state.zoom(by: factor, around: anchor) },
                 panned: { state.pan(by: $0) },
                 undo: { history.undo() },

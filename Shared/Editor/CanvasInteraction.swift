@@ -12,6 +12,9 @@ struct CanvasInteraction: UIViewRepresentable {
     var moved: ([StrokeGestureRecognizer.Sample]) -> Void
     var ended: (Bool, CGPoint) -> Void
     var cancelled: () -> Void
+    /// Apple Pencil or a pointer over the canvas without touching it; nil
+    /// once it moves away.
+    var hovered: (CGPoint?) -> Void = { _ in /* Optional. */ }
     var zoomed: (Double, CGPoint) -> Void
     var panned: (CGSize) -> Void
     var undo: () -> Void
@@ -34,7 +37,8 @@ struct CanvasInteraction: UIViewRepresentable {
         undo.numberOfTouchesRequired = 2
         let redo = UITapGestureRecognizer(target: coordinator, action: #selector(Coordinator.redo(_:)))
         redo.numberOfTouchesRequired = 3
-        for recognizer in [stroke, pinch, pan, undo, redo] as [UIGestureRecognizer] {
+        let hover = UIHoverGestureRecognizer(target: coordinator, action: #selector(Coordinator.hover(_:)))
+        for recognizer in [stroke, pinch, pan, undo, redo, hover] as [UIGestureRecognizer] {
             recognizer.delegate = coordinator
             view.addGestureRecognizer(recognizer)
         }
@@ -106,6 +110,15 @@ struct CanvasInteraction: UIViewRepresentable {
                 lastPanTranslation = translation
             default:
                 break
+            }
+        }
+
+        @objc func hover(_ recognizer: UIHoverGestureRecognizer) {
+            switch recognizer.state {
+            case .began, .changed:
+                parent.hovered(recognizer.location(in: recognizer.view))
+            default:
+                parent.hovered(nil)
             }
         }
 

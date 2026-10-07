@@ -59,3 +59,31 @@ struct KeyboardCommandTests {
         #expect(abs(state.zoom - 1) < 0.0001)
     }
 }
+
+@MainActor
+@Suite("Pencil hover")
+struct HoverTests {
+    @Test func aHoveringPencilShowsTheBrushOnlyForBrushTools() {
+        let state = EditorState()
+        state.attach(to: .blank(size: CGSize(width: 40, height: 20))) { _ in }
+        state.tool = .brush
+        state.brush.size = 12
+        state.hoverPoint = CGPoint(x: 5, y: 6)
+        #expect(state.brushOutline?.center == CGPoint(x: 5, y: 6))
+        #expect(state.brushOutline?.diameter == 12)
+        state.tool = .move
+        #expect(state.brushOutline == nil)
+        state.tool = .liquify
+        #expect(state.brushOutline?.diameter == state.liquifyBrush.size)
+    }
+
+    @Test func touchingDownEndsTheHover() {
+        let state = EditorState()
+        state.attach(to: .blank(size: CGSize(width: 40, height: 20))) { _ in }
+        state.tool = .brush
+        state.hoverPoint = CGPoint(x: 5, y: 6)
+        state.toolBegan(at: CGPoint(x: 5, y: 6), pressure: 1)
+        #expect(state.hoverPoint == nil)
+        #expect(state.brushOutline == nil)
+    }
+}

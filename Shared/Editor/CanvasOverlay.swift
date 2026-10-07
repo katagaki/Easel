@@ -85,7 +85,15 @@ struct CanvasOverlay: View {
         }
 
         if state.tool == .clone, let source = state.cloneSource {
-            drawCloneSource(at: currentCloneSource ?? source, in: &context, transform: transform)
+            drawCloneSource(at: currentCloneSource ?? hoveredCloneSource ?? source, in: &context, transform: transform)
+        }
+
+        if let outline = state.brushOutline {
+            let center = outline.center.applying(transform)
+            let radius = max(2, outline.diameter * viewport.scale / 2)
+            let ring = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+            context.stroke(ring, with: .color(.black.opacity(0.5)), lineWidth: 2.5)
+            context.stroke(ring, with: .color(.white), lineWidth: 1)
         }
 
         if let crop = state.cropRect {
@@ -214,6 +222,13 @@ struct CanvasOverlay: View {
         guard let stroke = state.activeStroke, case .clone(let offset) = stroke.kind,
               let point = stroke.points.last?.location else { return nil }
         return CGPoint(x: point.x + offset.dx, y: point.y + offset.dy)
+    }
+
+    /// Where the clone stamp would copy from if the hovering pencil came
+    /// down, once the offset is set.
+    private var hoveredCloneSource: CGPoint? {
+        guard let hover = state.hoverPoint, let offset = state.cloneOffset else { return nil }
+        return CGPoint(x: hover.x + offset.dx, y: hover.y + offset.dy)
     }
 
     /// A crosshair in a ring, the size of the brush.

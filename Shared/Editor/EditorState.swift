@@ -56,6 +56,8 @@ final class EditorState {
     var showsRulers = false
     /// Whether the canvas shows the picture as it was opened, for comparing.
     var isComparing = false
+    /// Where Apple Pencil or the pointer hovers over the canvas.
+    var hoverPoint: CGPoint?
     /// A guide being pulled out of a ruler.
     var draftGuide: Guide?
     /// The guide the Move tool is dragging.
@@ -433,6 +435,15 @@ final class EditorState {
         }
     }
 
+    /// The brush's outline under a hovering pencil or pointer, in canvas
+    /// pixels, when the tool in hand paints with a brush.
+    var brushOutline: (center: CGPoint, diameter: Double)? {
+        guard let hoverPoint, activeStroke == nil, tool.usesStrokes || tool == .smudge || tool == .liquify else {
+            return nil
+        }
+        return (hoverPoint, currentBrush.size)
+    }
+
     /// What a stroke made with the tool in hand does.
     var strokeKind: Stroke.Kind {
         switch tool {
@@ -478,6 +489,8 @@ final class EditorState {
 
     /// A finger or pencil came down on the canvas.
     func toolBegan(at point: CGPoint, pressure: Double, azimuth: Double? = nil, altitude: Double? = nil) {
+        // Touching down ends a hover.
+        hoverPoint = nil
         // An adjustment being tried stands in for the layer; painting under
         // it would be hidden, then lost when it is applied.
         guard layerPreview == nil else { return }
