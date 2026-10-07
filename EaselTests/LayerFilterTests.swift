@@ -202,3 +202,99 @@ struct ToneFilterTests {
         #expect(try JSONDecoder().decode(LayerFilter.self, from: data) == filter)
     }
 }
+
+struct ColorFilterTests {
+    private func grey(_ v: Double, size: CGSize = CGSize(width: 8, height: 8)) -> Layer {
+        let image = Bitmap.render(size: size) { context in
+            context.setFillColor(CGColor(colorSpace: Bitmap.colorSpace, components: [v, v, v, 1])!)
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+        return Layer(name: "Grey", image: LayerImage(image), canvasSize: size)
+    }
+
+    @Test func neutralBalanceChangesNothing() {
+        var layer = grey(0.5)
+        layer.filters = [LayerFilter(kind: .colorBalance)]
+        let pixel = TestImages.pixel(layer.renderedImage, x: 4, y: 4)
+        #expect(abs(pixel.red - 128) < 4 && abs(pixel.blue - 128) < 4)
+    }
+
+    @Test func balanceTowardsRedWarmsMidtonesButNotBlack() {
+        var layer = grey(0.5)
+        var filter = LayerFilter(kind: .colorBalance)
+        filter.balance = [1, 0, -1]
+        layer.filters = [filter]
+        let pixel = TestImages.pixel(layer.renderedImage, x: 4, y: 4)
+        #expect(pixel.red > 150)
+        #expect(pixel.blue < 105)
+        #expect(abs(pixel.green - 128) < 4)
+
+        var black = grey(0)
+        black.filters = [filter]
+        #expect(TestImages.pixel(black.renderedImage, x: 4, y: 4).red < 3)
+    }
+
+    @Test func gradientMapTurnsShadesIntoItsColours() {
+        var filter = LayerFilter(kind: .gradientMap)
+        filter.shadowColor = RGBAColor(red: 0, green: 0, blue: 1)
+        filter.highlightColor = RGBAColor(red: 1, green: 0, blue: 0)
+        var dark = grey(0)
+        dark.filters = [filter]
+        let shadow = TestImages.pixel(dark.renderedImage, x: 4, y: 4)
+        #expect(shadow.blue > 240 && shadow.red < 15)
+        var light = grey(1)
+        light.filters = [filter]
+        let highlight = TestImages.pixel(light.renderedImage, x: 4, y: 4)
+        // Pure sRGB red, as Display P3 numbers.
+        #expect(highlight.red > 225 && highlight.green < 70 && highlight.blue < 50)
+    }
+
+    @Test func gradientMapKeepsTransparencyAndMixesByAmount() {
+        let size = CGSize(width: 8, height: 8)
+        let image = Bitmap.render(size: size) { context in
+            context.setFillColor(CGColor(colorSpace: Bitmap.colorSpace, components: [1, 1, 1, 1])!)
+            context.fill(CGRect(x: 0, y: 0, width: 4, height: 8))
+        }
+        var layer = Layer(name: "Half", image: LayerImage(image), canvasSize: size)
+        var filter = LayerFilter(kind: .gradientMap)
+        filter.highlightColor = RGBAColor(red: 1, green: 0, blue: 0)
+        filter.amount = 0.5
+        layer.filters = [filter]
+        #expect(TestImages.pixel(layer.renderedImage, x: 6, y: 4).alpha < 3)
+        let mixed = TestImages.pixel(layer.renderedImage, x: 1, y: 4)
+        #expect(mixed.red > 240)
+        #expect(mixed.green > 100 && mixed.green < 220)
+    }
+
+    @Test func lensBlurAndNoiseReductionKeepAFlatImageFlat() {
+        for kind in [LayerFilter.Kind.lensBlur, .noiseReduction] {
+            var layer = grey(0.5, size: CGSize(width: 64, height: 64))
+            layer.filters = [LayerFilter(kind: kind)]
+            let pixel = TestImages.pixel(layer.renderedImage, x: 32, y: 32)
+            #expect(abs(pixel.red - 128) < 6, "\(kind)")
+            #expect(pixel.alpha > 250, "\(kind)")
+        }
+    }
+
+    @Test func lensBlurSoftensAnEdge() {
+        let size = CGSize(width: 200, height: 20)
+        let image = Bitmap.render(size: size) { context in
+            context.setFillColor(CGColor(colorSpace: Bitmap.colorSpace, components: [0, 0, 0, 1])!)
+            context.fill(CGRect(origin: .zero, size: size))
+            context.setFillColor(CGColor(colorSpace: Bitmap.colorSpace, components: [1, 1, 1, 1])!)
+            context.fill(CGRect(x: 100, y: 0, width: 100, height: 20))
+        }
+        var layer = Layer(name: "Edge", image: LayerImage(image), canvasSize: size)
+        layer.filters = [LayerFilter(kind: .lensBlur)]
+        let value = TestImages.pixel(layer.renderedImage, x: 99, y: 10).red
+        #expect(value > 20 && value < 235)
+    }
+
+    @Test func newFilterSettingsAreSaved() throws {
+        var filter = LayerFilter(kind: .gradientMap)
+        filter.shadowColor = RGBAColor(red: 0.1, green: 0.2, blue: 0.3)
+        filter.balance = [0.5, -0.2, 0.1]
+        let data = try JSONEncoder().encode(filter)
+        #expect(try JSONDecoder().decode(LayerFilter.self, from: data) == filter)
+    }
+}

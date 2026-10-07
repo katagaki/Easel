@@ -7,8 +7,8 @@ import Foundation
 struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
     enum Kind: String, Codable, CaseIterable, Identifiable, Sendable {
         case blackAndWhite, sepia, saturation, brightness, contrast
-        case levels, curves
-        case gaussianBlur, motionBlur, zoomBlur, mosaic
+        case levels, curves, colorBalance, gradientMap
+        case gaussianBlur, motionBlur, zoomBlur, lensBlur, noiseReduction, mosaic
 
         var id: String { rawValue }
 
@@ -16,8 +16,8 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
         /// the add menu groups them.
         static let groups: [[Kind]] = [
             [.blackAndWhite, .sepia, .saturation, .brightness, .contrast],
-            [.levels, .curves],
-            [.gaussianBlur, .motionBlur, .zoomBlur, .mosaic],
+            [.levels, .curves, .colorBalance, .gradientMap],
+            [.gaussianBlur, .motionBlur, .zoomBlur, .lensBlur, .noiseReduction, .mosaic],
         ]
 
         var label: String {
@@ -29,9 +29,13 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
             case .contrast: return String(localized: "LayerFilter.Contrast")
             case .levels: return String(localized: "LayerFilter.Levels")
             case .curves: return String(localized: "LayerFilter.Curves")
+            case .colorBalance: return String(localized: "LayerFilter.ColorBalance")
+            case .gradientMap: return String(localized: "LayerFilter.GradientMap")
             case .gaussianBlur: return String(localized: "LayerFilter.GaussianBlur")
             case .motionBlur: return String(localized: "LayerFilter.MotionBlur")
             case .zoomBlur: return String(localized: "LayerFilter.ZoomBlur")
+            case .lensBlur: return String(localized: "LayerFilter.LensBlur")
+            case .noiseReduction: return String(localized: "LayerFilter.NoiseReduction")
             case .mosaic: return String(localized: "LayerFilter.Mosaic")
             }
         }
@@ -45,9 +49,13 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
             case .contrast: return "circle.lefthalf.filled"
             case .levels: return "chart.bar.fill"
             case .curves: return "point.bottomleft.forward.to.point.topright.scurvepath"
+            case .colorBalance: return "paintpalette"
+            case .gradientMap: return "swatchpalette"
             case .gaussianBlur: return "aqi.medium"
             case .motionBlur: return "wind"
             case .zoomBlur: return "scope"
+            case .lensBlur: return "camera.aperture"
+            case .noiseReduction: return "wand.and.stars"
             case .mosaic: return "square.grid.3x3.fill"
             }
         }
@@ -64,17 +72,17 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
         /// Where a new filter starts: enough to see it working.
         var defaultAmount: Double {
             switch self {
-            case .blackAndWhite, .sepia, .levels, .curves: return 1
+            case .blackAndWhite, .sepia, .levels, .curves, .colorBalance, .gradientMap: return 1
             case .saturation: return 0.5
             case .brightness: return 0.2
             case .contrast: return 0.3
-            case .gaussianBlur, .motionBlur, .zoomBlur, .mosaic: return 0.3
+            case .gaussianBlur, .motionBlur, .zoomBlur, .lensBlur, .noiseReduction, .mosaic: return 0.3
             }
         }
 
         var hasAngle: Bool { self == .motionBlur }
         /// Filters set with their own controls rather than one amount.
-        var hasAmount: Bool { self != .levels && self != .curves }
+        var hasAmount: Bool { ![.levels, .curves, .colorBalance].contains(self) }
         var hasCenter: Bool { self == .zoomBlur }
     }
 
@@ -96,8 +104,17 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
     var gamma: Double?
     /// Curves: the output at inputs 0, ¼, ½, ¾ and 1.
     var curve: [Double]?
+    /// Colour balance: how far the midtones lean to red, green and blue,
+    /// each from -1 (cyan, magenta, yellow) to 1.
+    var balance: [Double]?
+    /// Gradient map: the colours the darkest and lightest shades become.
+    var shadowColor: RGBAColor?
+    var highlightColor: RGBAColor?
 
     static let straightCurve = [0, 0.25, 0.5, 0.75, 1.0]
+    static let neutralBalance = [0.0, 0, 0]
+    static let defaultShadowColor = RGBAColor(red: 0.16, green: 0.05, blue: 0.35)
+    static let defaultHighlightColor = RGBAColor(red: 1, green: 0.78, blue: 0.45)
 
     init(kind: Kind) {
         self.kind = kind

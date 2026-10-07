@@ -124,6 +124,8 @@ private struct FilterRow: View {
             }
             Group {
                 if filter.kind == .levels { levelsControls }
+                if filter.kind == .colorBalance { balanceControls }
+                if filter.kind == .gradientMap { gradientControls }
                 if filter.kind == .curves {
                     CurveEditor(values: filter.curve ?? LayerFilter.straightCurve) { values in
                         state.updateFilter(filter.id) { $0.curve = values }
@@ -196,6 +198,44 @@ private struct FilterRow: View {
         LabeledSlider(
             label: "LayerFilters.White", value: optionalBinding(\.white, default: 1), range: 0.1...1,
             valueText: "\(Int(((filter.white ?? 1) * 255).rounded()))"
+        )
+    }
+
+    @ViewBuilder
+    private var balanceControls: some View {
+        let labels: [LocalizedStringKey] = ["LayerFilters.CyanRed", "LayerFilters.MagentaGreen", "LayerFilters.YellowBlue"]
+        ForEach(0..<3, id: \.self) { channel in
+            LabeledSlider(
+                label: labels[channel],
+                value: Binding(
+                    get: { (filter.balance ?? LayerFilter.neutralBalance)[channel] },
+                    set: { value in
+                        state.updateFilter(filter.id) { filter in
+                            var balance = filter.balance ?? LayerFilter.neutralBalance
+                            balance[channel] = value
+                            filter.balance = balance
+                        }
+                    }
+                ),
+                range: -1...1,
+                valueText: "\(Int(((filter.balance ?? LayerFilter.neutralBalance)[channel] * 100).rounded()))"
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var gradientControls: some View {
+        HStack(spacing: 16) {
+            ColorPicker("LayerFilters.Shadows", selection: colorBinding(\.shadowColor, default: LayerFilter.defaultShadowColor), supportsOpacity: false)
+            ColorPicker("LayerFilters.Highlights", selection: colorBinding(\.highlightColor, default: LayerFilter.defaultHighlightColor), supportsOpacity: false)
+        }
+        .font(.subheadline)
+    }
+
+    private func colorBinding(_ keyPath: WritableKeyPath<LayerFilter, RGBAColor?>, default fallback: RGBAColor) -> Binding<Color> {
+        Binding(
+            get: { (filter[keyPath: keyPath] ?? fallback).color },
+            set: { value in state.updateFilter(filter.id) { $0[keyPath: keyPath] = RGBAColor(value) } }
         )
     }
 

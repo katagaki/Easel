@@ -63,6 +63,37 @@ extension LayerFilter {
             filter.point3 = CGPoint(x: 0.75, y: values[3])
             filter.point4 = CGPoint(x: 1, y: values[4])
             output = filter.outputImage ?? input
+        case .colorBalance:
+            // Each channel's midtones bent by x + k·x(1 - x), which leaves
+            // black and white where they are; on shades as they look.
+            let values = (balance?.count == 3 ? balance! : Self.neutralBalance).map { min(max($0, -1), 1) * 0.5 }
+            func coefficients(_ k: Double) -> CIVector { CIVector(x: 0, y: 1 + k, z: -k, w: 0) }
+            let filter = CIFilter.colorPolynomial()
+            filter.inputImage = input.unpremultiplyingAlpha().applyingFilter("CILinearToSRGBToneCurve")
+            filter.redCoefficients = coefficients(values[0])
+            filter.greenCoefficients = coefficients(values[1])
+            filter.blueCoefficients = coefficients(values[2])
+            filter.alphaCoefficients = CIVector(x: 0, y: 1, z: 0, w: 0)
+            output = filter.outputImage?.applyingFilter("CISRGBToneCurveToLinear").premultiplyingAlpha() ?? input
+        case .gradientMap:
+            let space = CGColorSpace(name: CGColorSpace.extendedSRGB)!
+            func ciColor(_ color: RGBAColor) -> CIColor {
+                CIColor(red: color.red, green: color.green, blue: color.blue, alpha: 1, colorSpace: space)
+                    ?? CIColor(red: color.red, green: color.green, blue: color.blue)
+            }
+            let map = CIFilter.falseColor()
+            map.inputImage = input
+            map.color0 = ciColor(shadowColor ?? Self.defaultShadowColor)
+            map.color1 = ciColor(highlightColor ?? Self.defaultHighlightColor)
+            // False colour fills transparent pixels too; the layer's own
+            // shape is kept by masking the result with its alpha.
+            guard let mapped = map.outputImage else { output = input; break }
+            let shaped = mapped.applyingFilter("CISourceInCompositing", parameters: [kCIInputBackgroundImageKey: input])
+            let mix = CIFilter.dissolveTransition()
+            mix.inputImage = input
+            mix.targetImage = shaped
+            mix.time = Float(min(max(amount, 0), 1))
+            output = mix.outputImage ?? input
         case .gaussianBlur:
             // Clamped first so the edges blur into themselves rather than
             // into transparency.
@@ -86,6 +117,21 @@ extension LayerFilter {
             filter.center = CGPoint(
                 x: extent.minX + centerX * extent.width, y: extent.minY + (1 - centerY) * extent.height
             )
+            output = filter.outputImage ?? input
+        case .lensBlur:
+            // Round highlights, as from a wide-open lens.
+            let filter = CIFilter.bokehBlur()
+            filter.inputImage = input.clampedToExtent()
+            filter.radius = Float(amount * 40 * unit)
+            filter.ringAmount = 0
+            filter.ringSize = 0.1
+            filter.softness = 1
+            output = filter.outputImage ?? input
+        case .noiseReduction:
+            let filter = CIFilter.noiseReduction()
+            filter.inputImage = input.clampedToExtent()
+            filter.noiseLevel = Float(amount * 0.1)
+            filter.sharpness = 0.4
             output = filter.outputImage ?? input
         case .mosaic:
             let filter = CIFilter.pixellate()
