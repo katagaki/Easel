@@ -9,8 +9,8 @@
         {
           "glass": true,
           "hidden": false,
-          "image-name": "Layers.svg",
-          "name": "Layers",
+          "image-name": "Front.svg",
+          "name": "Front",
           "position-specializations": [
             {
               "value": {
@@ -31,7 +31,64 @@
                 ]
               }
             }
-          ]
+          ],
+          "opacity": 0.95
+        },
+        {
+          "glass": true,
+          "hidden": false,
+          "image-name": "Middle.svg",
+          "name": "Middle",
+          "position-specializations": [
+            {
+              "value": {
+                "scale": 1,
+                "translation-in-points": [
+                  0,
+                  0
+                ]
+              }
+            },
+            {
+              "idiom": "square",
+              "value": {
+                "scale": 1.15,
+                "translation-in-points": [
+                  0,
+                  0
+                ]
+              }
+            }
+          ],
+          "opacity": 0.6
+        },
+        {
+          "glass": true,
+          "hidden": false,
+          "image-name": "Back.svg",
+          "name": "Back",
+          "position-specializations": [
+            {
+              "value": {
+                "scale": 1,
+                "translation-in-points": [
+                  0,
+                  0
+                ]
+              }
+            },
+            {
+              "idiom": "square",
+              "value": {
+                "scale": 1.15,
+                "translation-in-points": [
+                  0,
+                  0
+                ]
+              }
+            }
+          ],
+          "opacity": 0.35
         }
       ],
       "shadow": {
