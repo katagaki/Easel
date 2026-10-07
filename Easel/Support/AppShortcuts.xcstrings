@@ -1,0 +1,186 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Convert an image with ${applicationName}": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Convert an image with ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} で画像を変換"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}로 이미지 변환"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 转换图像"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 轉換影像"
+            ]
+          }
+        }
+      }
+    },
+    "Cut out a subject with ${applicationName}": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Cut out a subject with ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} で被写体を切り抜く"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}로 피사체 오려내기"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 抠出主体"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 去背主體"
+            ]
+          }
+        }
+      }
+    },
+    "Remove the background with ${applicationName}": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Remove the background with ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} で背景を削除"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}로 배경 제거"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 移除背景"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 移除背景"
+            ]
+          }
+        }
+      }
+    },
+    "Resize an image with ${applicationName}": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Resize an image with ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} で画像のサイズを変更"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}로 이미지 크기 조절"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 调整图像大小"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "用 ${applicationName} 調整影像大小"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

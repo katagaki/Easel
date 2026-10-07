@@ -374,6 +374,24 @@ S = {
 "History.Filters": ("Filters", "フィルタ", "필터", "滤镜", "濾鏡"),
 "History.Rename": ("Rename", "名前を変更", "이름 변경", "重新命名", "重新命名"),
 "History.Visibility": ("Show or Hide", "表示/非表示", "보기/가리기", "显示或隐藏", "顯示或隱藏"),
+"Intent.DefaultName": ("Image", "画像", "이미지", "图像", "影像"),
+"Intent.Error.NoSize": ("Give a width, a height or both.", "幅か高さ、または両方を指定してください。", "너비나 높이 또는 둘 다 지정하십시오.", "请指定宽度、高度或两者。", "請指定寬度、高度或兩者。"),
+"Intent.Format.Type": ("Format", "フォーマット", "포맷", "格式", "格式"),
+"Intent.Parameter.Image": ("Image", "画像", "이미지", "图像", "影像"),
+"Intent.Parameter.Width": ("Width", "幅", "너비", "宽度", "寬度"),
+"Intent.Parameter.Height": ("Height", "高さ", "높이", "高度", "高度"),
+"Intent.Parameter.KeepProportions": ("Keep Proportions", "縦横比を保持", "비율 유지", "保持比例", "保持比例"),
+"Intent.Parameter.Format": ("Format", "フォーマット", "포맷", "格式", "格式"),
+"Intent.Parameter.Quality": ("Quality", "画質", "품질", "质量", "品質"),
+"Intent.Resize.Title": ("Resize Image", "画像のサイズを変更", "이미지 크기 조절", "调整图像大小", "調整影像大小"),
+"Intent.Resize.Description": ("Scales an image to a new width or height, or both.", "画像を新しい幅や高さ、またはその両方に拡大・縮小します。", "이미지를 새 너비나 높이 또는 둘 다로 조절합니다.", "将图像缩放到新的宽度、高度或两者。", "將影像縮放到新的寬度、高度或兩者。"),
+"Intent.Resize.Summary ${image} ${width} ${height}": ("Resize ${image} to ${width} × ${height}", "${image}を${width} × ${height}にサイズ変更", "${image}의 크기를 ${width} × ${height}(으)로 조절", "将${image}调整为${width} × ${height}", "將${image}調整為${width} × ${height}"),
+"Intent.Convert.Title": ("Convert Image", "画像を変換", "이미지 변환", "转换图像", "轉換影像"),
+"Intent.Convert.Description": ("Writes an image, or a flattened Photoshop document, in another format.", "画像や統合したPhotoshop書類を別のフォーマットで書き出します。", "이미지나 병합된 Photoshop 문서를 다른 포맷으로 저장합니다.", "以另一种格式写出图像或拼合的 Photoshop 文稿。", "以另一種格式寫出影像或合併的 Photoshop 文件。"),
+"Intent.Convert.Summary ${image} ${format}": ("Convert ${image} to ${format}", "${image}を${format}に変換", "${image}을(를) ${format}(으)로 변환", "将${image}转换为${format}", "將${image}轉換為${format}"),
+"Intent.RemoveBackground.Title": ("Remove Background", "背景を削除", "배경 제거", "移除背景", "移除背景"),
+"Intent.RemoveBackground.Description": ("Keeps the people, animals and objects in an image and makes the rest transparent.", "画像内の人物、動物、物体を残し、それ以外を透明にします。", "이미지의 사람, 동물, 사물을 남기고 나머지를 투명하게 만듭니다.", "保留图像中的人物、动物和物体，其余部分变为透明。", "保留影像中的人物、動物和物體，其餘部分變為透明。"),
+"Intent.RemoveBackground.Summary ${image}": ("Remove the background from ${image}", "${image}の背景を削除", "${image}의 배경 제거", "移除${image}的背景", "移除${image}的背景"),
 "Options.Snap": ("Snap to Guides", "ガイドにスナップ", "가이드에 스냅", "对齐参考线", "對齊參考線"),
 "Symmetry.Title": ("Symmetry", "対称", "대칭", "对称", "對稱"),
 "Symmetry.Off": ("Off", "オフ", "끔", "关", "關閉"),
@@ -428,4 +446,18 @@ INFO = {
 }
 with open(os.path.join(root, "Easel/Support/InfoPlist.xcstrings"), "w") as f:
     json.dump(catalog(INFO), f, ensure_ascii=False, indent=2)
+# Siri phrases: each language's ways of asking, which keep the app's name.
+SHORTCUTS = {
+"Remove the background with ${applicationName}": ("Remove the background with ${applicationName}", "${applicationName} で背景を削除", "${applicationName}로 배경 제거", "用 ${applicationName} 移除背景", "用 ${applicationName} 移除背景"),
+"Cut out a subject with ${applicationName}": ("Cut out a subject with ${applicationName}", "${applicationName} で被写体を切り抜く", "${applicationName}로 피사체 오려내기", "用 ${applicationName} 抠出主体", "用 ${applicationName} 去背主體"),
+"Resize an image with ${applicationName}": ("Resize an image with ${applicationName}", "${applicationName} で画像のサイズを変更", "${applicationName}로 이미지 크기 조절", "用 ${applicationName} 调整图像大小", "用 ${applicationName} 調整影像大小"),
+"Convert an image with ${applicationName}": ("Convert an image with ${applicationName}", "${applicationName} で画像を変換", "${applicationName}로 이미지 변환", "用 ${applicationName} 转换图像", "用 ${applicationName} 轉換影像"),
+}
+phrases = {}
+for key in sorted(SHORTCUTS):
+    phrases[key] = {"extractionState": "manual", "localizations": {
+        lang: {"stringSet": {"state": "translated", "values": [value]}}
+        for lang, value in zip(LANGS, SHORTCUTS[key])}}
+with open(os.path.join(root, "Easel/Support/AppShortcuts.xcstrings"), "w") as f:
+    json.dump({"sourceLanguage": "en", "strings": phrases, "version": "1.0"}, f, ensure_ascii=False, indent=2)
 print(len(S), "strings")
