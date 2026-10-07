@@ -72,6 +72,7 @@ S = {
 "Export.Easel": ("Easel Image (Layers)", "Easel画像（レイヤー付き）", "Easel 이미지(레이어 포함)", "Easel 图像（含图层）", "Easel 影像（含圖層）"),
 "Export.HEIC": ("HEIC", "HEIC", "HEIC", "HEIC", "HEIC"),
 "Export.JPEG": ("JPEG", "JPEG", "JPEG", "JPEG", "JPEG"),
+"Export.PSD": ("Photoshop (Layers)", "Photoshop（レイヤー付き）", "Photoshop(레이어 포함)", "Photoshop（含图层）", "Photoshop（含圖層）"),
 "Export.PNG": ("PNG", "PNG", "PNG", "PNG", "PNG"),
 "Export.SaveToPhotos": ("Save to Photos", "写真に保存", "사진에 저장", "存储到照片", "儲存到照片"),
 "Export.ShareAs": ("Share As", "共有する形式", "공유 형식", "共享格式", "分享格式"),

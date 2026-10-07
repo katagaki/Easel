@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 /// once a destination is picked.
 struct CompositionExport: Transferable, Sendable {
     enum Format: String, CaseIterable, Identifiable, Sendable {
-        case png, jpeg, heic, easel
+        case png, jpeg, heic, psd, easel
 
         var id: String { rawValue }
 
@@ -16,6 +16,7 @@ struct CompositionExport: Transferable, Sendable {
             case .png: return .png
             case .jpeg: return .jpeg
             case .heic: return .heic
+            case .psd: return .photoshopImage
             case .easel: return .easelImage
             }
         }
@@ -25,6 +26,7 @@ struct CompositionExport: Transferable, Sendable {
             case .png: return "png"
             case .jpeg: return "jpg"
             case .heic: return "heic"
+            case .psd: return "psd"
             case .easel: return "easel"
             }
         }
@@ -34,6 +36,7 @@ struct CompositionExport: Transferable, Sendable {
             case .png: return "Export.PNG"
             case .jpeg: return "Export.JPEG"
             case .heic: return "Export.HEIC"
+            case .psd: return "Export.PSD"
             case .easel: return "Export.Easel"
             }
         }
@@ -47,6 +50,7 @@ struct CompositionExport: Transferable, Sendable {
         representation(for: .png)
         representation(for: .jpeg)
         representation(for: .heic)
+        representation(for: .psd)
         representation(for: .easel)
     }
 
@@ -66,6 +70,8 @@ struct CompositionExport: Transferable, Sendable {
         let url = folder.appending(path: "\(sanitizedName).\(format.pathExtension)")
         if format == .easel {
             try CompositionArchive.fileWrapper(for: composition).write(to: url, originalContentsURL: nil)
+        } else if format == .psd {
+            try PSDWriter.data(for: composition).write(to: url, options: .atomic)
         } else {
             try ImageCodec.encode(CompositionRenderer.render(composition), as: format.contentType)
                 .write(to: url, options: .atomic)

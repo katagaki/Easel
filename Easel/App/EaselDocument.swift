@@ -14,10 +14,11 @@ extension UTType {
 /// or a plain picture file edited where it lies — which keeps its format
 /// and so is flattened when it is saved.
 struct EaselDocument: FileDocument {
-    /// Photoshop and Pixelmator Pro files open but are not written back:
-    /// Keep Layers turns them into an Easel image.
+    /// Photoshop files are written back with their layers. Pixelmator Pro
+    /// files open but are not written back: Keep Layers turns them into an
+    /// Easel image.
     static let readableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic, .photoshopImage, .pixelmatorProImage]
-    static let writableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic]
+    static let writableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic, .photoshopImage]
 
     var composition: Composition
 
@@ -46,6 +47,9 @@ struct EaselDocument: FileDocument {
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        if configuration.contentType.conforms(to: .photoshopImage) {
+            return FileWrapper(regularFileWithContents: try PSDWriter.data(for: composition))
+        }
         // Only a picture format named outright is flattened; anything else,
         // including a type the system has not resolved yet, keeps the layers.
         guard let type = Self.pictureType(for: configuration.contentType) else {

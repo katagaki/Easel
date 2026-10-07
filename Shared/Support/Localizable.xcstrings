@@ -2626,6 +2626,41 @@
         }
       }
     },
+    "Export.PSD": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photoshop (Layers)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photoshop（レイヤー付き）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photoshop(레이어 포함)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photoshop（含图层）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photoshop（含圖層）"
+          }
+        }
+      }
+    },
     "Export.SaveToPhotos": {
       "extractionState": "manual",
       "localizations": {

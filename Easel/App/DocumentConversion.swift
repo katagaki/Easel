@@ -5,7 +5,8 @@ import Foundation
 /// so the open document follows it and from then on saves as a package.
 enum DocumentConversion {
     static func canConvert(_ fileURL: URL) -> Bool {
-        fileURL.pathExtension.lowercased() != "easel"
+        // Photoshop files keep their layers as they are.
+        !["easel", "psd"].contains(fileURL.pathExtension.lowercased())
     }
 
     /// Moves the file to an `.easel` name beside it and writes the
