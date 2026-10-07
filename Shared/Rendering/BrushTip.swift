@@ -96,7 +96,14 @@ extension Stroke {
         guard let first = points.first else { return [] }
         var random = SeededRandom(seed: UInt64(points.count == 1 ? 1 : 7))
         func dab(at point: StrokePoint) -> BrushDab {
-            let diameter = max(1, width(at: point))
+            var diameter = max(1, width(at: point))
+            var opacity = tip.flow
+            // Laid on its side, a dry tip shades broad and light.
+            if tip.grain > 0 {
+                let lean = tilt(at: point)
+                diameter *= 1 + lean * 1.5
+                opacity *= 1 - lean * 0.45
+            }
             var center = point.location
             var angle = tip == .calligraphy ? nibAngle(at: point) : random.next() * 2 * .pi
             if tip == .chalk {
@@ -105,7 +112,7 @@ extension Stroke {
             }
             if tip == .round { angle = 0 }
             return BrushDab(
-                center: center, diameter: diameter, angle: angle, roundness: tip.roundness, opacity: tip.flow
+                center: center, diameter: diameter, angle: angle, roundness: tip.roundness, opacity: opacity
             )
         }
         var result = [dab(at: first)]
@@ -120,7 +127,7 @@ extension Stroke {
             while true {
                 let t = travelled / length
                 let pressure = from.pressure + (to.pressure - from.pressure) * t
-                let probe = StrokePoint(location: from.location, pressure: pressure)
+                let probe = StrokePoint(location: from.location, pressure: pressure, azimuth: to.azimuth, altitude: to.altitude)
                 let step = max(0.5, width(at: probe) * tip.spacing)
                 let needed = step - carried
                 guard travelled + needed <= length else {
@@ -135,16 +142,27 @@ extension Stroke {
                         x: from.location.x + (to.location.x - from.location.x) * at,
                         y: from.location.y + (to.location.y - from.location.y) * at
                     ),
-                    pressure: from.pressure + (to.pressure - from.pressure) * at
+                    pressure: from.pressure + (to.pressure - from.pressure) * at,
+                    azimuth: to.azimuth, altitude: to.altitude
                 )))
             }
         }
         return result
     }
 
-    /// The angle a flat nib lies at for this point.
+    /// The angle a flat nib lies at for this point: across the way Apple
+    /// Pencil leans, as a chisel tip's edge is, or the usual slant.
     private func nibAngle(at point: StrokePoint) -> Double {
-        BrushTip.nibAngle
+        guard settings.usesTilt, let azimuth = point.azimuth else { return BrushTip.nibAngle }
+        return azimuth + .pi / 2
+    }
+
+    /// How far Apple Pencil is laid over, 0 when held upright to past 60°,
+    /// up to 1 lying flat.
+    private func tilt(at point: StrokePoint) -> Double {
+        guard settings.usesTilt, let altitude = point.altitude else { return 0 }
+        let upright = Double.pi / 3
+        return min(max((upright - altitude) / upright, 0), 1)
     }
 
     /// How large the paper's grain is on the canvas, for this brush: finer

@@ -20,6 +20,24 @@ struct BrushTipTests {
         #expect(dabs.allSatisfy { $0.diameter == 10 })
     }
 
+    @Test func aTiltedPencilShadesBroadAndLight() {
+        var tilted = stroke(.pencil)
+        tilted.points = tilted.points.map { var point = $0; point.altitude = 0.2; point.azimuth = 0; return point }
+        let upright = stroke(.pencil).dabs[0], flat = tilted.dabs[0]
+        #expect(flat.diameter > upright.diameter * 1.8)
+        #expect(flat.opacity < upright.opacity)
+        tilted.settings.usesTilt = false
+        #expect(tilted.dabs[0].diameter == upright.diameter)
+    }
+
+    @Test func aCalligraphyNibTurnsWithThePencil() {
+        var leaning = stroke(.calligraphy)
+        leaning.points = leaning.points.map { var point = $0; point.azimuth = 0.3; point.altitude = 0.8; return point }
+        #expect(abs(leaning.dabs[0].angle - (0.3 + .pi / 2)) < 0.0001)
+        // A finger keeps the usual slant.
+        #expect(stroke(.calligraphy).dabs[0].angle == BrushTip.nibAngle)
+    }
+
     @Test func dabsComeOutTheSameEachTime() {
         #expect(stroke(.chalk).dabs == stroke(.chalk).dabs)
     }

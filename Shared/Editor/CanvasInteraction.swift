@@ -8,8 +8,8 @@ import UIKit
 /// since it was the start of a pinch. Tapping with two fingers undoes and
 /// with three redoes, as in other drawing apps.
 struct CanvasInteraction: UIViewRepresentable {
-    var began: (CGPoint, Double) -> Void
-    var moved: ([(CGPoint, Double)]) -> Void
+    var began: (StrokeGestureRecognizer.Sample) -> Void
+    var moved: ([StrokeGestureRecognizer.Sample]) -> Void
     var ended: (Bool, CGPoint) -> Void
     var cancelled: () -> Void
     var zoomed: (Double, CGPoint) -> Void
@@ -59,17 +59,17 @@ struct CanvasInteraction: UIViewRepresentable {
             switch recognizer.state {
             case .began:
                 if let first = recognizer.samples.first {
-                    parent.began(first.location, first.pressure)
-                    let rest = recognizer.samples.dropFirst().map { ($0.location, $0.pressure) }
+                    parent.began(first)
+                    let rest = Array(recognizer.samples.dropFirst())
                     if !rest.isEmpty { parent.moved(rest) }
                 }
                 recognizer.samples.removeAll()
             case .changed:
-                parent.moved(recognizer.samples.map { ($0.location, $0.pressure) })
+                parent.moved(recognizer.samples)
                 recognizer.samples.removeAll()
             case .ended:
                 if !recognizer.samples.isEmpty {
-                    parent.moved(recognizer.samples.map { ($0.location, $0.pressure) })
+                    parent.moved(recognizer.samples)
                     recognizer.samples.removeAll()
                 }
                 parent.ended(recognizer.isTap, recognizer.lastLocation)
@@ -141,12 +141,15 @@ private extension UIGestureRecognizer {
 }
 
 /// Follows a single touch closely enough to draw with: every coalesced
-/// sample, with Apple Pencil pressure. Begins at once so a stroke starts
+/// sample, with Apple Pencil pressure and tilt. Begins at once so a stroke starts
 /// where the finger landed, and cancels if a second finger arrives.
 final class StrokeGestureRecognizer: UIGestureRecognizer {
     struct Sample {
         var location: CGPoint
         var pressure: Double
+        /// Apple Pencil's lean and how upright it is; nil for a finger.
+        var azimuth: Double?
+        var altitude: Double?
     }
 
     /// Samples not yet handed on.
@@ -207,8 +210,13 @@ final class StrokeGestureRecognizer: UIGestureRecognizer {
     }
 
     private func sample(_ touch: UITouch) -> Sample {
-        let pressure: Double = touch.type == .pencil && touch.maximumPossibleForce > 0
+        let isPencil = touch.type == .pencil
+        let pressure: Double = isPencil && touch.maximumPossibleForce > 0
             ? Double(touch.force / touch.maximumPossibleForce) : 1
-        return Sample(location: touch.location(in: view), pressure: pressure)
+        return Sample(
+            location: touch.location(in: view), pressure: pressure,
+            azimuth: isPencil ? Double(touch.azimuthAngle(in: view)) : nil,
+            altitude: isPencil ? Double(touch.altitudeAngle) : nil
+        )
     }
 }

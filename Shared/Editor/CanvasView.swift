@@ -35,13 +35,19 @@ struct CanvasView: View {
                 .allowsHitTesting(false)
 
             CanvasInteraction(
-                began: { point, pressure in
-                    state.toolBegan(at: state.viewport.canvasPoint(point), pressure: pressure)
+                began: { sample in
+                    state.toolBegan(
+                        at: state.viewport.canvasPoint(sample.location), pressure: sample.pressure,
+                        azimuth: sample.azimuth, altitude: sample.altitude
+                    )
                 },
                 moved: { samples in
                     let viewport = state.viewport
                     state.toolMoved(to: samples.map {
-                        StrokePoint(location: viewport.canvasPoint($0.0), pressure: $0.1)
+                        StrokePoint(
+                            location: viewport.canvasPoint($0.location), pressure: $0.pressure,
+                            azimuth: $0.azimuth, altitude: $0.altitude
+                        )
                     })
                 },
                 ended: { isTap, point in

@@ -10,6 +10,9 @@ struct BrushSettings: Codable, Equatable, Sendable {
     var color: RGBAColor = .black
     /// Whether Apple Pencil pressure thins the line.
     var usesPressure = true
+    /// Whether tilting Apple Pencil shades with its side and turns a
+    /// flat nib.
+    var usesTilt = true
     var tip: BrushTip = .round
 
     static let sizeRange: ClosedRange<Double> = 1...1500
@@ -22,6 +25,12 @@ struct StrokePoint: Equatable, Sendable {
     var location: CGPoint
     /// 0...1; 1 for a finger, which has no pressure to report.
     var pressure: Double = 1
+    /// Which way Apple Pencil leans, in radians on the canvas, nil for a
+    /// finger.
+    var azimuth: Double?
+    /// How upright Apple Pencil is, from 0 lying flat to π/2 straight up,
+    /// nil for a finger.
+    var altitude: Double?
 }
 
 /// One drag of a brush or eraser, kept as points until it is painted in, so
@@ -126,8 +135,9 @@ struct Stroke: Equatable, Sendable {
 
     /// The canvas area the stroke can touch.
     var bounds: CGRect {
-        // Chalk scatters its dabs a little past the line.
-        let reach = settings.size / 2 + settings.featherRadius * 2 + (usesDabs ? settings.size * 0.1 : 0) + 2
+        // Chalk scatters its dabs a little past the line, and a tilted
+        // pencil shades up to two and a half times as wide.
+        let reach = settings.size / 2 + settings.featherRadius * 2 + (usesDabs ? settings.size * 0.85 : 0) + 2
         return smoothedPath.boundingBoxOfPath.insetBy(dx: -reach, dy: -reach)
     }
 

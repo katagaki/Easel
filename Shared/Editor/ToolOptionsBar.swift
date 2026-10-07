@@ -513,6 +513,9 @@ private struct BrushSettingsButton: View {
                 if state.tool != .smudge && state.tool != .liquify {
                     Section {
                         Toggle("Options.PencilPressure", isOn: $state.currentBrush.usesPressure)
+                        if state.currentBrush.tip != .round {
+                            Toggle("Options.PencilTilt", isOn: $state.currentBrush.usesTilt)
+                        }
                     }
                 }
             }

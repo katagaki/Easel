@@ -318,6 +318,7 @@ S = {
 "Options.Strength": ("Strength", "強さ", "강도", "强度", "強度"),
 "Tool.Pen": ("Pen", "ペン", "펜", "钢笔", "鋼筆"),
 "Tool.Nodes": ("Edit Points", "ポイントを編集", "포인트 편집", "编辑锚点", "編輯錨點"),
+"Options.PencilTilt": ("Apple Pencil Tilt", "Apple Pencilの傾き", "Apple Pencil 기울기", "Apple Pencil 倾斜", "Apple Pencil 傾斜"),
 "Brush.Tip": ("Tip", "ブラシ先端", "브러시 팁", "笔尖", "筆尖"),
 "Brush.Tip.Round": ("Round", "円形", "원형", "圆形", "圓形"),
 "Brush.Tip.Pencil": ("Pencil", "鉛筆", "연필", "铅笔", "鉛筆"),
