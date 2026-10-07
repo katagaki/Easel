@@ -1,111 +1,127 @@
 {
-  "fill": {
-    "automatic-gradient": "extended-srgb:0.93000,0.25000,0.42000,1.00000"
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.93000,0.25000,0.42000,1.00000"
   },
-  "groups": [
+  "groups" : [
     {
-      "blend-mode": "normal",
-      "layers": [
+      "blend-mode" : "normal",
+      "layers" : [
         {
-          "glass": true,
-          "hidden": false,
-          "image-name": "Front.svg",
-          "name": "Front",
-          "position-specializations": [
+          "fill-specializations" : [
             {
-              "value": {
-                "scale": 1,
-                "translation-in-points": [
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Front.svg",
+          "name" : "Front",
+          "opacity" : 0.95,
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 1,
+                "translation-in-points" : [
                   0,
                   0
                 ]
               }
             },
             {
-              "idiom": "square",
-              "value": {
-                "scale": 1.15,
-                "translation-in-points": [
+              "idiom" : "square",
+              "value" : {
+                "scale" : 1.15,
+                "translation-in-points" : [
                   0,
                   0
                 ]
               }
             }
-          ],
-          "opacity": 0.95
+          ]
         },
         {
-          "glass": true,
-          "hidden": false,
-          "image-name": "Middle.svg",
-          "name": "Middle",
-          "position-specializations": [
+          "fill-specializations" : [
             {
-              "value": {
-                "scale": 1,
-                "translation-in-points": [
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Middle.svg",
+          "name" : "Middle",
+          "opacity" : 0.6,
+          "position-specializations" : [
+            {
+              "value" : {
+                "scale" : 1,
+                "translation-in-points" : [
                   0,
                   0
                 ]
               }
             },
             {
-              "idiom": "square",
-              "value": {
-                "scale": 1.15,
-                "translation-in-points": [
+              "idiom" : "square",
+              "value" : {
+                "scale" : 1.15,
+                "translation-in-points" : [
                   0,
                   0
                 ]
               }
             }
-          ],
-          "opacity": 0.6
+          ]
         },
         {
-          "glass": true,
-          "hidden": false,
-          "image-name": "Back.svg",
-          "name": "Back",
-          "position-specializations": [
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Back.svg",
+          "name" : "Back",
+          "opacity" : 0.35,
+          "position-specializations" : [
             {
-              "value": {
-                "scale": 1,
-                "translation-in-points": [
+              "value" : {
+                "scale" : 1,
+                "translation-in-points" : [
                   0,
                   0
                 ]
               }
             },
             {
-              "idiom": "square",
-              "value": {
-                "scale": 1.15,
-                "translation-in-points": [
+              "idiom" : "square",
+              "value" : {
+                "scale" : 1.15,
+                "translation-in-points" : [
                   0,
                   0
                 ]
               }
             }
-          ],
-          "opacity": 0.35
+          ]
         }
       ],
-      "shadow": {
-        "kind": "neutral",
-        "opacity": 0.5
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
       },
-      "specular": true,
-      "translucency": {
-        "enabled": true,
-        "value": 0.5
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
       }
     }
   ],
-  "supported-platforms": {
-    "circles": [
+  "supported-platforms" : {
+    "circles" : [
       "watchOS"
     ],
-    "squares": "shared"
+    "squares" : "shared"
   }
 }
