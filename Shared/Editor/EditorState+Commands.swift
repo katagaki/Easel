@@ -197,7 +197,7 @@ extension EditorState {
             return
         }
         editPixels(of: layerID) { image, size in
-            Painter.clear(selection.path(in: size), in: image)
+            Painter.clear(selection, in: image)
         }
     }
 
@@ -209,7 +209,7 @@ extension EditorState {
         }
         let color = color
         editPixels(of: layerID) { image, size in
-            Painter.fill(selection.path(in: size), with: color, onto: image)
+            Painter.fill(selection, with: color, onto: image)
         }
     }
 
@@ -225,13 +225,12 @@ extension EditorState {
         let name = read().nextLayerName()
         enqueue({ () -> (copy: Layer, source: Layer) in
             let aligned = layer.aligned(in: size)
-            let path = selection.path(in: size)
-            var copy = Layer(name: name, image: LayerImage(Painter.extract(path, from: aligned.image.cgImage)), canvasSize: size)
+            var copy = Layer(name: name, image: LayerImage(Painter.extract(selection, from: aligned.image.cgImage)), canvasSize: size)
             copy.blendMode = layer.blendMode
             copy.opacity = layer.opacity
             copy.filters = layer.filters.map { var filter = $0; filter.id = UUID(); return filter }
             var source = aligned
-            if cut { source.image = LayerImage(Painter.clear(path, in: aligned.image.cgImage)) }
+            if cut { source.image = LayerImage(Painter.clear(selection, in: aligned.image.cgImage)) }
             return (copy, source)
         }, apply: { [weak self] result in
             guard let self else { return }
@@ -259,7 +258,7 @@ extension EditorState {
         let aligned = layer.rasterized(in: size)
         guard let selection else { return aligned.image.cgImage }
         let bounds = selection.bounds(in: size).integral
-        let extracted = Painter.extract(selection.path(in: size), from: aligned.image.cgImage)
+        let extracted = Painter.extract(selection, from: aligned.image.cgImage)
         return extracted.cropping(to: bounds) ?? extracted
     }
 }
@@ -270,14 +269,14 @@ extension EditorState {
     func rotateCanvas(clockwise: Bool) {
         let transform = read().rotationTransform(clockwise: clockwise)
         update { $0.rotate(clockwise: clockwise) }
-        selection = selection.map { $0.applying(transform) }
+        selection = selection.map { $0.applying(transform, canvasSize: read().size) }
         afterCanvasChange()
     }
 
     func flipCanvas(horizontal: Bool) {
         let transform = read().flipTransform(horizontal: horizontal)
         update { $0.flip(horizontal: horizontal) }
-        selection = selection.map { $0.applying(transform) }
+        selection = selection.map { $0.applying(transform, canvasSize: read().size) }
         afterCanvasChange()
     }
 
@@ -285,7 +284,9 @@ extension EditorState {
         let old = read().size
         update { $0.resize(to: size, mode: mode, anchor: anchor) }
         // The selection follows the picture.
-        selection = selection.map { $0.applying(Self.canvasMapping(from: old, to: size, mode: mode, anchor: anchor)) }
+        selection = selection.map {
+            $0.applying(Self.canvasMapping(from: old, to: size, mode: mode, anchor: anchor), canvasSize: size)
+        }
         afterCanvasChange()
     }
 
@@ -338,10 +339,7 @@ extension EditorState {
                 // the layer's pixels line up with the canvas.
                 guard let selection, layer.isAligned(to: canvasSize) else { return processed }
                 let factor = Double(proxy.width) / canvasSize.width
-                let path = selection.path(in: canvasSize)
-                var scale = CGAffineTransform(scaleX: factor, y: factor)
-                guard let scaled = path.copy(using: &scale) else { return processed }
-                return Painter.merge(processed, over: proxy, inside: scaled)
+                return Painter.merge(processed, over: proxy, inside: selection, canvasSize: canvasSize, scale: factor)
             }.value
             guard !Task.isCancelled, let image else { return }
             layerPreview = LayerPreview(layerID: layer.id, image: image)
@@ -369,7 +367,7 @@ extension EditorState {
                 let original = aligned.image.cgImage
                 let processed = ImageProcessing.apply(process, to: original)
                 var result = aligned
-                result.image = LayerImage(Painter.merge(processed, over: original, inside: selection.path(in: size)))
+                result.image = LayerImage(Painter.merge(processed, over: original, inside: selection, canvasSize: size))
                 return result
             }
             var result = layer
@@ -403,14 +401,18 @@ extension LayerImage {
 }
 
 extension Painter {
-    /// `top` where `path` encloses, `bottom` everywhere else.
-    static func merge(_ top: CGImage, over bottom: CGImage, inside path: CGPath) -> CGImage {
+    /// `top` where the selection is, `bottom` everywhere else. `scale` maps
+    /// canvas pixels to the images' pixels, for smaller copies.
+    static func merge(
+        _ top: CGImage, over bottom: CGImage, inside selection: Selection, canvasSize: CGSize, scale: Double = 1
+    ) -> CGImage {
         let size = CGSize(width: bottom.width, height: bottom.height)
         return Bitmap.render(size: size) { context in
             let rect = CGRect(origin: .zero, size: size)
             Bitmap.draw(bottom, in: rect, context: context)
-            context.addPath(path)
-            context.clip(using: .evenOdd)
+            context.scaleBy(x: scale, y: scale)
+            selection.clip(context, canvasSize: canvasSize)
+            context.scaleBy(x: 1 / scale, y: 1 / scale)
             context.clear(rect)
             Bitmap.draw(top, in: rect, context: context)
         }
@@ -508,5 +510,34 @@ extension EditorState {
             }
         }
         updateActiveLayer { $0.mask?.image = LayerImage(image) }
+    }
+}
+
+// MARK: - Picking by colour
+
+extension EditorState {
+    /// Selects the run of colour around a point, as the picture shows it.
+    /// A tap off the picture lets go of the selection.
+    func magicSelect(at point: CGPoint) {
+        let composition = composition
+        guard composition.canvasRect.contains(point) else {
+            selection = nil
+            return
+        }
+        let tolerance = selectionTolerance
+        enqueue({ () -> SelectionMask? in
+            Self.colourRegion(in: composition, at: point, tolerance: tolerance)
+        }, apply: { [weak self] mask in
+            self?.selection = Selection(shape: .mask(mask))
+        })
+    }
+
+    /// The pixels around `point` close in colour to it.
+    nonisolated static func colourRegion(in composition: Composition, at point: CGPoint, tolerance: Double) -> SelectionMask? {
+        guard let pixels = Bitmap.pixels(of: CompositionRenderer.render(composition)) else { return nil }
+        let x = min(max(Int(point.x), 0), pixels.width - 1)
+        let y = min(max(Int(point.y), 0), pixels.height - 1)
+        let region = Painter.floodRegion(in: pixels, seedX: x, seedY: y, tolerance: tolerance)
+        return SelectionMask(bytes: region, width: pixels.width, height: pixels.height)
     }
 }

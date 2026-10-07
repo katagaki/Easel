@@ -80,11 +80,3 @@ extension Layer {
         return mask
     }
 }
-
-extension Selection {
-    /// Confines what is drawn into `context` afterwards to the selection.
-    func clip(_ context: CGContext, canvasSize: CGSize) {
-        context.addPath(path(in: canvasSize))
-        context.clip(using: .evenOdd)
-    }
-}

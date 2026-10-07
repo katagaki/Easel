@@ -106,6 +106,8 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
 /// The ways the selection tool draws.
 enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
     case rectangle, ellipse, lasso
+    /// A tap picks out the run of similar colour around it.
+    case magic
 
     var id: String { rawValue }
 
@@ -114,6 +116,7 @@ enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
         case .rectangle: return "rectangle.dashed"
         case .ellipse: return "circle.dashed"
         case .lasso: return "lasso"
+        case .magic: return "wand.and.rays"
         }
     }
 
@@ -122,8 +125,12 @@ enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
         case .rectangle: return "Select.Rectangle"
         case .ellipse: return "Select.Ellipse"
         case .lasso: return "Select.Lasso"
+        case .magic: return "Select.Magic"
         }
     }
+
+    /// Selections dragged out by hand, as opposed to picked with a tap.
+    var isDrawn: Bool { self != .magic }
 }
 
 /// Fixed proportions the crop tool can hold to.

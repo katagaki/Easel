@@ -87,10 +87,7 @@ struct Smudger: Sendable {
     init(pixels: PixelBuffer, settings: BrushSettings, selection: Selection?, start: CGPoint) {
         self.pixels = pixels
         self.settings = settings
-        allowed = selection.map {
-            Bitmap.mask(for: $0.path(in: CGSize(width: pixels.width, height: pixels.height)),
-                        width: pixels.width, height: pixels.height)
-        }
+        allowed = selection.map { $0.coverage(width: pixels.width, height: pixels.height) }
         diameter = max(2, Int(settings.size.rounded()))
         carried = [Float](repeating: 0, count: diameter * diameter * 4)
         lastDab = start

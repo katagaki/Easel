@@ -130,6 +130,14 @@ struct ToolOptionsBar: View {
                     .accessibilityIdentifier("selectionKind.\(kind.rawValue)")
                 }
             }
+            if state.selectionKind == .magic {
+                GlassGroup {
+                    OptionSlider(
+                        value: $state.selectionTolerance, label: "Options.Tolerance",
+                        valueText: "\(Int((state.selectionTolerance * 100).rounded()))%"
+                    )
+                }
+            }
             GlassGroup {
                 SelectionMenu(state: state)
             }

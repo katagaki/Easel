@@ -11,34 +11,32 @@ enum Painter {
         }
     }
 
-    /// Fills the area `path` encloses (even-odd).
-    static func fill(_ path: CGPath, with color: RGBAColor, onto image: CGImage) -> CGImage {
+    /// Fills the selected area.
+    static func fill(_ selection: Selection, with color: RGBAColor, onto image: CGImage) -> CGImage {
         let size = CGSize(width: image.width, height: image.height)
         return Bitmap.render(size: size) { context in
             Bitmap.draw(image, in: CGRect(origin: .zero, size: size), context: context)
+            selection.clip(context, canvasSize: size)
             context.setFillColor(color.cgColor)
-            context.addPath(path)
-            context.fillPath(using: .evenOdd)
+            context.fill(CGRect(origin: .zero, size: size))
         }
     }
 
-    /// Makes the area `path` encloses transparent.
-    static func clear(_ path: CGPath, in image: CGImage) -> CGImage {
+    /// Makes the selected area transparent.
+    static func clear(_ selection: Selection, in image: CGImage) -> CGImage {
         let size = CGSize(width: image.width, height: image.height)
         return Bitmap.render(size: size) { context in
             Bitmap.draw(image, in: CGRect(origin: .zero, size: size), context: context)
-            context.setBlendMode(.clear)
-            context.addPath(path)
-            context.fillPath(using: .evenOdd)
+            selection.clip(context, canvasSize: size)
+            context.clear(CGRect(origin: .zero, size: size))
         }
     }
 
-    /// Only the part of the image inside `path`.
-    static func extract(_ path: CGPath, from image: CGImage) -> CGImage {
+    /// Only the selected part of the image.
+    static func extract(_ selection: Selection, from image: CGImage) -> CGImage {
         let size = CGSize(width: image.width, height: image.height)
         return Bitmap.render(size: size) { context in
-            context.addPath(path)
-            context.clip(using: .evenOdd)
+            selection.clip(context, canvasSize: size)
             Bitmap.draw(image, in: CGRect(origin: .zero, size: size), context: context)
         }
     }
@@ -46,16 +44,13 @@ enum Painter {
     /// A linear gradient from `color` at `start` to transparent at `end`,
     /// painted over the image, inside `clip` if there is one.
     static func gradient(
-        from start: CGPoint, to end: CGPoint, color: RGBAColor, opacity: Double, clip: CGPath?,
+        from start: CGPoint, to end: CGPoint, color: RGBAColor, opacity: Double, clip: Selection?,
         erasing: Bool = false, onto image: CGImage
     ) -> CGImage {
         let size = CGSize(width: image.width, height: image.height)
         return Bitmap.render(size: size) { context in
             Bitmap.draw(image, in: CGRect(origin: .zero, size: size), context: context)
-            if let clip {
-                context.addPath(clip)
-                context.clip(using: .evenOdd)
-            }
+            clip?.clip(context, canvasSize: size)
             let colors = [color.withAlpha(1).cgColor, color.withAlpha(0).cgColor] as CFArray
             guard let gradient = CGGradient(colorsSpace: Bitmap.colorSpace, colors: colors, locations: [0, 1]) else {
                 return
@@ -72,7 +67,7 @@ enum Painter {
     /// does. `tolerance` runs from 0 (that exact colour) to 1 (everything).
     /// Returns nil when the seed is off the image.
     static func floodFill(
-        _ image: CGImage, at seed: CGPoint, with color: RGBAColor, tolerance: Double, clip: CGPath?
+        _ image: CGImage, at seed: CGPoint, with color: RGBAColor, tolerance: Double, clip: Selection?
     ) -> CGImage? {
         guard var pixels = Bitmap.pixels(of: image) else { return nil }
         let width = pixels.width
@@ -82,7 +77,7 @@ enum Painter {
         guard (0..<width).contains(seedX), (0..<height).contains(seedY) else { return nil }
 
         let region = floodRegion(in: pixels, seedX: seedX, seedY: seedY, tolerance: tolerance)
-        let allowed = clip.map { Bitmap.mask(for: $0, width: width, height: height) }
+        let allowed = clip.map { $0.coverage(width: width, height: height) }
         let fill = premultipliedBytes(of: color)
         let inverse = 1 - fill.alpha
 

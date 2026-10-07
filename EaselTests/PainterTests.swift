@@ -79,7 +79,7 @@ struct PainterTests {
 
     @Test func clearingASelectionLeavesAHole() {
         let selection = Selection(shape: .rectangle(CGRect(x: 0, y: 0, width: 4, height: 4)))
-        let cleared = Painter.clear(selection.path(in: CGSize(width: 8, height: 4)), in: TestImages.halves())
+        let cleared = Painter.clear(selection, in: TestImages.halves())
         #expect(TestImages.isClear(cleared, x: 1, y: 1))
         #expect(TestImages.isBlue(cleared, x: 6, y: 1))
     }
@@ -87,7 +87,7 @@ struct PainterTests {
     @Test func invertedSelectionCoversEverythingElse() {
         let size = CGSize(width: 8, height: 4)
         let selection = Selection(shape: .rectangle(CGRect(x: 0, y: 0, width: 4, height: 4)), isInverted: true)
-        let extracted = Painter.extract(selection.path(in: size), from: TestImages.halves())
+        let extracted = Painter.extract(selection, from: TestImages.halves())
         #expect(TestImages.isClear(extracted, x: 1, y: 1))
         #expect(TestImages.isBlue(extracted, x: 6, y: 1))
         #expect(selection.bounds(in: size) == CGRect(origin: .zero, size: size))

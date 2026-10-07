@@ -148,8 +148,7 @@ struct Stroke: Equatable, Sendable {
     func paint(in context: CGContext, canvasSize: CGSize) {
         context.saveGState()
         if let clip {
-            context.addPath(clip.path(in: canvasSize))
-            context.clip(using: .evenOdd)
+            clip.clip(context, canvasSize: canvasSize)
         }
         context.setAlpha(settings.opacity)
         context.setBlendMode(isEraser ? .destinationOut : .normal)

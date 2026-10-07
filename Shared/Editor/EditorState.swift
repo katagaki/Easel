@@ -31,6 +31,8 @@ final class EditorState {
     var shapeIsFilled = false
     var shapeLineWidth = 12.0
     var selectionKind: SelectionKind = .rectangle
+    /// How different a colour may be and still be picked by magic select.
+    var selectionTolerance = 0.15
     var cropAspect: CropAspect = .free {
         didSet { constrainCropRect() }
     }
@@ -429,6 +431,7 @@ final class EditorState {
             guard let layer = activeLayer, !layer.isLocked else { return }
             moveOrigin = MoveOrigin(layerID: layer.id, start: point, transform: layer.transform)
         case .select:
+            guard selectionKind.isDrawn else { return }
             draftSelection = Selection(shape: shape(for: selectionKind, from: point, to: point))
         case .shape:
             draftShape = ShapeSpec(
@@ -467,6 +470,8 @@ final class EditorState {
                 draftSelection = Selection(shape: .lasso(existing + points.map(\.location)))
             case .rectangle(let rect), .ellipse(let rect):
                 draftSelection = Selection(shape: shape(for: selectionKind, from: rect.origin, to: last.location))
+            case .mask:
+                break
             }
         case .shape:
             draftShape?.end = last.location
@@ -507,7 +512,9 @@ final class EditorState {
             if isTap { selectLayer(at: point) }
         case .select:
             defer { draftSelection = nil }
-            if isTap {
+            if !selectionKind.isDrawn {
+                if isTap { magicSelect(at: point) }
+            } else if isTap {
                 selection = nil
             } else if let draft = draftSelection, draft.isMeaningful {
                 selection = draft
@@ -559,7 +566,7 @@ final class EditorState {
         switch kind {
         case .rectangle: return .rectangle(rect)
         case .ellipse: return .ellipse(rect)
-        case .lasso: return .lasso([start])
+        case .lasso, .magic: return .lasso([start])
         }
     }
 
@@ -669,7 +676,9 @@ final class EditorState {
         let canvas = read().canvasRect
         guard rect != canvas else { return }
         update { $0.crop(to: rect) }
-        selection = selection.map { $0.applying(CGAffineTransform(translationX: -rect.minX, y: -rect.minY)) }
+        selection = selection.map {
+            $0.applying(CGAffineTransform(translationX: -rect.minX, y: -rect.minY), canvasSize: rect.size)
+        }
         cropRect = read().canvasRect
         cropAspect = .free
         fitCanvas()
@@ -786,8 +795,7 @@ final class EditorState {
         let tolerance = fillTolerance
         let selection = selection
         editPixels(of: layerID) { image, size in
-            let clip = selection?.path(in: size)
-            return Painter.floodFill(image, at: point, with: color, tolerance: tolerance, clip: clip)
+            Painter.floodFill(image, at: point, with: color, tolerance: tolerance, clip: selection)
         }
     }
 
@@ -800,7 +808,7 @@ final class EditorState {
         let selection = selection
         editPixels(of: layerID, mask: onMask) { image, size in
             Painter.gradient(
-                from: start, to: end, color: color, opacity: opacity, clip: selection?.path(in: size),
+                from: start, to: end, color: color, opacity: opacity, clip: selection,
                 erasing: onMask, onto: image
             )
         }
