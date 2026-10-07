@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Testing
 @testable import Easel
 
@@ -85,5 +86,40 @@ struct BrushTipTests {
         let result = Painter.paint(eraser, onto: solid)
         #expect(TestImages.pixel(result, x: 50, y: 20).alpha < 200)
         #expect(TestImages.pixel(result, x: 50, y: 2).alpha > 250)
+    }
+}
+
+@MainActor
+@Suite("Brush presets")
+struct BrushPresetTests {
+    @Test func aPresetChangesTheBrushButKeepsItsColour() {
+        var settings = BrushSettings(size: 10, color: RGBAColor(red: 0, green: 0, blue: 1))
+        settings.tip = .chalk
+        let pastel = BrushPreset(name: "Mine", settings: settings)
+        let ink = BrushSettings(size: 3, color: RGBAColor(red: 1, green: 0, blue: 0))
+        let applied = pastel.applied(to: ink)
+        #expect(applied.tip == .chalk)
+        #expect(applied.size == 10)
+        #expect(applied.color == ink.color)
+    }
+
+    @Test func theBuiltInBrushesAreEachDifferent() {
+        #expect(Set(BrushPreset.builtIn.map(\.tip)).count == BrushPreset.builtIn.count)
+    }
+
+    @Test func savedBrushesAreKeptBetweenLaunches() throws {
+        let suite = "BrushPresetTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        var settings = BrushSettings(size: 42)
+        settings.tip = .airbrush
+        let library = BrushLibrary(defaults: defaults)
+        library.save(settings, as: "  Haze  ")
+        library.save(settings, as: "   ")
+        let reopened = BrushLibrary(defaults: defaults)
+        #expect(reopened.saved.map(\.name) == ["Haze"])
+        #expect(reopened.saved.first?.size == 42)
+        reopened.delete(try #require(reopened.saved.first))
+        #expect(BrushLibrary(defaults: defaults).saved.isEmpty)
     }
 }

@@ -1,0 +1,97 @@
+import Foundation
+import Observation
+
+/// A brush kept by name: everything about it but its colour, which stays
+/// whatever is in use.
+struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
+    var id = UUID()
+    var name: String
+    var tip: BrushTip
+    var size: Double
+    var opacity: Double
+    var softness: Double
+    var usesPressure: Bool
+    var usesTilt: Bool
+
+    init(name: String, settings: BrushSettings) {
+        self.name = name
+        tip = settings.tip
+        size = settings.size
+        opacity = settings.opacity
+        softness = settings.softness
+        usesPressure = settings.usesPressure
+        usesTilt = settings.usesTilt
+    }
+
+    /// `settings` taking this brush's shape, keeping their colour.
+    func applied(to settings: BrushSettings) -> BrushSettings {
+        var result = settings
+        result.tip = tip
+        result.size = size
+        result.opacity = opacity
+        result.softness = softness
+        result.usesPressure = usesPressure
+        result.usesTilt = usesTilt
+        return result
+    }
+
+    /// The brushes that come with the app.
+    static let builtIn: [BrushPreset] = [
+        BrushPreset(name: String(localized: "Brush.Preset.Ink"), settings: BrushSettings(size: 8)),
+        BrushPreset(name: String(localized: "Brush.Preset.Sketch"), settings: {
+            var settings = BrushSettings(size: 6, opacity: 0.9)
+            settings.tip = .pencil
+            return settings
+        }()),
+        BrushPreset(name: String(localized: "Brush.Preset.BrushPen"), settings: {
+            var settings = BrushSettings(size: 28)
+            settings.tip = .calligraphy
+            return settings
+        }()),
+        BrushPreset(name: String(localized: "Brush.Preset.SoftAirbrush"), settings: {
+            var settings = BrushSettings(size: 160, opacity: 0.6, usesPressure: false)
+            settings.tip = .airbrush
+            return settings
+        }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Pastel"), settings: {
+            var settings = BrushSettings(size: 48)
+            settings.tip = .chalk
+            return settings
+        }()),
+    ]
+}
+
+/// The brushes someone has saved, kept between launches and shared with the
+/// Photos editing extension.
+@MainActor
+@Observable
+final class BrushLibrary {
+    static let shared = BrushLibrary(defaults: UserDefaults(suiteName: PhotoEditPayload.appGroup) ?? .standard)
+
+    private(set) var saved: [BrushPreset]
+    @ObservationIgnored private let defaults: UserDefaults
+    private static let key = "SavedBrushes"
+
+    init(defaults: UserDefaults) {
+        self.defaults = defaults
+        saved = defaults.data(forKey: Self.key)
+            .flatMap { try? JSONDecoder().decode([BrushPreset].self, from: $0) } ?? []
+    }
+
+    /// Keeps `settings` as a brush called `name`.
+    func save(_ settings: BrushSettings, as name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        saved.append(BrushPreset(name: trimmed, settings: settings))
+        persist()
+    }
+
+    func delete(_ preset: BrushPreset) {
+        saved.removeAll { $0.id == preset.id }
+        persist()
+    }
+
+    private func persist() {
+        defaults.set(try? JSONEncoder().encode(saved), forKey: Self.key)
+    }
+}

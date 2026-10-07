@@ -469,6 +469,9 @@ struct ColorWell: View {
 private struct BrushSettingsButton: View {
     @Bindable var state: EditorState
     @State private var isPresented = false
+    @State private var isNaming = false
+    @State private var newName = ""
+    private let library = BrushLibrary.shared
 
     var body: some View {
         GlassIconButton(symbol: "slider.horizontal.3", label: "Options.BrushSettings", isOn: isPresented) {
@@ -484,6 +487,32 @@ private struct BrushSettingsButton: View {
                             }
                         }
                         .accessibilityIdentifier("brushTip")
+                        Menu {
+                            ForEach(BrushPreset.builtIn) { preset in
+                                presetButton(preset)
+                            }
+                            if !library.saved.isEmpty {
+                                Section("Brush.Saved") {
+                                    ForEach(library.saved) { preset in
+                                        presetButton(preset)
+                                    }
+                                }
+                                Menu("Brush.DeleteSaved", systemImage: "trash") {
+                                    ForEach(library.saved) { preset in
+                                        Button(preset.name, role: .destructive) { library.delete(preset) }
+                                    }
+                                }
+                            }
+                            Section {
+                                Button("Brush.SaveCurrent", systemImage: "plus") {
+                                    newName = ""
+                                    isNaming = true
+                                }
+                            }
+                        } label: {
+                            Label("Brush.Library", systemImage: "paintbrush.pointed")
+                        }
+                        .accessibilityIdentifier("brushLibrary")
                     }
                 }
                 Section {
@@ -522,6 +551,17 @@ private struct BrushSettingsButton: View {
             .formStyle(.grouped)
             .frame(minWidth: 320, minHeight: 340)
             .presentationCompactAdaptation(.popover)
+            .alert("Brush.SaveCurrent", isPresented: $isNaming) {
+                TextField("Brush.Name", text: $newName)
+                Button("Common.Cancel", role: .cancel) {}
+                Button("Brush.Save") { library.save(state.currentBrush, as: newName) }
+            }
+        }
+    }
+
+    private func presetButton(_ preset: BrushPreset) -> some View {
+        Button(preset.name, systemImage: preset.tip.symbolName) {
+            state.currentBrush = preset.applied(to: state.currentBrush)
         }
     }
 }
