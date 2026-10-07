@@ -25,6 +25,9 @@ struct ToolOptionsBar: View {
     private var options: some View {
         switch state.tool {
         case .brush, .eraser, .smudge, .blur, .mosaic, .heal: brushOptions
+        case .clone:
+            brushOptions
+            cloneOptions
         case .fill: fillOptions
         case .gradient: gradientOptions
         case .eyedropper: eyedropperOptions
@@ -53,6 +56,18 @@ struct ToolOptionsBar: View {
             .accessibilityIdentifier("brushSize")
             BrushSettingsButton(state: state)
         }
+    }
+
+    /// Lit while the next tap picks where to copy from, which is also the
+    /// case until a source has been picked.
+    private var cloneOptions: some View {
+        GlassIconButton(
+            symbol: "dot.scope", label: "Options.CloneSource",
+            isOn: state.isPickingCloneSource || state.cloneSource == nil
+        ) {
+            state.isPickingCloneSource.toggle()
+        }
+        .accessibilityIdentifier("cloneSource")
     }
 
     private var fillOptions: some View {
@@ -445,10 +460,11 @@ private struct BrushSettingsButton: View {
                         valueText: "\(Int(state.currentBrush.size.rounded())) px"
                     )
                     // The retouching brushes have a strength where others
-                    // have an opacity; heal always heals fully.
+                    // have an opacity; heal always heals fully, and a clone
+                    // is laid down like paint.
                     if state.tool != .heal {
                         LabeledSlider(
-                            label: state.tool.isRetouch ? "Options.Strength" : "Options.Opacity",
+                            label: state.tool.isRetouch && state.tool != .clone ? "Options.Strength" : "Options.Opacity",
                             value: $state.currentBrush.opacity,
                             valueText: "\(Int((state.currentBrush.opacity * 100).rounded()))%"
                         )

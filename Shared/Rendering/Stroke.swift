@@ -31,6 +31,8 @@ struct Stroke: Equatable, Sendable {
         case paint, erase
         /// Retouching: the stroke is a mask the tool's effect shows through.
         case blur, mosaic, heal
+        /// The layer's own pixels, from `offset` away, painted through.
+        case clone(offset: CGVector)
 
         /// Whether the stroke lays down the brush's colour or takes away;
         /// the rest are masks.
@@ -58,12 +60,16 @@ struct Stroke: Equatable, Sendable {
 
     /// The same stroke, laying down solid white: the shape of a mask. For
     /// the retouching brushes, strength is how much they do, not how see-
-    /// through the stroke is, so the mask is opaque.
+    /// through the stroke is, so the mask is opaque. A clone keeps its
+    /// opacity: the copy goes down as see-through as the brush.
     var asMask: Stroke {
         var mask = self
         mask.kind = .paint
         mask.settings.color = .white
-        if !kind.isPaint { mask.settings.opacity = 1 }
+        switch kind {
+        case .blur, .mosaic, .heal: mask.settings.opacity = 1
+        case .paint, .erase, .clone: break
+        }
         return mask
     }
 

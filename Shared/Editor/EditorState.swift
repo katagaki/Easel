@@ -32,6 +32,17 @@ final class EditorState {
     var blurBrush = BrushSettings(size: 80, opacity: 0.5, softness: 0.5, usesPressure: false)
     var mosaicBrush = BrushSettings(size: 80, opacity: 0.6, usesPressure: false)
     var healBrush = BrushSettings(size: 40, softness: 0.3, usesPressure: false)
+    var cloneBrush = BrushSettings(size: 60, softness: 0.4, usesPressure: false)
+    /// Where the clone stamp copies from, in canvas pixels. It moves with
+    /// the brush, so after a stroke it sits as far from where the stroke
+    /// ended as it was from where it began.
+    var cloneSource: CGPoint?
+    /// How far the copy is from the brush. Set by the first stroke after the
+    /// source is picked and kept for later ones, so separate strokes go on
+    /// copying the same picture.
+    var cloneOffset: CGVector?
+    /// Whether the next tap picks the clone stamp's source.
+    var isPickingCloneSource = false
     var fillTolerance = 0.12
     var gradientOpacity = 1.0
     var shapeKind: ShapeSpec.Kind = .rectangle
@@ -219,6 +230,7 @@ final class EditorState {
         scaled(&blurBrush)
         scaled(&mosaicBrush)
         scaled(&healBrush)
+        scaled(&cloneBrush)
         shapeLineWidth = (shapeLineWidth * factor).rounded()
     }
 
@@ -370,6 +382,7 @@ final class EditorState {
             case .blur: return blurBrush
             case .mosaic: return mosaicBrush
             case .heal: return healBrush
+            case .clone: return cloneBrush
             default: return brush
             }
         }
@@ -380,6 +393,7 @@ final class EditorState {
             case .blur: blurBrush = newValue
             case .mosaic: mosaicBrush = newValue
             case .heal: healBrush = newValue
+            case .clone: cloneBrush = newValue
             default: brush = newValue
             }
         }
@@ -392,6 +406,7 @@ final class EditorState {
         case .blur: return .blur
         case .mosaic: return .mosaic
         case .heal: return .heal
+        case .clone: return .clone(offset: cloneOffset ?? .zero)
         default: return .paint
         }
     }
@@ -433,8 +448,13 @@ final class EditorState {
         // it would be hidden, then lost when it is applied.
         guard layerPreview == nil else { return }
         switch tool {
-        case .brush, .eraser, .blur, .mosaic, .heal:
+        case .brush, .eraser, .blur, .mosaic, .heal, .clone:
             guard paintingBlocker() == nil else { return }
+            if tool == .clone {
+                // Until there is a source, a touch only picks one.
+                guard let source = cloneSource, !isPickingCloneSource else { return }
+                if cloneOffset == nil { cloneOffset = CGVector(dx: source.x - point.x, dy: source.y - point.y) }
+            }
             if editsMask {
                 alignForMaskPainting()
                 // On a mask the brush hides and the eraser reveals.
@@ -446,7 +466,7 @@ final class EditorState {
                 )
                 return
             }
-            if tool == .blur || tool == .mosaic { prepareRetouchEffect() }
+            if tool == .blur || tool == .mosaic || tool == .clone { prepareRetouchEffect() }
             activeStroke = Stroke(
                 points: [StrokePoint(location: point, pressure: pressure)],
                 settings: currentBrush, kind: strokeKind, clip: selection
@@ -491,7 +511,7 @@ final class EditorState {
     func toolMoved(to points: [StrokePoint]) {
         guard let last = points.last else { return }
         switch tool {
-        case .brush, .eraser, .blur, .mosaic, .heal:
+        case .brush, .eraser, .blur, .mosaic, .heal, .clone:
             activeStroke?.points.append(contentsOf: points)
         case .smudge:
             continueSmudge(to: points.map(\.location))
@@ -551,13 +571,20 @@ final class EditorState {
                 return
             }
             finishSmudge()
-        case .brush, .eraser, .blur, .mosaic, .heal:
+        case .brush, .eraser, .blur, .mosaic, .heal, .clone:
             if let blocker = paintingBlocker(), isTap {
                 errorMessage = blocker
                 return
             }
+            if tool == .clone, cloneSource == nil || isPickingCloneSource {
+                pickCloneSource(at: point)
+                return
+            }
             guard let stroke = activeStroke, let layerID = activeLayerID else { return }
             activeStroke = nil
+            if case .clone(let offset) = stroke.kind, let last = stroke.points.last?.location {
+                cloneSource = CGPoint(x: last.x + offset.dx, y: last.y + offset.dy)
+            }
             if editsMask {
                 commitMask(stroke, to: layerID)
             } else {
@@ -875,7 +902,7 @@ final class EditorState {
             switch stroke.kind {
             case .paint, .erase:
                 return Painter.paint(stroke, onto: image)
-            case .blur, .mosaic:
+            case .blur, .mosaic, .clone:
                 let effect = prepared.flatMap { $0.matches(stroke, source: image) ? $0.image : nil }
                     ?? RetouchEffect.image(stroke.kind, settings: stroke.settings, of: image)
                 return Painter.apply(effect, onto: image, through: stroke)

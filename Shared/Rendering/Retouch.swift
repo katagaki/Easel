@@ -2,8 +2,8 @@ import CoreGraphics
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
-/// The blur and mosaic brushes: the whole layer is blurred or tiled once, and
-/// the stroke decides where that shows through.
+/// The blur, mosaic and clone brushes: the whole layer is blurred, tiled or
+/// shifted once, and the stroke decides where that shows through.
 enum RetouchEffect {
     /// How strongly a brush of this size and strength blurs, in canvas pixels.
     static func blurRadius(for settings: BrushSettings) -> Double {
@@ -18,7 +18,8 @@ enum RetouchEffect {
     /// The layer's pixels with the effect applied everywhere. Tiles line up
     /// with the canvas's top left, so strokes made separately share a grid.
     static func image(_ kind: Stroke.Kind, settings: BrushSettings, of image: CGImage) -> CGImage {
-        ImageProcessing.apply({ input in
+        if case .clone(let offset) = kind { return shifted(image, by: offset) }
+        return ImageProcessing.apply({ input in
             switch kind {
             case .blur:
                 let filter = CIFilter.gaussianBlur()
@@ -34,10 +35,21 @@ enum RetouchEffect {
                 // the canvas's top left is the extent's top left corner.
                 filter.center = CGPoint(x: 0, y: input.extent.maxY)
                 return filter.outputImage ?? input
-            case .paint, .erase, .heal:
+            case .paint, .erase, .heal, .clone:
                 return input
             }
         }, to: image)
+    }
+}
+
+extension RetouchEffect {
+    /// The layer moved so the pixel `offset` away from each point lands on
+    /// it: what the clone stamp paints.
+    static func shifted(_ image: CGImage, by offset: CGVector) -> CGImage {
+        let size = CGSize(width: image.width, height: image.height)
+        return Bitmap.render(size: size) { context in
+            Bitmap.draw(image, in: CGRect(origin: CGPoint(x: -offset.dx, y: -offset.dy), size: size), context: context)
+        }
     }
 }
 

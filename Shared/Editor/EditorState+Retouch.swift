@@ -96,3 +96,15 @@ extension EditorState {
         }
     }
 }
+
+extension EditorState {
+    // MARK: - Clone stamp
+
+    /// Copies will come from `point`; the next stroke decides how far away
+    /// that is.
+    func pickCloneSource(at point: CGPoint) {
+        cloneSource = point
+        cloneOffset = nil
+        isPickingCloneSource = false
+    }
+}

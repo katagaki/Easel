@@ -70,6 +70,10 @@ struct CanvasOverlay: View {
             drawVectorEditing(layer, in: &context, transform: transform)
         }
 
+        if state.tool == .clone, let source = state.cloneSource {
+            drawCloneSource(at: currentCloneSource ?? source, in: &context, transform: transform)
+        }
+
         if let crop = state.cropRect {
             drawCrop(crop.applying(transform), in: &context)
         }
@@ -103,6 +107,28 @@ struct CanvasOverlay: View {
                 context.stroke(box, with: .color(.accentColor), lineWidth: 1.5)
             }
         }
+    }
+
+    /// Where the clone stamp is copying from right now: as far from the
+    /// brush as the copy is, while a stroke is being made.
+    private var currentCloneSource: CGPoint? {
+        guard let stroke = state.activeStroke, case .clone(let offset) = stroke.kind,
+              let point = stroke.points.last?.location else { return nil }
+        return CGPoint(x: point.x + offset.dx, y: point.y + offset.dy)
+    }
+
+    /// A crosshair in a ring, the size of the brush.
+    private func drawCloneSource(at point: CGPoint, in context: inout GraphicsContext, transform: CGAffineTransform) {
+        let center = point.applying(transform)
+        let radius = max(8, state.cloneBrush.size * viewport.scale / 2)
+        var marker = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+        let arm = min(radius, 10)
+        marker.move(to: CGPoint(x: center.x - arm, y: center.y))
+        marker.addLine(to: CGPoint(x: center.x + arm, y: center.y))
+        marker.move(to: CGPoint(x: center.x, y: center.y - arm))
+        marker.addLine(to: CGPoint(x: center.x, y: center.y + arm))
+        context.stroke(marker, with: .color(.black.opacity(0.5)), lineWidth: 3)
+        context.stroke(marker, with: .color(.white), lineWidth: 1.5)
     }
 
     private func drawCrop(_ rect: CGRect, in context: inout GraphicsContext) {

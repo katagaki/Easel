@@ -308,6 +308,8 @@ S = {
 "TitleMenu.ConvertToEasel.Footer": ("Pictures are flattened when saved. Turn this file into an Easel image to keep its layers.", "画像ファイルは保存時に統合されます。レイヤーを保持するには、このファイルをEasel画像に変換してください。", "사진 파일은 저장할 때 병합됩니다. 레이어를 유지하려면 이 파일을 Easel 이미지로 변환하십시오.", "图片在存储时会被拼合。将此文件转换为 Easel 图像以保留其图层。", "圖片在儲存時會被平面化。將此檔案轉換為 Easel 影像以保留其圖層。"),
 "Tool.Blur": ("Blur", "ぼかし", "흐림", "模糊", "模糊"),
 "Tool.Heal": ("Heal", "修復", "복구", "修复", "修復"),
+"Tool.Clone": ("Clone Stamp", "コピースタンプ", "복제 도장", "仿制图章", "仿製印章"),
+"Options.CloneSource": ("Set Source", "コピー元を設定", "소스 설정", "设定源", "設定來源"),
 "Tool.Mosaic": ("Mosaic", "モザイク", "모자이크", "马赛克", "馬賽克"),
 "Tool.Smudge": ("Smudge", "指先", "손가락", "涂抹", "指尖"),
 "Options.Strength": ("Strength", "強さ", "강도", "强度", "強度"),

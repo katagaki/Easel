@@ -26,6 +26,25 @@ struct RetouchTests {
         #expect(TestImages.isBlue(result, x: 38, y: 10))
     }
 
+    @Test func cloneCopiesFromTheOffsetThroughTheStroke() {
+        // Paint the right (blue) half with what is 20 pixels to its left.
+        let offset = CGVector(dx: -20, dy: 0)
+        let stroke = line(.clone(offset: offset), size: 6, from: CGPoint(x: 30, y: 4), to: CGPoint(x: 30, y: 16))
+        let effect = RetouchEffect.image(stroke.kind, settings: stroke.settings, of: halves)
+        let result = Painter.apply(effect, onto: halves, through: stroke)
+        #expect(TestImages.isRed(result, x: 30, y: 10))
+        #expect(TestImages.isBlue(result, x: 37, y: 10))
+        #expect(TestImages.isRed(result, x: 10, y: 10))
+    }
+
+    @Test func cloneOpacityMixesTheCopyIn() {
+        let stroke = line(.clone(offset: CGVector(dx: -20, dy: 0)), size: 6, from: CGPoint(x: 30, y: 4), to: CGPoint(x: 30, y: 16), strength: 0.5)
+        let effect = RetouchEffect.image(stroke.kind, settings: stroke.settings, of: halves)
+        let pixel = TestImages.pixel(Painter.apply(effect, onto: halves, through: stroke), x: 30, y: 10)
+        #expect(pixel.red > 80 && pixel.red < 180)
+        #expect(pixel.blue > 80 && pixel.blue < 180)
+    }
+
     @Test func mosaicBrushMakesTilesOnTheCanvasGrid() {
         let source = Bitmap.render(size: CGSize(width: 40, height: 40)) { context in
             for x in 0..<40 {
@@ -112,6 +131,48 @@ struct RetouchToolTests {
         #expect(state.smudge == nil)
         #expect(published.layers[0].filters.count == 1)
         #expect(TestImages.pixel(published.layers[0].image.cgImage, x: 25, y: 10).red > 60)
+    }
+
+    @Test func cloneStampPicksASourceThenKeepsItsOffset() async throws {
+        let state = EditorState()
+        var composition = Composition.blank(size: CGSize(width: 40, height: 20))
+        composition.layers[0].image = LayerImage(TestImages.halves(width: 40, height: 20))
+        var published = composition
+        state.attach(to: published) { published = $0 }
+        state.tool = .clone
+        state.cloneBrush.size = 4
+        state.cloneBrush.softness = 0
+
+        // The first tap only picks the source.
+        state.toolBegan(at: CGPoint(x: 5, y: 5), pressure: 1)
+        state.toolEnded(isTap: true, at: CGPoint(x: 5, y: 5))
+        #expect(state.cloneSource == CGPoint(x: 5, y: 5))
+        #expect(state.activeStroke == nil)
+
+        // A stroke starting at (25, 5) copies from 20 to its left.
+        state.toolBegan(at: CGPoint(x: 25, y: 5), pressure: 1)
+        state.toolMoved(to: [StrokePoint(location: CGPoint(x: 25, y: 8))])
+        state.toolEnded(isTap: false, at: CGPoint(x: 25, y: 8))
+        #expect(state.cloneOffset == CGVector(dx: -20, dy: 0))
+        #expect(state.cloneSource == CGPoint(x: 5, y: 8))
+
+        // A later stroke elsewhere keeps the same offset.
+        state.toolBegan(at: CGPoint(x: 32, y: 14), pressure: 1)
+        state.toolMoved(to: [StrokePoint(location: CGPoint(x: 32, y: 16))])
+        state.toolEnded(isTap: false, at: CGPoint(x: 32, y: 16))
+        for _ in 0..<100 where state.isBusy { try await Task.sleep(for: .milliseconds(20)) }
+        let image = published.layers[0].image.cgImage
+        #expect(TestImages.isRed(image, x: 25, y: 6))
+        #expect(TestImages.isRed(image, x: 32, y: 15))
+        #expect(TestImages.isBlue(image, x: 37, y: 2))
+
+        // Picking again starts a new offset.
+        state.isPickingCloneSource = true
+        state.toolBegan(at: CGPoint(x: 1, y: 1), pressure: 1)
+        #expect(state.activeStroke == nil)
+        state.toolEnded(isTap: true, at: CGPoint(x: 1, y: 1))
+        #expect(state.cloneOffset == nil)
+        #expect(!state.isPickingCloneSource)
     }
 
     @Test func retouchToolsKeepTheirOwnSettings() {
