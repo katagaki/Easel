@@ -136,6 +136,12 @@ struct ToolOptionsBar: View {
                     state.resetTransform()
                 }
             }
+            GlassGroup {
+                GlassIconButton(symbol: "squareshape.dotted.split.2x2", label: "Options.Snap", isOn: state.snaps) {
+                    state.snaps.toggle()
+                }
+                .accessibilityIdentifier("snap")
+            }
         }
         .disabled(isLocked)
     }

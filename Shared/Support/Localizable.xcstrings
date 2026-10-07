@@ -8996,6 +8996,41 @@
         }
       }
     },
+    "Options.Snap": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snap to Guides"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ガイドにスナップ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "가이드에 스냅"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "对齐参考线"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對齊參考線"
+          }
+        }
+      }
+    },
     "Options.Softness": {
       "extractionState": "manual",
       "localizations": {

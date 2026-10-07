@@ -48,6 +48,10 @@ final class EditorState {
     var fillTolerance = 0.12
     /// Whether the brush and eraser paint mirrored copies of each stroke.
     var symmetry: Symmetry = .off
+    /// Whether moved layers snap to the canvas's edges and middle.
+    var snaps = true
+    /// What a layer being moved has snapped to.
+    var snapLines: [SnapLine] = []
     var gradientOpacity = 1.0
     var shapeKind: ShapeSpec.Kind = .rectangle
     var shapeIsFilled = false
@@ -541,7 +545,17 @@ final class EditorState {
             continueSmudge(to: points.map(\.location))
         case .move:
             if let group = groupMoveOrigin {
-                let dx = last.location.x - group.start.x, dy = last.location.y - group.start.y
+                var dx = last.location.x - group.start.x, dy = last.location.y - group.start.y
+                let bounds = group.layers.reduce(CGRect.null) { bounds, member in
+                    guard var layer = composition[member.0] else { return bounds }
+                    layer.transform = member.1
+                    return bounds.union(layer.bounds)
+                }
+                if !bounds.isNull {
+                    let snap = snappedOffset(for: bounds.offsetBy(dx: dx, dy: dy))
+                    dx += snap.dx
+                    dy += snap.dy
+                }
                 update { composition in
                     for (id, transform) in group.layers {
                         var moved = transform
@@ -556,6 +570,12 @@ final class EditorState {
             var transform = origin.transform
             transform.position.x += last.location.x - origin.start.x
             transform.position.y += last.location.y - origin.start.y
+            if var layer = composition[origin.layerID] {
+                layer.transform = transform
+                let snap = snappedOffset(for: layer.bounds)
+                transform.position.x += snap.dx
+                transform.position.y += snap.dy
+            }
             update { $0[origin.layerID]?.transform = transform }
         case .select:
             guard let draft = draftSelection else { return }
@@ -619,6 +639,7 @@ final class EditorState {
         case .move:
             moveOrigin = nil
             groupMoveOrigin = nil
+            snapLines = []
             if isTap { selectLayer(at: point) }
         case .select:
             defer { draftSelection = nil }
@@ -672,6 +693,7 @@ final class EditorState {
         draftShape = nil
         draftGradient = nil
         cropDrag = nil
+        snapLines = []
         if let drag = transformDrag, var draft = transformDraft {
             for handle in drag.handles { draft.points[handle.index] = handle.origin }
             transformDraft = draft

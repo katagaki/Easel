@@ -70,6 +70,10 @@ struct CanvasOverlay: View {
             drawVectorEditing(layer, in: &context, transform: transform)
         }
 
+        if !state.snapLines.isEmpty {
+            drawSnapLines(in: &context, transform: transform)
+        }
+
         if state.symmetry != .off, state.tool == .brush || state.tool == .eraser {
             drawSymmetryAxes(in: &context, transform: transform)
         }
@@ -115,6 +119,23 @@ struct CanvasOverlay: View {
                 context.stroke(box, with: .color(.accentColor), lineWidth: 1.5)
             }
         }
+    }
+
+    /// What a moved layer has snapped to, across the whole canvas.
+    private func drawSnapLines(in context: inout GraphicsContext, transform: CGAffineTransform) {
+        let size = composition.size
+        var lines = Path()
+        for line in state.snapLines {
+            switch line.axis {
+            case .vertical:
+                lines.move(to: CGPoint(x: line.position, y: 0).applying(transform))
+                lines.addLine(to: CGPoint(x: line.position, y: size.height).applying(transform))
+            case .horizontal:
+                lines.move(to: CGPoint(x: 0, y: line.position).applying(transform))
+                lines.addLine(to: CGPoint(x: size.width, y: line.position).applying(transform))
+            }
+        }
+        context.stroke(lines, with: .color(.pink), lineWidth: 1)
     }
 
     /// The lines strokes are mirrored across.
