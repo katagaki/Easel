@@ -7,6 +7,7 @@ struct DocumentView: View {
     var fileURL: URL?
     @State private var errorMessage: String?
     @State private var savedToPhotos = false
+    @State private var isExportingWithPresets = false
 
     private var name: String {
         fileURL?.deletingPathExtension().lastPathComponent ?? String(localized: "Export.DefaultName")
@@ -28,6 +29,9 @@ struct DocumentView: View {
                 Text(errorMessage ?? "")
             }
             .sensoryFeedback(.success, trigger: savedToPhotos)
+            .sheet(isPresented: $isExportingWithPresets) {
+                ExportPresetsSheet(composition: document.composition, name: name)
+            }
     }
 
     private var exportMenu: some View {
@@ -42,6 +46,10 @@ struct DocumentView: View {
                     }
                 }
             }
+            Button("ExportPreset.Menu", systemImage: "square.stack.3d.down.right") {
+                isExportingWithPresets = true
+            }
+            .accessibilityIdentifier("exportPresets")
             Button("Export.SaveToPhotos", systemImage: "photo.badge.plus") {
                 let composition = document.composition
                 Task {
