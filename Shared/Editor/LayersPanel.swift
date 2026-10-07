@@ -16,10 +16,18 @@ struct LayersPanel: View {
                 ForEach(composition.layers.reversed()) { layer in
                     LayerRow(
                         layer: layer, isActive: layer.id == state.activeLayerID,
-                        toggleVisibility: { state.setVisibility(!layer.isVisible, of: layer.id) }
+                        isEditingMask: layer.id == state.activeLayerID && state.isEditingMask,
+                        toggleVisibility: { state.setVisibility(!layer.isVisible, of: layer.id) },
+                        editMask: {
+                            state.activeLayerID = layer.id
+                            state.isEditingMask = true
+                        }
                     )
                     .contentShape(.rect)
-                    .onTapGesture { state.activeLayerID = layer.id }
+                    .onTapGesture {
+                        state.activeLayerID = layer.id
+                        state.isEditingMask = false
+                    }
                     .listRowBackground(layer.id == state.activeLayerID ? Color.accentColor.opacity(0.18) : nil)
                     .contextMenu { menuItems(for: layer) }
                     .swipeActions(edge: .trailing) {
@@ -79,6 +87,7 @@ struct LayersPanel: View {
                     }
                     .accessibilityIdentifier("layerFilters")
                 }
+                MaskSection(layer: layer, state: state)
             }
         }
         .listStyle(.insetGrouped)
@@ -156,7 +165,9 @@ struct LayersPanel: View {
 private struct LayerRow: View {
     let layer: Layer
     let isActive: Bool
+    let isEditingMask: Bool
     let toggleVisibility: () -> Void
+    let editMask: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -170,8 +181,38 @@ private struct LayerRow: View {
             .frame(width: 44, height: 44)
             .clipShape(.rect(cornerRadius: 6))
             .overlay {
+                // Outlined is what painting goes into: the layer or its mask.
+                let target = isActive && !isEditingMask
                 RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(isActive ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: isActive ? 2 : 1)
+                    .strokeBorder(target ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: target ? 2 : 1)
+            }
+            if let mask = layer.mask {
+                Button(action: editMask) {
+                    Image(decorative: mask.preview(), scale: 1)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 44, height: 44)
+                        .background(Color.black)
+                        .clipShape(.rect(cornerRadius: 6))
+                        .opacity(mask.isEnabled ? 1 : 0.4)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(
+                                    isEditingMask ? Color.accentColor : Color.secondary.opacity(0.3),
+                                    lineWidth: isEditingMask ? 2 : 1
+                                )
+                        }
+                        .overlay {
+                            if !mask.isEnabled {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Mask.Edit")
+                .accessibilityIdentifier("mask.\(layer.name)")
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -302,6 +343,52 @@ private struct LayersPanelChrome: ViewModifier {
         switch placement {
         case .sheet: content.panelActions(confirm: { state.presentedPanel = nil })
         case .inspector: content.panelActions()
+        }
+    }
+}
+
+/// The active layer's mask: adding one, choosing whether painting goes
+/// into it, and the ways to change it as a whole.
+private struct MaskSection: View {
+    let layer: Layer
+    @Bindable var state: EditorState
+
+    var body: some View {
+        Section {
+            if let mask = layer.mask {
+                Toggle("Mask.Edit", systemImage: "paintbrush.pointed", isOn: $state.isEditingMask)
+                    .accessibilityIdentifier("editMask")
+                Toggle("Mask.Enabled", isOn: Binding(get: { mask.isEnabled }, set: { state.setMaskEnabled($0) }))
+                Menu {
+                    Section {
+                        Button("Mask.HideSelection", systemImage: "eye.slash") { state.maskSelection(reveal: false) }
+                        Button("Mask.RevealSelection", systemImage: "eye") { state.maskSelection(reveal: true) }
+                    }
+                    .disabled(state.selection == nil)
+                    Button("Mask.Invert", systemImage: "circle.lefthalf.filled.inverse") { state.invertMask() }
+                    Section {
+                        Button("Mask.Apply", systemImage: "square.and.arrow.down.on.square") { state.applyMask() }
+                            .disabled(layer.isLocked)
+                        Button("Mask.Delete", systemImage: "trash", role: .destructive) { state.deleteMask() }
+                    }
+                } label: {
+                    Label("Mask.Actions", systemImage: "ellipsis.circle")
+                }
+                .accessibilityIdentifier("maskActions")
+            } else {
+                Button(
+                    state.selection == nil ? "Mask.Add" : "Mask.AddFromSelection",
+                    systemImage: "circle.rectangle.dashed"
+                ) {
+                    state.addMask()
+                }
+                .disabled(layer.isLocked)
+                .accessibilityIdentifier("addMask")
+            }
+        } header: {
+            Text("Mask.Title")
+        } footer: {
+            if layer.mask != nil { Text("Mask.Footer") }
         }
     }
 }

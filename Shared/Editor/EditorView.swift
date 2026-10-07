@@ -170,6 +170,19 @@ struct EditorView: View {
                 .accessibilityLabel("Canvas.FitToScreen")
                 .accessibilityIdentifier("zoomLevel")
             }
+            if state.editsMask {
+                Button {
+                    state.isEditingMask = false
+                } label: {
+                    Label("Mask.Editing", systemImage: "xmark.circle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 12)
+                        .frame(height: 32)
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.tint(.accentColor.opacity(0.3)).interactive(), in: .capsule)
+                .accessibilityIdentifier("stopEditingMask")
+            }
             if state.isBusy {
                 ProgressView()
                     .frame(width: 32, height: 32)
@@ -178,6 +191,7 @@ struct EditorView: View {
         }
         .padding(.top, 8)
         .animation(.snappy(duration: 0.2), value: state.isBusy)
+        .animation(.snappy(duration: 0.2), value: state.editsMask)
     }
 
     @ViewBuilder

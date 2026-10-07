@@ -86,11 +86,15 @@ final class FilterCache: Sendable {
         var filters: [LayerFilter]
         /// Nil for full size; otherwise the longest side of a smaller copy.
         var maxPixelSize: Int?
+        /// The mask's pixels, when the result is masked. The canvas masks
+        /// layers itself, so what it shows leaves this out.
+        var maskID: UUID?
 
-        init(layer: Layer, maxPixelSize: Int?) {
+        init(layer: Layer, maxPixelSize: Int?, includesMask: Bool = false) {
             imageID = layer.image.id
             filters = layer.activeFilters
             self.maxPixelSize = maxPixelSize
+            maskID = includesMask ? layer.activeMask?.image.id : nil
         }
     }
 
@@ -108,10 +112,14 @@ final class FilterCache: Sendable {
         }
     }
 
-    func image(for key: Key, source: LayerImage) -> CGImage {
+    func image(for key: Key, source: LayerImage, mask: LayerMask? = nil) -> CGImage {
         if let cached = cached(key) { return cached }
         let input = key.maxPixelSize.map { source.preview(maxPixelSize: $0) } ?? source.cgImage
-        let image = ImageProcessing.apply({ LayerFilter.apply(key.filters, to: $0) }, to: input)
+        let applyMask = key.maskID != nil ? mask : nil
+        let image = ImageProcessing.apply({ image in
+            let filtered = LayerFilter.apply(key.filters, to: image)
+            return applyMask?.apply(to: filtered) ?? filtered
+        }, to: input)
         entries.withLock { entries in
             entries.append((key, image))
             if entries.count > Self.capacity { entries.removeFirst(entries.count - Self.capacity) }

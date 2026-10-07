@@ -14,6 +14,8 @@ struct Layer: Identifiable, Equatable, Sendable {
     /// Run over `image` whenever the layer is drawn, in order; the pixels
     /// themselves are never changed by them.
     var filters: [LayerFilter] = []
+    /// Hides parts of the layer without changing its pixels.
+    var mask: LayerMask?
     var transform: LayerTransform
     var opacity: Double = 1
     var blendMode: LayerBlendMode = .normal
@@ -22,7 +24,7 @@ struct Layer: Identifiable, Equatable, Sendable {
 
     init(
         id: UUID = UUID(), name: String, image: LayerImage, text: TextContent? = nil,
-        filters: [LayerFilter] = [], transform: LayerTransform, opacity: Double = 1,
+        filters: [LayerFilter] = [], mask: LayerMask? = nil, transform: LayerTransform, opacity: Double = 1,
         blendMode: LayerBlendMode = .normal, isVisible: Bool = true, isLocked: Bool = false
     ) {
         self.id = id
@@ -30,6 +32,7 @@ struct Layer: Identifiable, Equatable, Sendable {
         self.image = image
         self.text = text
         self.filters = filters
+        self.mask = mask
         self.transform = transform
         self.opacity = opacity
         self.blendMode = blendMode

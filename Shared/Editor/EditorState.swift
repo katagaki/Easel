@@ -11,7 +11,12 @@ final class EditorState {
     var tool: Tool = .brush {
         didSet { toolDidChange(from: oldValue) }
     }
-    var activeLayerID: Layer.ID?
+    var activeLayerID: Layer.ID? {
+        didSet { if activeLayerID != oldValue { isEditingMask = false } }
+    }
+    /// Whether painting goes into the active layer's mask rather than its
+    /// pixels: the brush hides, the eraser reveals.
+    var isEditingMask = false
     var brush = BrushSettings(size: 24, color: .black)
     var eraser = BrushSettings(size: 60, softness: 0.3)
     /// For the retouching brushes, opacity is strength: how far a smear
@@ -118,6 +123,8 @@ final class EditorState {
         let id = UUID()
         var layerID: Layer.ID
         var stroke: Stroke
+        /// Painted into the layer's mask rather than its pixels.
+        var isMask = false
     }
 
     struct LayerPreview {
@@ -366,8 +373,22 @@ final class EditorState {
     func paintingBlocker() -> String? {
         guard let layer = activeLayer else { return String(localized: "Error.NoLayer") }
         if layer.isLocked { return String(localized: "Error.LayerLocked") }
+        if editsMask, ![Tool.brush, .eraser, .gradient].contains(tool) {
+            return String(localized: "Error.MaskTool")
+        }
         if !layer.isVisible { return String(localized: "Error.LayerHidden") }
         return nil
+    }
+
+    /// Whether painting goes into a mask right now.
+    var editsMask: Bool { isEditingMask && activeLayer?.mask != nil }
+
+    /// A mask is painted where it lines up with the canvas, so the stroke
+    /// shown under the finger matches what is painted. Lines it up first.
+    private func alignForMaskPainting() {
+        guard let layer = activeLayer, !layer.isAligned(to: composition.size) else { return }
+        let size = composition.size
+        update { $0[layer.id] = layer.aligned(in: size) }
     }
 
     /// Selection outline for clipping, in canvas pixels.
@@ -385,6 +406,17 @@ final class EditorState {
         switch tool {
         case .brush, .eraser, .blur, .mosaic, .heal:
             guard paintingBlocker() == nil else { return }
+            if editsMask {
+                alignForMaskPainting()
+                // On a mask the brush hides and the eraser reveals.
+                var settings = currentBrush
+                settings.color = .white
+                activeStroke = Stroke(
+                    points: [StrokePoint(location: point, pressure: pressure)],
+                    settings: settings, kind: tool == .brush ? .erase : .paint, clip: selection
+                )
+                return
+            }
             if tool == .blur || tool == .mosaic { prepareRetouchEffect() }
             activeStroke = Stroke(
                 points: [StrokePoint(location: point, pressure: pressure)],
@@ -465,7 +497,11 @@ final class EditorState {
             }
             guard let stroke = activeStroke, let layerID = activeLayerID else { return }
             activeStroke = nil
-            commit(stroke, to: layerID)
+            if editsMask {
+                commitMask(stroke, to: layerID)
+            } else {
+                commit(stroke, to: layerID)
+            }
         case .move:
             moveOrigin = nil
             if isTap { selectLayer(at: point) }
@@ -668,7 +704,7 @@ final class EditorState {
     /// its pixels line up with the canvas. The layer is read when the work
     /// starts, so queued edits build on each other. Its filters stay.
     func editPixels(
-        of layerID: Layer.ID, finally: @escaping @MainActor () -> Void = {},
+        of layerID: Layer.ID, mask: Bool = false, finally: @escaping @MainActor () -> Void = {},
         _ edit: @escaping @Sendable (CGImage, CGSize) -> CGImage?
     ) {
         let previous = queue
@@ -680,9 +716,14 @@ final class EditorState {
                 let size = composition.size
                 let result = await Task.detached(priority: .userInitiated) { () -> Layer? in
                     let aligned = layer.aligned(in: size)
-                    guard let image = edit(aligned.image.cgImage, size) else { return nil }
                     var edited = aligned
-                    edited.image = LayerImage(image)
+                    if mask {
+                        guard let target = aligned.mask, let image = edit(target.image.cgImage, size) else { return nil }
+                        edited.mask?.image = LayerImage(image)
+                    } else {
+                        guard let image = edit(aligned.image.cgImage, size) else { return nil }
+                        edited.image = LayerImage(image)
+                    }
                     return edited
                 }.value
                 if let result {
@@ -693,12 +734,23 @@ final class EditorState {
                         current.image = result.image
                         current.text = nil
                         current.transform = result.transform
+                        if let mask = result.mask { current.mask?.image = mask.image }
                         composition[layerID] = current
                     }
                 }
             }
             finally()
             runningJobs -= 1
+        }
+    }
+
+    private func commitMask(_ stroke: Stroke, to layerID: Layer.ID) {
+        let pending = PendingStroke(layerID: layerID, stroke: stroke, isMask: true)
+        pendingStrokes.append(pending)
+        editPixels(of: layerID, mask: true, finally: { [weak self] in
+            self?.pendingStrokes.removeAll { $0.id == pending.id }
+        }) { image, _ in
+            Painter.paint(stroke, onto: image)
         }
     }
 
@@ -741,12 +793,15 @@ final class EditorState {
 
     private func applyGradient(from start: CGPoint, to end: CGPoint) {
         guard let layerID = activeLayerID else { return }
-        let color = color
+        // On a mask, a gradient fades the layer out from where it starts.
+        let onMask = editsMask
+        let color = onMask ? RGBAColor.white : color
         let opacity = gradientOpacity
         let selection = selection
-        editPixels(of: layerID) { image, size in
+        editPixels(of: layerID, mask: onMask) { image, size in
             Painter.gradient(
-                from: start, to: end, color: color, opacity: opacity, clip: selection?.path(in: size), onto: image
+                from: start, to: end, color: color, opacity: opacity, clip: selection?.path(in: size),
+                erasing: onMask, onto: image
             )
         }
     }

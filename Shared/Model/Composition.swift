@@ -296,6 +296,7 @@ extension Layer {
         guard !isAligned(to: canvasSize) else { return self }
         var placed = self
         placed.filters = []
+        placed.mask = nil
         placed.opacity = 1
         placed.blendMode = .normal
         placed.isVisible = true
@@ -303,15 +304,30 @@ extension Layer {
         result.image = LayerImage(CompositionRenderer.render(layers: [placed], size: canvasSize))
         result.text = nil
         result.transform = LayerTransform(position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2))
+        if let mask {
+            // Off the layer's old edges the mask shows everything, so paint
+            // added there later is seen.
+            let transform = affineTransform
+            let size = image.size
+            let image = Bitmap.render(size: canvasSize) { context in
+                context.setFillColor(RGBAColor.white.cgColor)
+                context.fill(CGRect(origin: .zero, size: canvasSize))
+                context.concatenate(transform)
+                context.clear(CGRect(origin: .zero, size: size))
+                Bitmap.draw(mask.image.cgImage, in: CGRect(origin: .zero, size: size), context: context)
+            }
+            result.mask?.image = LayerImage(image)
+        }
         return result
     }
 
     /// The layer as it shows, filters and all, drawn into plain pixels that
     /// line up with the canvas.
     func rasterized(in canvasSize: CGSize) -> Layer {
-        guard !isAligned(to: canvasSize) || hasActiveFilters else {
+        guard !isAligned(to: canvasSize) || hasActiveFilters || activeMask != nil else {
             var result = self
             result.filters = []
+            result.mask = nil
             return result
         }
         var placed = self
@@ -323,6 +339,7 @@ extension Layer {
         result.image = LayerImage(image)
         result.text = nil
         result.filters = []
+        result.mask = nil
         result.transform = LayerTransform(position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2))
         return result
     }

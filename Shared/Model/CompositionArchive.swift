@@ -42,6 +42,8 @@ enum CompositionArchive {
         var file: String
         var text: TextContent?
         var filters: [LayerFilter]?
+        var maskFile: String?
+        var maskEnabled: Bool?
         var transform: LayerTransform
         var opacity: Double
         var blendMode: LayerBlendMode
@@ -130,9 +132,16 @@ enum CompositionArchive {
                 try write(file, try layer.image.pngData())
                 written[ObjectIdentifier(layer.image)] = file
             }
+            var maskFile: String?
+            if let mask = layer.mask {
+                let name = "\(layer.id.uuidString)-mask.png"
+                try write(name, try mask.image.pngData())
+                maskFile = name
+            }
             records.append(LayerRecord(
                 id: layer.id, name: layer.name, file: file, text: layer.text,
-                filters: layer.filters.isEmpty ? nil : layer.filters, transform: layer.transform,
+                filters: layer.filters.isEmpty ? nil : layer.filters,
+                maskFile: maskFile, maskEnabled: layer.mask.map(\.isEnabled), transform: layer.transform,
                 opacity: layer.opacity, blendMode: layer.blendMode, isVisible: layer.isVisible, isLocked: layer.isLocked,
                 isBlank: layer.image.isBlank ? true : nil
             ))
@@ -158,9 +167,16 @@ enum CompositionArchive {
                 image = LayerImage(try ImageCodec.decode(data), isBlank: record.isBlank ?? false, encoded: data)
                 images[record.file] = image
             }
+            var mask: LayerMask?
+            if let maskFile = record.maskFile {
+                guard let data = read(maskFile) else { throw Failure.missingLayer(maskFile) }
+                mask = LayerMask(
+                    image: LayerImage(try ImageCodec.decode(data), encoded: data), isEnabled: record.maskEnabled ?? true
+                )
+            }
             return Layer(
                 id: record.id, name: record.name, image: image, text: record.text,
-                filters: record.filters ?? [], transform: record.transform,
+                filters: record.filters ?? [], mask: mask, transform: record.transform,
                 opacity: record.opacity, blendMode: record.blendMode, isVisible: record.isVisible,
                 isLocked: record.isLocked
             )

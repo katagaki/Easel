@@ -94,9 +94,11 @@ extension Layer {
 
     var hasActiveFilters: Bool { filters.contains { $0.isEnabled } }
 
-    /// The layer's pixels as they show: filters applied, at full size.
+    /// The layer's pixels as they show: filters and mask applied, at full size.
     var renderedImage: CGImage {
-        guard hasActiveFilters else { return image.cgImage }
-        return FilterCache.shared.image(for: FilterCache.Key(layer: self, maxPixelSize: nil), source: image)
+        guard hasActiveFilters || activeMask != nil else { return image.cgImage }
+        return FilterCache.shared.image(
+            for: FilterCache.Key(layer: self, maxPixelSize: nil, includesMask: true), source: image, mask: activeMask
+        )
     }
 }

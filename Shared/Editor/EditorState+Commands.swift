@@ -445,3 +445,68 @@ extension EditorState {
         update { $0.rasterize(id) }
     }
 }
+
+// MARK: - Layer masks
+
+extension EditorState {
+    /// Adds a mask to the active layer: showing only the selection if there
+    /// is one, all of the layer otherwise. Painting goes into it next.
+    func addMask() {
+        guard let layer = activeLayer, layer.mask == nil else { return }
+        let size = composition.size
+        let mask = selection.map { LayerMask.revealing($0, of: layer, canvasSize: size) }
+            ?? .revealingAll(size: layer.image.size)
+        updateActiveLayer { $0.mask = mask }
+        isEditingMask = true
+    }
+
+    func deleteMask() {
+        updateActiveLayer { $0.mask = nil }
+        isEditingMask = false
+    }
+
+    /// Paints the mask into the layer's pixels for good.
+    func applyMask() {
+        guard let layer = activeLayer, layer.mask != nil else { return }
+        let size = composition.size
+        update { composition in
+            // Filters stay filters: only the mask is painted in.
+            var masked = layer
+            masked.filters = []
+            var result = masked.rasterized(in: size)
+            result.filters = layer.filters
+            composition[layer.id] = result
+        }
+        isEditingMask = false
+    }
+
+    func setMaskEnabled(_ isEnabled: Bool) {
+        updateActiveLayer { $0.mask?.isEnabled = isEnabled }
+    }
+
+    func invertMask() {
+        updateActiveLayer { layer in
+            layer.mask = layer.mask?.inverted()
+        }
+    }
+
+    /// Hides, or shows, the selected part of the active layer through its
+    /// mask.
+    func maskSelection(reveal: Bool) {
+        guard let layer = activeLayer, let mask = layer.mask, let selection else { return }
+        let size = composition.size
+        let transform = layer.affineTransform.inverted()
+        let image = Bitmap.render(size: mask.image.size) { context in
+            Bitmap.draw(mask.image.cgImage, in: CGRect(origin: .zero, size: mask.image.size), context: context)
+            context.concatenate(transform)
+            selection.clip(context, canvasSize: size)
+            if reveal {
+                context.setFillColor(RGBAColor.white.cgColor)
+                context.fill(CGRect(origin: .zero, size: size))
+            } else {
+                context.clear(CGRect(origin: .zero, size: size))
+            }
+        }
+        updateActiveLayer { $0.mask?.image = LayerImage(image) }
+    }
+}

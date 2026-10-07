@@ -67,7 +67,8 @@ struct CanvasView: View {
                         layer: layer,
                         displayed: state.displayImage(for: layer),
                         preview: state.layerPreview?.layerID == layer.id ? state.layerPreview?.image : nil,
-                        strokes: strokes(on: layer.id),
+                        strokes: strokes(on: layer.id, mask: false),
+                        maskStrokes: strokes(on: layer.id, mask: true),
                         retouch: retouch(on: layer.id),
                         canvasSize: composition.size,
                         viewport: viewport,
@@ -89,7 +90,7 @@ struct CanvasView: View {
 
     /// What the retouching brushes are doing to a layer right now.
     private func retouch(on layerID: Layer.ID) -> RetouchOverlay? {
-        let strokes = strokes(on: layerID).filter { !$0.kind.isPaint }
+        let strokes = strokes(on: layerID, mask: false).filter { !$0.kind.isPaint }
         let smudge = state.smudge?.layerID == layerID ? state.smudge?.patches ?? [] : []
         guard !strokes.isEmpty || !smudge.isEmpty else { return nil }
         let effect = state.retouchEffect.flatMap { $0.layerID == layerID ? $0 : nil }
@@ -101,9 +102,11 @@ struct CanvasView: View {
         )
     }
 
-    private func strokes(on layerID: Layer.ID) -> [Stroke] {
-        var strokes = state.pendingStrokes.filter { $0.layerID == layerID }.map(\.stroke)
-        if let active = state.activeStroke, state.activeLayerID == layerID { strokes.append(active) }
+    private func strokes(on layerID: Layer.ID, mask: Bool) -> [Stroke] {
+        var strokes = state.pendingStrokes.filter { $0.layerID == layerID && $0.isMask == mask }.map(\.stroke)
+        if let active = state.activeStroke, state.activeLayerID == layerID, state.editsMask == mask {
+            strokes.append(active)
+        }
         return strokes
     }
 }
@@ -126,6 +129,8 @@ private struct LayerView: View {
     let displayed: CGImage
     let preview: CGImage?
     let strokes: [Stroke]
+    /// Strokes on their way into the layer's mask.
+    let maskStrokes: [Stroke]
     let retouch: RetouchOverlay?
     let canvasSize: CGSize
     let viewport: CanvasViewport
@@ -139,13 +144,7 @@ private struct LayerView: View {
         // Past twice the screen's resolution, pixels show as squares, which
         // is what someone zoomed that far in is looking for.
         let pixelScale = scale * abs(transform.scaleX) * displayScale
-        let content = Image(decorative: image, scale: 1)
-            .resizable()
-            .interpolation(pixelScale > 2 ? .none : .high)
-            .frame(width: size.width * abs(transform.scaleX) * scale, height: size.height * abs(transform.scaleY) * scale)
-            .scaleEffect(x: transform.scaleX < 0 ? -1 : 1, y: transform.scaleY < 0 ? -1 : 1)
-            .rotationEffect(.radians(transform.rotation))
-            .position(viewport.screenPoint(transform.position))
+        let content = placed(Image(decorative: image, scale: 1).interpolation(pixelScale > 2 ? .none : .high))
 
         let paintStrokes = strokes.filter(\.kind.isPaint)
         Group {
@@ -164,8 +163,40 @@ private struct LayerView: View {
             }
         }
         .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height, alignment: .topLeading)
+        .mask(alignment: .topLeading) { maskView }
         .opacity(layer.opacity)
         .blendMode(layer.blendMode.swiftUI)
+    }
+
+    /// An image of the layer's size, placed where the layer is on screen.
+    private func placed(_ image: Image) -> some View {
+        let transform = layer.transform
+        let size = layer.image.size
+        let scale = viewport.scale
+        return image
+            .resizable()
+            .frame(width: size.width * abs(transform.scaleX) * scale, height: size.height * abs(transform.scaleY) * scale)
+            .scaleEffect(x: transform.scaleX < 0 ? -1 : 1, y: transform.scaleY < 0 ? -1 : 1)
+            .rotationEffect(.radians(transform.rotation))
+            .position(viewport.screenPoint(transform.position))
+    }
+
+    /// What of the layer shows: its mask with any strokes on their way into
+    /// it, or everything when it has no mask in use.
+    @ViewBuilder
+    private var maskView: some View {
+        if let mask = layer.activeMask {
+            ZStack(alignment: .topLeading) {
+                placed(Image(decorative: mask.image.cgImage, scale: 1))
+                if !maskStrokes.isEmpty {
+                    StrokePreview(strokes: maskStrokes, canvasSize: canvasSize, viewport: viewport)
+                }
+            }
+            .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height, alignment: .topLeading)
+            .compositingGroup()
+        } else {
+            Rectangle()
+        }
     }
 }
 
