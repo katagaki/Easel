@@ -61,7 +61,7 @@ struct DocumentLaunchBackground: View {
 
 /// A loose abstract painting across the header: a few broad, tapering brush
 /// strokes laid over a pencil sketch, with flicks of paint around them. The
-/// strokes paint themselves in, one after another, when the picker appears.
+/// strokes paint themselves in, all at once, when the picker appears.
 /// Decoration only, so hidden from VoiceOver.
 struct DocumentLaunchPainting: View {
     let geometry: DocumentLaunchGeometryProxy
