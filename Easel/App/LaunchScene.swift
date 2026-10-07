@@ -166,12 +166,14 @@ struct DocumentLaunchPainting: View {
         .opacity(colorScheme == .dark ? 0.6 : 0.5)
         .position(x: frame.midX, y: frame.midY)
         .accessibilityHidden(true)
-        .onAppear {
+        // The system lays the painting out more than once while the browser
+        // loads and fades it in after, so the paint waits until it can be seen.
+        .background(LaunchVisibilityWatcher {
             var transaction = Transaction()
             // Laid down all at once when Reduce Motion is on.
             transaction.disablesAnimations = reduceMotion
             withTransaction(transaction) { isPainted = true }
-        }
+        })
     }
 
     /// Where, down the launch area, the painting starts and finishes fading.
@@ -179,6 +181,53 @@ struct DocumentLaunchPainting: View {
     /// and iPad, so the paint is gone by the time the browser starts.
     private let fadeStart = 0.36
     private let fadeEnd = 0.48
+}
+
+/// Calls back once, the first time the view it sits behind is fully on
+/// screen: in a window, with nothing above it hidden or faded.
+private struct LaunchVisibilityWatcher: UIViewRepresentable {
+    var onVisible: () -> Void
+
+    func makeUIView(context: Context) -> WatcherView {
+        let view = WatcherView()
+        view.onVisible = onVisible
+        return view
+    }
+
+    func updateUIView(_ uiView: WatcherView, context: Context) {
+        uiView.onVisible = onVisible
+    }
+
+    final class WatcherView: UIView {
+        var onVisible: (() -> Void)?
+        private var displayLink: CADisplayLink?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            displayLink?.invalidate()
+            displayLink = nil
+            guard window != nil, onVisible != nil else { return }
+            // Checked every frame, since the system fades the painting in by
+            // animating a view above it rather than telling it anything.
+            let link = CADisplayLink(target: self, selector: #selector(check))
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+
+        @objc private func check() {
+            var view: UIView? = self
+            while let current = view {
+                let opacity = current.layer.presentation()?.opacity ?? current.layer.opacity
+                if current.isHidden || opacity < 0.99 { return }
+                view = current.superview
+            }
+            displayLink?.invalidate()
+            displayLink = nil
+            let onVisible = onVisible
+            self.onVisible = nil
+            onVisible?()
+        }
+    }
 }
 
 /// One brush stroke along a curve, loaded with paint at the start and
