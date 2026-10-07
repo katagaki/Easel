@@ -6,6 +6,8 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
     case brush, eraser, fill, gradient, eyedropper
     case smudge, blur, mosaic, heal
     case text, shape
+    /// Draws paths point by point: tap for a corner, drag for a curve.
+    case pen
 
     var id: String { rawValue }
 
@@ -15,7 +17,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         [.move, .select, .crop],
         [.brush, .eraser, .fill, .gradient, .eyedropper],
         [.smudge, .blur, .mosaic, .heal],
-        [.text, .shape],
+        [.text, .shape, .pen],
     ]
 
     var symbolName: String {
@@ -34,6 +36,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .heal: return "bandage"
         case .text: return "textformat"
         case .shape: return "square.on.circle"
+        case .pen: return "pencil.tip"
         }
     }
 
@@ -53,6 +56,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .heal: return "Tool.Heal"
         case .text: return "Tool.Text"
         case .shape: return "Tool.Shape"
+        case .pen: return "Tool.Pen"
         }
     }
 
@@ -74,6 +78,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .heal: return "j"
         case .text: return "t"
         case .shape: return "u"
+        case .pen: return "p"
         }
     }
 

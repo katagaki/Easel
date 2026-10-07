@@ -64,8 +64,41 @@ struct CanvasOverlay: View {
             }
         }
 
+        if state.tool == .pen, let target = state.penPath, let layer = composition[target.layerID] {
+            drawVectorEditing(layer, in: &context, transform: transform)
+        }
+
         if let crop = state.cropRect {
             drawCrop(crop.applying(transform), in: &context)
+        }
+    }
+
+    /// A vector layer's paths outlined, with their points and the handles of
+    /// the point picked out.
+    private func drawVectorEditing(_ layer: Layer, in context: inout GraphicsContext, transform: CGAffineTransform) {
+        guard let content = layer.vector else { return }
+        let toScreen = layer.affineTransform.concatenating(transform)
+        for (pathIndex, path) in content.paths.enumerated() {
+            context.stroke(Path(path.cgPath).applying(toScreen), with: .color(.accentColor), lineWidth: 1.5)
+            for (nodeIndex, node) in path.nodes.enumerated() {
+                let isSelected = state.selectedNode == VectorNodeRef(layerID: layer.id, path: pathIndex, node: nodeIndex)
+                let anchor = node.point.applying(toScreen)
+                if isSelected {
+                    for handle in [node.controlIn, node.controlOut].compactMap({ $0 }) {
+                        let end = handle.applying(toScreen)
+                        var line = Path()
+                        line.move(to: anchor)
+                        line.addLine(to: end)
+                        context.stroke(line, with: .color(.accentColor), lineWidth: 1)
+                        let knob = Path(ellipseIn: CGRect(x: end.x - 5, y: end.y - 5, width: 10, height: 10))
+                        context.fill(knob, with: .color(.white))
+                        context.stroke(knob, with: .color(.accentColor), lineWidth: 1.5)
+                    }
+                }
+                let box = Path(CGRect(x: anchor.x - 5, y: anchor.y - 5, width: 10, height: 10))
+                context.fill(box, with: .color(isSelected ? .accentColor : .white))
+                context.stroke(box, with: .color(.accentColor), lineWidth: 1.5)
+            }
         }
     }
 

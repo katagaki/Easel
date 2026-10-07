@@ -33,6 +33,7 @@ struct ToolOptionsBar: View {
         case .crop: cropOptions
         case .text: textOptions
         case .shape: shapeOptions
+        case .pen: penOptions
         }
     }
 
@@ -190,6 +191,40 @@ struct ToolOptionsBar: View {
                     .buttonStyle(.plain)
             } else {
                 Text("Options.TapToAddText")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+            }
+        }
+    }
+
+    private var penOptions: some View {
+        Group {
+            GlassGroup {
+                ColorWell(state: state)
+                GlassIconButton(
+                    symbol: state.shapeIsFilled ? "square.fill" : "square", label: "Options.ShapeFilled",
+                    isOn: state.shapeIsFilled
+                ) {
+                    state.shapeIsFilled.toggle()
+                }
+                OptionSlider(
+                    value: Binding(
+                        get: { BrushSizeScale.position(for: state.shapeLineWidth) },
+                        set: { state.shapeLineWidth = BrushSizeScale.size(at: $0) }
+                    ),
+                    label: "Options.LineWidth", valueText: "\(Int(state.shapeLineWidth.rounded())) px"
+                )
+            }
+            if state.penPath != nil {
+                GlassGroup {
+                    GlassIconButton(symbol: "checkmark", label: "Options.FinishPath", isOn: true) {
+                        state.finishPath()
+                    }
+                    .accessibilityIdentifier("finishPath")
+                }
+            } else {
+                Text("Options.TapToStartPath")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)

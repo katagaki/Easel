@@ -59,6 +59,11 @@ final class EditorState {
     var retouchEffect: RetouchPreparation?
     /// A smear being made.
     var smudge: SmudgeSession?
+    /// The path the pen is adding points to.
+    var penPath: VectorPathRef?
+    /// The point picked out for editing.
+    var selectedNode: VectorNodeRef?
+    @ObservationIgnored var vectorDrag: VectorDrag?
     var draftSelection: Selection?
     var draftShape: ShapeSpec?
     var draftGradient: (start: CGPoint, end: CGPoint)?
@@ -327,6 +332,7 @@ final class EditorState {
 
     private func toolDidChange(from old: Tool) {
         guard tool != old else { return }
+        penPath = nil
         activeStroke = nil
         smudge = nil
         draftShape = nil
@@ -438,6 +444,8 @@ final class EditorState {
             guard selectionKind.isDrawn else { return }
             if selectionKind == .magnetic { prepareEdgeMap() }
             draftSelection = Selection(shape: shape(for: selectionKind, from: point, to: point))
+        case .pen:
+            penBegan(at: point)
         case .shape:
             draftShape = ShapeSpec(
                 kind: shapeKind, start: point, end: point, isFilled: shapeIsFilled,
@@ -480,6 +488,8 @@ final class EditorState {
             case .mask:
                 break
             }
+        case .pen:
+            penMoved(to: last.location)
         case .shape:
             draftShape?.end = last.location
         case .gradient:
@@ -527,6 +537,8 @@ final class EditorState {
             } else if let draft = draftSelection, draft.isMeaningful {
                 selection = draft
             }
+        case .pen:
+            vectorDrag = nil
         case .shape:
             defer { draftShape = nil }
             guard let spec = draftShape, spec.isMeaningful else { return }

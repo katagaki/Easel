@@ -73,3 +73,64 @@ struct VectorLayerTests {
         #expect(TestImages.isClear(image, x: 15, y: 15))
     }
 }
+
+@MainActor
+@Suite("Pen tool")
+struct PenToolTests {
+    private func editor() -> EditorState {
+        let state = EditorState()
+        state.attach(to: .blank(size: CGSize(width: 200, height: 200))) { _ in }
+        state.viewportSize = CGSize(width: 400, height: 400)
+        state.tool = .pen
+        state.shapeLineWidth = 4
+        return state
+    }
+
+    private func tap(_ state: EditorState, _ x: Double, _ y: Double) {
+        state.toolBegan(at: CGPoint(x: x, y: y), pressure: 1)
+        state.toolEnded(isTap: true, at: CGPoint(x: x, y: y))
+    }
+
+    @Test func tapsMakeCornersAndTheFirstPointCloses() throws {
+        let state = editor()
+        tap(state, 20, 20)
+        tap(state, 120, 20)
+        tap(state, 120, 120)
+        let layer = try #require(state.activeLayer)
+        #expect(layer.isVector)
+        #expect(layer.vector?.paths.first?.nodes.count == 3)
+        tap(state, 21, 21)
+        #expect(state.penPath == nil)
+        let path = try #require(state.activeLayer?.vector?.paths.first)
+        #expect(path.isClosed)
+        #expect(path.nodes.count == 3)
+        // The corner points sit where they were tapped on the canvas.
+        let corner = path.nodes[1].point.applying(state.activeLayer!.affineTransform)
+        #expect(abs(corner.x - 120) < 0.01 && abs(corner.y - 20) < 0.01)
+    }
+
+    @Test func draggingMakesASmoothCurve() throws {
+        let state = editor()
+        tap(state, 20, 100)
+        state.toolBegan(at: CGPoint(x: 100, y: 100), pressure: 1)
+        state.toolMoved(to: [StrokePoint(location: CGPoint(x: 140, y: 100))])
+        state.toolEnded(isTap: false, at: CGPoint(x: 140, y: 100))
+        let layer = try #require(state.activeLayer)
+        let node = try #require(layer.vector?.paths.first?.nodes.last)
+        #expect(node.isSmooth)
+        let out = try #require(node.controlOut).applying(layer.affineTransform)
+        let into = try #require(node.controlIn).applying(layer.affineTransform)
+        #expect(abs(out.x - 140) < 0.01)
+        #expect(abs(into.x - 60) < 0.01)
+    }
+
+    @Test func finishingLeavesThePathOpen() throws {
+        let state = editor()
+        tap(state, 20, 20)
+        tap(state, 80, 80)
+        state.finishPath()
+        tap(state, 150, 150)
+        // A new path on a new layer.
+        #expect(state.composition.layers.filter(\.isVector).count == 2)
+    }
+}
