@@ -13,7 +13,9 @@ struct EaselApp: App {
         // With no title at all, the scene falls back to the app's name.
         DocumentGroupLaunchScene(Text(verbatim: "")) {
             NewDocumentButton("Launch.NewImage")
-            Button("Launch.EditPhoto", systemImage: "photo.on.rectangle.angled") {
+            // Text only: with an icon, the scene splits the label into two
+            // actions and tucks them behind a "Show More" menu, the icon's empty.
+            Button("Launch.EditPhoto") {
                 photoEditLauncher.isPicking = true
             }
             .accessibilityIdentifier("editPhoto")
