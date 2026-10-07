@@ -100,12 +100,9 @@ extension EditorState {
         tool = .move
     }
 
+    /// Adds a shape as a vector layer, so its points can be edited later.
     func addShapeLayer(_ spec: ShapeSpec) {
-        let rendered = spec.render()
-        let layer = Layer(
-            name: spec.kind.label, image: LayerImage(rendered.image),
-            transform: LayerTransform(position: rendered.center)
-        )
+        let layer = Layer.vector(VectorPath.shape(spec), name: spec.kind.label)
         update { $0.insert(layer, above: activeLayerID) }
         activeLayerID = layer.id
     }
@@ -373,12 +370,14 @@ extension EditorState {
             var result = layer
             result.image = LayerImage(ImageProcessing.apply(process, to: layer.image.cgImage))
             result.text = nil
+            result.vector = nil
             return result
         }, apply: { [weak self] result in
             self?.update { composition in
                 guard var current = composition[layer.id] else { return }
                 current.image = result.image
                 current.text = nil
+                current.vector = nil
                 current.transform = result.transform
                 composition[layer.id] = current
             }

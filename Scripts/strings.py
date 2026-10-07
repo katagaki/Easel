@@ -177,6 +177,7 @@ S = {
 "Layers.Rename.Placeholder": ("Layer Name", "レイヤー名", "레이어 이름", "图层名称", "圖層名稱"),
 "Layers.Rename.Title": ("Rename Layer", "レイヤー名を変更", "레이어 이름 변경", "重新命名图层", "重新命名圖層"),
 "Layers.Section.Appearance": ("Layer", "レイヤー", "레이어", "图层", "圖層"),
+"Layers.Vector": ("Vector Layer", "ベクターレイヤー", "벡터 레이어", "矢量图层", "向量圖層"),
 "Layers.Show": ("Show Layer", "レイヤーを表示", "레이어 표시", "显示图层", "顯示圖層"),
 "Layers.Unlock": ("Unlock", "ロックを解除", "잠금 해제", "解锁", "解鎖"),
 "Options.AspectRatio": ("Aspect Ratio", "縦横比", "화면 비율", "长宽比", "長寬比"),

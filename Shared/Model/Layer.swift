@@ -11,6 +11,9 @@ struct Layer: Identifiable, Equatable, Sendable {
     /// Text layers keep what they say, so they can be edited again; their
     /// `image` is always the text drawn out.
     var text: TextContent?
+    /// Vector layers keep their paths, so they can be edited again; their
+    /// `image` is always the paths drawn out.
+    var vector: VectorContent?
     /// Run over `image` whenever the layer is drawn, in order; the pixels
     /// themselves are never changed by them.
     var filters: [LayerFilter] = []
@@ -23,7 +26,7 @@ struct Layer: Identifiable, Equatable, Sendable {
     var isLocked = false
 
     init(
-        id: UUID = UUID(), name: String, image: LayerImage, text: TextContent? = nil,
+        id: UUID = UUID(), name: String, image: LayerImage, text: TextContent? = nil, vector: VectorContent? = nil,
         filters: [LayerFilter] = [], mask: LayerMask? = nil, transform: LayerTransform, opacity: Double = 1,
         blendMode: LayerBlendMode = .normal, isVisible: Bool = true, isLocked: Bool = false
     ) {
@@ -31,6 +34,7 @@ struct Layer: Identifiable, Equatable, Sendable {
         self.name = name
         self.image = image
         self.text = text
+        self.vector = vector
         self.filters = filters
         self.mask = mask
         self.transform = transform
@@ -73,7 +77,7 @@ struct Layer: Identifiable, Equatable, Sendable {
     /// Whether the layer's pixels line up one for one with a canvas of this
     /// size, which is what brushes, fills and selections paint into.
     func isAligned(to canvasSize: CGSize) -> Bool {
-        transform.isIdentityPlacement(for: image.size, in: canvasSize) && text == nil
+        transform.isIdentityPlacement(for: image.size, in: canvasSize) && text == nil && vector == nil
     }
 
     func contains(_ point: CGPoint) -> Bool {

@@ -781,6 +781,7 @@ final class EditorState {
                         guard var current = composition[layerID] else { return }
                         current.image = result.image
                         current.text = nil
+                        current.vector = nil
                         current.transform = result.transform
                         if let mask = result.mask { current.mask?.image = mask.image }
                         composition[layerID] = current

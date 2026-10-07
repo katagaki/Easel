@@ -225,6 +225,26 @@ struct Composition: Equatable, Sendable {
         for index in layers.indices {
             layers[index].transform.scaleX *= scaleX
             layers[index].transform.scaleY *= scaleY
+            if let vector = layers[index].vector {
+                // Paths are scaled and drawn again rather than stretched.
+                let scaled = VectorContent(paths: vector.paths.map { path in
+                    var path = path
+                    path.nodes = path.nodes.map { node in
+                        func scale(_ point: CGPoint) -> CGPoint { CGPoint(x: point.x * scaleX, y: point.y * scaleY) }
+                        return VectorNode(point: scale(node.point), controlIn: node.controlIn.map(scale),
+                                          controlOut: node.controlOut.map(scale), isSmooth: node.isSmooth)
+                    }
+                    path.strokeWidth *= (scaleX + scaleY) / 2
+                    return path
+                })
+                let center = layers[index].transform.position
+                layers[index].transform.scaleX /= scaleX
+                layers[index].transform.scaleY /= scaleY
+                let rendered = VectorRenderer.render(scaled)
+                layers[index].vector = rendered.content
+                layers[index].image = LayerImage(rendered.image)
+                layers[index].transform.position = center
+            }
             if var text = layers[index].text {
                 // Text is set again rather than stretched, so it stays crisp.
                 let factor = (scaleX + scaleY) / 2
@@ -303,6 +323,7 @@ extension Layer {
         var result = self
         result.image = LayerImage(CompositionRenderer.render(layers: [placed], size: canvasSize))
         result.text = nil
+        result.vector = nil
         result.transform = LayerTransform(position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2))
         if let mask {
             // Off the layer's old edges the mask shows everything, so paint
@@ -338,6 +359,7 @@ extension Layer {
         var result = self
         result.image = LayerImage(image)
         result.text = nil
+        result.vector = nil
         result.filters = []
         result.mask = nil
         result.transform = LayerTransform(position: CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2))

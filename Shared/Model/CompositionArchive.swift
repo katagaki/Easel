@@ -41,6 +41,7 @@ enum CompositionArchive {
         var name: String
         var file: String
         var text: TextContent?
+        var vector: VectorContent?
         var filters: [LayerFilter]?
         var maskFile: String?
         var maskEnabled: Bool?
@@ -139,7 +140,7 @@ enum CompositionArchive {
                 maskFile = name
             }
             records.append(LayerRecord(
-                id: layer.id, name: layer.name, file: file, text: layer.text,
+                id: layer.id, name: layer.name, file: file, text: layer.text, vector: layer.vector,
                 filters: layer.filters.isEmpty ? nil : layer.filters,
                 maskFile: maskFile, maskEnabled: layer.mask.map(\.isEnabled), transform: layer.transform,
                 opacity: layer.opacity, blendMode: layer.blendMode, isVisible: layer.isVisible, isLocked: layer.isLocked,
@@ -175,7 +176,7 @@ enum CompositionArchive {
                 )
             }
             return Layer(
-                id: record.id, name: record.name, image: image, text: record.text,
+                id: record.id, name: record.name, image: image, text: record.text, vector: record.vector,
                 filters: record.filters ?? [], mask: mask, transform: record.transform,
                 opacity: record.opacity, blendMode: record.blendMode, isVisible: record.isVisible,
                 isLocked: record.isLocked

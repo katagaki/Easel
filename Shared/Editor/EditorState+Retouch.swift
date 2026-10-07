@@ -90,6 +90,7 @@ extension EditorState {
             guard var layer = composition[session.layerID] else { return }
             layer.image = LayerImage(image)
             layer.text = nil
+            layer.vector = nil
             layer.transform = LayerTransform(position: CGPoint(x: size.width / 2, y: size.height / 2))
             composition[session.layerID] = layer
         }

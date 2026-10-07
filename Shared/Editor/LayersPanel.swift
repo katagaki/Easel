@@ -144,7 +144,7 @@ struct LayersPanel: View {
                 .disabled(composition.layers.first?.id == layer.id)
             Button("Layers.MergeDown", systemImage: "square.2.layers.3d.bottom.filled") { state.mergeDown(layer.id) }
                 .disabled(!composition.canMergeDown(layer.id))
-            if layer.isText {
+            if layer.isText || layer.isVector {
                 Button("Layers.Rasterize", systemImage: "square.grid.3x3.square") { state.rasterizeLayer(layer.id) }
             }
             if layer.hasActiveFilters {
@@ -221,6 +221,11 @@ private struct LayerRow: View {
                         Image(systemName: "textformat")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    } else if layer.isVector {
+                        Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Layers.Vector")
                     }
                     Text(layer.name)
                         .lineLimit(1)
