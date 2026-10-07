@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Testing
 @testable import Easel
 
@@ -113,5 +114,53 @@ struct PainterTests {
         let image = TextRenderer.render(text)
         #expect(image.width > 60)
         #expect(image.height > 30 && image.height < 120)
+    }
+}
+
+@Suite("Text styles")
+struct TextStyleTests {
+    private let base = TextContent(string: "Hi", fontSize: 40, color: .white)
+
+    @Test func outlineAddsRoomAndColourAroundTheLetters() {
+        var outlined = base
+        outlined.outline = TextContent.Outline(color: RGBAColor(red: 1, green: 0, blue: 0), width: 0.1)
+        let plain = TextRenderer.render(base)
+        let image = TextRenderer.render(outlined)
+        #expect(image.width > plain.width)
+        let pixels = Bitmap.pixels(of: image)!
+        var foundRed = false
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width {
+                let c = pixels.color(x: x, y: y)
+                if c.alpha > 250, c.red > 200, c.green < 60 { foundRed = true }
+            }
+        }
+        #expect(foundRed)
+    }
+
+    @Test func backgroundFillsBehindTheText() {
+        var boxed = base
+        boxed.background = TextContent.Background(color: RGBAColor(red: 0, green: 0, blue: 1), padding: 0.3, cornerRadius: 0)
+        let image = TextRenderer.render(boxed)
+        // Square corners: the very corner of the box is filled blue.
+        let corner = TextImages.firstOpaque(in: image)
+        #expect(corner != nil)
+        #expect(TestImages.isBlue(image, x: image.width / 2, y: 3))
+    }
+
+    @Test func oldTextWithoutStylesStillDecodes() throws {
+        let json = #"{"string":"A","design":"standard","isBold":true,"isItalic":false,"fontSize":12,"color":{"red":0,"green":0,"blue":0,"alpha":1},"alignment":"center"}"#
+        let text = try JSONDecoder().decode(TextContent.self, from: Data(json.utf8))
+        #expect(text.outline == nil && text.background == nil)
+    }
+}
+
+private enum TextImages {
+    static func firstOpaque(in image: CGImage) -> (Int, Int)? {
+        let pixels = Bitmap.pixels(of: image)!
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width where pixels.color(x: x, y: y).alpha > 250 { return (x, y) }
+        }
+        return nil
     }
 }

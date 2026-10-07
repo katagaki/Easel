@@ -48,6 +48,63 @@ struct TextPanel: View {
                         )
                     )
                 }
+                Section("Text.Outline") {
+                    Toggle("Text.Outline.Show", isOn: Binding(
+                        get: { text.outline != nil },
+                        set: { isOn in
+                            state.updateText { $0.outline = isOn ? TextContent.Outline(color: Self.contrasting(text.color)) : nil }
+                        }
+                    ))
+                    .accessibilityIdentifier("textOutline")
+                    if let outline = text.outline {
+                        ColorPicker("Text.Color", selection: Binding(
+                            get: { outline.color.color },
+                            set: { value in state.updateText { $0.outline?.color = RGBAColor(value) } }
+                        ))
+                        LabeledSlider(
+                            label: "Text.Outline.Width",
+                            value: Binding(
+                                get: { outline.width },
+                                set: { value in state.updateText { $0.outline?.width = value } }
+                            ),
+                            range: 0.01...0.3,
+                            valueText: "\(Int((outline.width * text.fontSize).rounded())) px"
+                        )
+                    }
+                }
+                Section("Text.Background") {
+                    Toggle("Text.Background.Show", isOn: Binding(
+                        get: { text.background != nil },
+                        set: { isOn in
+                            state.updateText {
+                                $0.background = isOn ? TextContent.Background(color: Self.contrasting(text.color)) : nil
+                            }
+                        }
+                    ))
+                    .accessibilityIdentifier("textBackground")
+                    if let background = text.background {
+                        ColorPicker("Text.Color", selection: Binding(
+                            get: { background.color.color },
+                            set: { value in state.updateText { $0.background?.color = RGBAColor(value) } }
+                        ))
+                        LabeledSlider(
+                            label: "Text.Background.Padding",
+                            value: Binding(
+                                get: { background.padding },
+                                set: { value in state.updateText { $0.background?.padding = value } }
+                            ),
+                            valueText: "\(Int((background.padding * text.fontSize).rounded())) px"
+                        )
+                        LabeledSlider(
+                            label: "Text.Background.Corners",
+                            value: Binding(
+                                get: { background.cornerRadius },
+                                set: { value in state.updateText { $0.background?.cornerRadius = value } }
+                            ),
+                            valueText: "\(Int((background.cornerRadius * 100).rounded()))%"
+                        )
+                    }
+                }
             } else {
                 ContentUnavailableView("Text.NoTextLayer", systemImage: "textformat", description: Text("Text.NoTextLayer.Detail"))
             }
@@ -68,6 +125,13 @@ struct TextPanel: View {
             }
         }
         .panelActions(confirm: { state.presentedPanel = nil })
+    }
+
+    /// Black or white, whichever stands out against the text's colour, as a
+    /// starting point for an outline or background.
+    private static func contrasting(_ color: RGBAColor) -> RGBAColor {
+        let luminance = 0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue
+        return luminance > 0.5 ? .black : .white
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<TextContent, Value>) -> Binding<Value> where Value: Equatable {

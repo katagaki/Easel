@@ -260,4 +260,24 @@ struct TextContent: Codable, Equatable, Sendable {
     var fontSize: Double
     var color: RGBAColor
     var alignment: Alignment = .center
+    /// A line drawn around each letter; nil for none. Optional so files
+    /// saved before outlines existed still open.
+    var outline: Outline?
+    /// A rounded box behind the text; nil for none.
+    var background: Background?
+
+    struct Outline: Codable, Equatable, Sendable {
+        var color: RGBAColor = .black
+        /// As a fraction of the font size, so it keeps its look when the
+        /// text is resized.
+        var width: Double = 0.08
+    }
+
+    struct Background: Codable, Equatable, Sendable {
+        var color: RGBAColor = .white
+        /// Room around the text, as a fraction of the font size.
+        var padding: Double = 0.3
+        /// From square corners at 0 to fully round ends at 1.
+        var cornerRadius: Double = 0.4
+    }
 }
