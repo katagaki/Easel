@@ -1,23 +1,27 @@
 import SwiftUI
 
-/// The pieces of the document picker's top area: a pink wash laid over the
-/// checkerboard an empty canvas shows, with a wall of the app's tools behind
-/// the actions.
+/// The pieces of the document picker's top area: a sheet of pink-tinted
+/// paper with a loose abstract painting across it, behind the actions.
 enum DocumentLaunch {
     /// A wash of the app icon's pink, kept quiet: near white in light mode,
     /// near black in dark, so the system's buttons and browser read over it.
     static let topColor = adaptive(
-        light: UIColor(red: 0.99, green: 0.89, blue: 0.92, alpha: 1),
-        dark: UIColor(red: 0.22, green: 0.07, blue: 0.11, alpha: 1)
+        light: UIColor(red: 0.99, green: 0.91, blue: 0.93, alpha: 1),
+        dark: UIColor(red: 0.20, green: 0.07, blue: 0.10, alpha: 1)
     )
     static let bottomColor = adaptive(
         light: UIColor(red: 1.00, green: 0.97, blue: 0.98, alpha: 1),
         dark: UIColor(red: 0.09, green: 0.04, blue: 0.05, alpha: 1)
     )
-    /// The colour the checkerboard is drawn in.
-    static let ink = adaptive(
-        light: UIColor(red: 0.85, green: 0.22, blue: 0.38, alpha: 1),
-        dark: UIColor(red: 0.80, green: 0.42, blue: 0.53, alpha: 1)
+    /// The colour the paper's grain is flecked in.
+    static let grain = adaptive(
+        light: UIColor(red: 0.62, green: 0.20, blue: 0.32, alpha: 1),
+        dark: UIColor(red: 1.00, green: 0.80, blue: 0.86, alpha: 1)
+    )
+    /// The graphite of the pencil sketch under the paint.
+    static let graphite = adaptive(
+        light: UIColor(red: 0.30, green: 0.24, blue: 0.27, alpha: 1),
+        dark: UIColor(red: 0.85, green: 0.78, blue: 0.81, alpha: 1)
     )
 
     private static func adaptive(light: UIColor, dark: UIColor) -> Color {
@@ -25,11 +29,9 @@ enum DocumentLaunch {
     }
 }
 
-/// The pink wash, checkered faintly like a transparent canvas, fading out
-/// towards the browser so the pattern never competes with file names.
+/// The pink wash, flecked with a fine grain like watercolour paper, so the
+/// painting above it sits on something rather than on flat colour.
 struct DocumentLaunchBackground: View {
-    private let squareSize = 14.0
-
     var body: some View {
         ZStack {
             LinearGradient(
@@ -38,103 +40,119 @@ struct DocumentLaunchBackground: View {
                 endPoint: .bottom
             )
             Canvas { context, size in
-                var squares = Path()
-                var row = 0
-                var y = 0.0
-                while y < size.height {
-                    var x = row.isMultiple(of: 2) ? 0 : squareSize
-                    while x < size.width {
-                        squares.addRect(CGRect(x: x, y: y, width: squareSize, height: squareSize))
-                        x += squareSize * 2
-                    }
-                    y += squareSize
-                    row += 1
+                // Seeded, so the grain stays put from one launch to the next.
+                var random = LaunchRandom(seed: 7)
+                var flecks = Path()
+                let count = Int(size.width * size.height / 90)
+                for _ in 0..<count {
+                    let point = CGPoint(x: random.next() * size.width, y: random.next() * size.height)
+                    let radius = 0.3 + random.next() * 0.6
+                    flecks.addEllipse(in: CGRect(x: point.x, y: point.y, width: radius, height: radius))
                 }
-                context.fill(squares, with: .color(DocumentLaunch.ink.opacity(0.06)))
+                context.fill(flecks, with: .color(DocumentLaunch.grain.opacity(0.16)))
             }
             .mask {
-                LinearGradient(
-                    colors: [.white, .white.opacity(0.35), .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                LinearGradient(colors: [.white, .white.opacity(0.4), .clear], startPoint: .top, endPoint: .bottom)
             }
         }
         .ignoresSafeArea()
     }
 }
 
-/// A wall of small tiles, each something a picture can be made with —
-/// brushes, swatches, layers, paths, selections, gradients, curves and
-/// filters — laid in staggered rows across the whole header. It sits behind
-/// the buttons, faded so it reads as a backdrop rather than content.
+/// A loose abstract painting across the header: a few broad, tapering brush
+/// strokes laid over a pencil sketch, with flicks of paint around them. The
+/// strokes paint themselves in, one after another, when the picker appears.
 /// Decoration only, so hidden from VoiceOver.
-struct DocumentLaunchToolWall: View {
+struct DocumentLaunchPainting: View {
     let geometry: DocumentLaunchGeometryProxy
 
-    private enum Tile {
-        case stroke(Brush, Color)
-        case swatches, layers, path, selection, gradient, colorWheel
-        case curves, histogram, symmetry, type, picture
-        case symbol(String, Color)
-    }
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isPainted = false
 
-    private enum Brush {
-        case round, pencil, calligraphy, airbrush
-    }
-
-    /// No tile appears twice in a pattern, and the kinds are spread so
-    /// neighbours differ. Rows start just off the leading edge, like a wall
-    /// that carries on out of frame, so the most telling tiles come first,
-    /// where a phone shows them.
-    private let rows: [[Tile]] = [
-        [.stroke(.round, .pink), .swatches, .symbol("paintbrush.pointed.fill", .orange), .path,
-         .gradient, .symbol("eyedropper.halffull", .teal), .layers, .stroke(.airbrush, .purple)],
-        [.picture, .stroke(.calligraphy, .indigo), .colorWheel, .symbol("lasso", .blue),
-         .curves, .stroke(.pencil, .orange), .symbol("wand.and.sparkles", .purple), .selection],
-        [.symbol("pencil.tip", .pink), .layers, .stroke(.airbrush, .teal), .histogram,
-         .type, .symbol("drop.fill", .blue), .stroke(.round, .orange), .symmetry],
-        [.stroke(.pencil, .indigo), .selection, .symbol("scribble.variable", .pink), .gradient,
-         .stroke(.calligraphy, .purple), .picture, .swatches, .symbol("paintpalette.fill", .orange)],
+    /// The strokes in the order they are laid down. Points are fractions of
+    /// the painted area, and run off its sides so the painting carries on out
+    /// of frame.
+    private static let strokes: [LaunchBrushStroke] = [
+        LaunchBrushStroke(
+            start: CGPoint(x: -0.08, y: 0.30), control1: CGPoint(x: 0.30, y: 0.62),
+            control2: CGPoint(x: 0.62, y: -0.08), end: CGPoint(x: 1.10, y: 0.16),
+            width: 48, color: Color(red: 0.93, green: 0.25, blue: 0.42), seed: 1
+        ),
+        LaunchBrushStroke(
+            start: CGPoint(x: 1.06, y: 0.62), control1: CGPoint(x: 0.70, y: 0.40),
+            control2: CGPoint(x: 0.40, y: 0.92), end: CGPoint(x: 0.04, y: 0.70),
+            width: 38, color: Color(red: 1.00, green: 0.58, blue: 0.20), seed: 2
+        ),
+        LaunchBrushStroke(
+            start: CGPoint(x: 0.10, y: 0.06), control1: CGPoint(x: 0.22, y: 0.18),
+            control2: CGPoint(x: 0.34, y: 0.02), end: CGPoint(x: 0.46, y: 0.14),
+            width: 22, color: Color(red: 0.20, green: 0.70, blue: 0.72), seed: 3
+        ),
+        LaunchBrushStroke(
+            start: CGPoint(x: 0.58, y: 1.00), control1: CGPoint(x: 0.72, y: 0.80),
+            control2: CGPoint(x: 0.86, y: 0.86), end: CGPoint(x: 1.08, y: 0.62),
+            width: 30, color: Color(red: 0.55, green: 0.36, blue: 0.90), seed: 4
+        ),
+        LaunchBrushStroke(
+            start: CGPoint(x: -0.06, y: 0.96), control1: CGPoint(x: 0.10, y: 0.86),
+            control2: CGPoint(x: 0.20, y: 1.02), end: CGPoint(x: 0.34, y: 0.90),
+            width: 26, color: Color(red: 1.00, green: 0.80, blue: 0.22), seed: 5
+        ),
     ]
 
-    private let tileHeight = 44.0
-    private let spacing = 8.0
+    /// Flicks of paint shaken off the brush: where each lands, how far it
+    /// spreads and in which colour.
+    private static let splatters: [(center: CGPoint, spread: CGFloat, color: Color, seed: UInt64)] = [
+        (CGPoint(x: 0.86, y: 0.34), 34, Color(red: 0.93, green: 0.25, blue: 0.42), 11),
+        (CGPoint(x: 0.16, y: 0.48), 26, Color(red: 0.55, green: 0.36, blue: 0.90), 12),
+        (CGPoint(x: 0.52, y: 0.80), 22, Color(red: 0.20, green: 0.70, blue: 0.72), 13),
+    ]
 
-    /// How far each row starts off the leading edge. Five offsets against four
-    /// row patterns, so the wall does not visibly repeat on a tall screen.
-    private let rowOffsets: [Double] = [-18, -46, -30, -8, -38]
+    private static let duration = 0.9
+    private static let stagger = 0.22
 
     var body: some View {
-        // The wall fills the launch area from the top and fades out above the
-        // browser, rather than being fitted around the buttons: the system
-        // places the actions and browser differently on iPhone and iPad.
+        // The painting fills the top of the launch area and fades out above
+        // the browser, rather than being fitted around the buttons: the
+        // system places the actions and browser differently on iPhone and iPad.
         let frame = geometry.frame
-        let rowCount = Int(frame.height * fadeEnd / (tileHeight + spacing)) + 1
+        let area = CGRect(x: 0, y: 0, width: frame.width, height: frame.height * fadeEnd)
+        // Broader strokes on a wider screen, so an iPad's painting is not spindly.
+        let scale = min(1.7, max(1, frame.width / 420))
 
-        VStack(alignment: .leading, spacing: spacing) {
-            ForEach(0..<rowCount, id: \.self) { index in
-                // A row's pattern repeats until it is wider than any screen,
-                // and starts further along each time the patterns come round
-                // again, so a tall screen does not show the same rows twice.
-                let pattern = rows[index % rows.count]
-                let shift = (index / rows.count * 3) % pattern.count
-                let rotated = Array(pattern[shift...] + pattern[..<shift])
-                let tiles = Array(repeating: rotated, count: 3).flatMap { $0 }
-                HStack(spacing: spacing) {
-                    ForEach(tiles.indices, id: \.self) { position in
-                        tile(tiles[position])
-                    }
+        ZStack(alignment: .topLeading) {
+            LaunchSketch(progress: isPainted ? 1 : 0)
+                .stroke(DocumentLaunch.graphite.opacity(0.35), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+                .animation(.easeInOut(duration: 1.6), value: isPainted)
+
+            ForEach(Self.strokes.indices, id: \.self) { index in
+                let stroke = Self.strokes[index]
+                let animation = Animation.easeOut(duration: Self.duration).delay(0.2 + Double(index) * Self.stagger)
+                ZStack {
+                    LaunchBrushShape(stroke: stroke, scale: scale, progress: isPainted ? 1 : 0)
+                        .fill(stroke.color)
+                    // Bristle marks dragged through the paint, light and dark.
+                    LaunchBristleShape(stroke: stroke, scale: scale, progress: isPainted ? 1 : 0, offsets: [-0.55, 0.1, 0.7])
+                        .stroke(.white.opacity(0.35), lineWidth: 1)
+                    LaunchBristleShape(stroke: stroke, scale: scale, progress: isPainted ? 1 : 0, offsets: [-0.25, 0.4])
+                        .stroke(.black.opacity(0.12), lineWidth: 1.5)
                 }
-                .fixedSize()
-                .offset(x: rowOffsets[index % rowOffsets.count])
+                .blendMode(colorScheme == .dark ? .normal : .multiply)
+                .animation(animation, value: isPainted)
+            }
+
+            ForEach(Self.splatters.indices, id: \.self) { index in
+                let splatter = Self.splatters[index]
+                LaunchSplatter(center: splatter.center, spread: splatter.spread * scale, seed: splatter.seed)
+                    .fill(splatter.color)
+                    .scaleEffect(isPainted ? 1 : 0.2, anchor: UnitPoint(x: splatter.center.x, y: splatter.center.y))
+                    .opacity(isPainted ? 1 : 0)
+                    .animation(.spring(duration: 0.5, bounce: 0.35).delay(0.5 + Double(index) * 0.35), value: isPainted)
             }
         }
-        // Drifted inside the clip, so the wall's edges never show.
-        .modifier(LaunchFloating())
-        .padding(.top, spacing)
-        .frame(width: frame.width, height: frame.height, alignment: .topLeading)
-        .clipped()
+        .frame(width: area.width, height: area.height)
+        .frame(width: frame.width, height: frame.height, alignment: .top)
         .mask {
             LinearGradient(
                 stops: [
@@ -145,309 +163,217 @@ struct DocumentLaunchToolWall: View {
                 endPoint: .bottom
             )
         }
-        // Faded as one layer, so overlapping tile edges do not show through.
+        // Faded as one layer, so the strokes' overlaps keep their mix.
         .compositingGroup()
-        .opacity(0.4)
+        .opacity(colorScheme == .dark ? 0.6 : 0.5)
         .position(x: frame.midX, y: frame.midY)
         .accessibilityHidden(true)
-    }
-
-    /// Where, down the launch area, the wall starts and finishes fading. The
-    /// browser's top edge sits a little under halfway down on both iPhone and
-    /// iPad, so the wall is gone by the time the browser starts.
-    private let fadeStart = 0.34
-    private let fadeEnd = 0.47
-
-    @ViewBuilder
-    private func tile(_ tile: Tile) -> some View {
-        switch tile {
-        case .stroke(let brush, let color): strokeTile(brush, color: color)
-        case .swatches: swatchesTile
-        case .layers: layersTile
-        case .path: pathTile
-        case .selection: selectionTile
-        case .gradient: gradientTile
-        case .colorWheel: colorWheelTile
-        case .curves: curvesTile
-        case .histogram: histogramTile
-        case .symmetry: symmetryTile
-        case .type: typeTile
-        case .picture: pictureTile
-        case .symbol(let name, let color): symbolTile(name, color: color)
+        .onAppear {
+            var transaction = Transaction()
+            // Laid down all at once when Reduce Motion is on.
+            transaction.disablesAnimations = reduceMotion
+            withTransaction(transaction) { isPainted = true }
         }
     }
 
-    private func tile(width: CGFloat, @ViewBuilder content: () -> some View) -> some View {
-        content()
-            .frame(width: width, height: tileHeight)
-            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
+    /// Where, down the launch area, the painting starts and finishes fading.
+    /// The browser's top edge sits a little under halfway down on both iPhone
+    /// and iPad, so the paint is gone by the time the browser starts.
+    private let fadeStart = 0.36
+    private let fadeEnd = 0.48
+}
+
+/// One brush stroke along a curve, loaded with paint at the start and
+/// running dry towards the end.
+private struct LaunchBrushStroke {
+    var start: CGPoint
+    var control1: CGPoint
+    var control2: CGPoint
+    var end: CGPoint
+    var width: CGFloat
+    var color: Color
+    /// Varies the wobble in the stroke's edge, so no two look stamped out.
+    var seed: Double
+
+    private static let samples = 72
+
+    func point(at t: CGFloat, in rect: CGRect) -> CGPoint {
+        let u = 1 - t
+        let a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
+        let x = a * start.x + b * control1.x + c * control2.x + d * end.x
+        let y = a * start.y + b * control1.y + c * control2.y + d * end.y
+        return CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
     }
 
-    private func symbolTile(_ name: String, color: Color) -> some View {
-        tile(width: tileHeight) {
-            Image(systemName: name)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(color)
-        }
+    /// The unit normal at `t`, worked out in the view's own space so the
+    /// stroke keeps its width however the area is stretched.
+    func normal(at t: CGFloat, in rect: CGRect) -> CGVector {
+        let before = point(at: max(0, t - 0.005), in: rect)
+        let after = point(at: min(1, t + 0.005), in: rect)
+        let dx = after.x - before.x, dy = after.y - before.y
+        let length = max(0.0001, (dx * dx + dy * dy).squareRoot())
+        return CGVector(dx: -dy / length, dy: dx / length)
     }
 
-    // The tiles use system colours, which already adapt to dark mode.
-
-    /// A wave painted across the tile, in the look of one of the brush tips.
-    private func strokeTile(_ brush: Brush, color: Color) -> some View {
-        tile(width: 76) {
-            let wave = LaunchWave()
-            Group {
-                switch brush {
-                case .round:
-                    wave.stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                case .pencil:
-                    ZStack {
-                        wave.stroke(color.opacity(0.5), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        wave.stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [2, 1.5]))
-                    }
-                case .calligraphy:
-                    // A broad nib held at an angle: thick on the way down, thin across.
-                    ZStack {
-                        wave.stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                        wave.stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                            .offset(x: 2.5, y: -2.5)
-                        wave.stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                            .offset(x: 1.25, y: -1.25)
-                    }
-                case .airbrush:
-                    wave.stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                        .blur(radius: 2.5)
-                }
-            }
-            .frame(width: 52, height: 18)
-        }
+    /// Half the stroke's width at `t`: a quick rounded swell where the brush
+    /// touches down, a long taper as it lifts, and a slight wobble throughout.
+    func halfWidth(at t: CGFloat, scale: CGFloat) -> CGFloat {
+        let touchDown = 0.6 + 0.4 * pow(min(1, t / 0.08), 0.5)
+        let lift = 1 - pow(t, 2.6)
+        let wobble = 1 + 0.07 * sin(t * 21 + seed * 1.7) + 0.04 * sin(t * 47 + seed)
+        return width * scale / 2 * touchDown * lift * wobble
     }
 
-    private var swatchesTile: some View {
-        tile(width: 76) {
-            HStack(spacing: -4) {
-                ForEach([Color.pink, .orange, .yellow, .teal], id: \.self) { color in
-                    Circle()
-                        .fill(color)
-                        .frame(width: 18, height: 18)
-                        .overlay(Circle().strokeBorder(Color(.secondarySystemGroupedBackground), lineWidth: 1.5))
-                }
-            }
-        }
-    }
-
-    /// Three layers stacked and offset, the top one selected.
-    private var layersTile: some View {
-        tile(width: tileHeight) {
-            ZStack {
-                ForEach(Array(zip([0, 1, 2], [Color.purple, .blue, .pink])), id: \.0) { index, color in
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(color.opacity(0.35 + 0.3 * Double(index)))
-                        .frame(width: 18, height: 13)
-                        .offset(x: Double(index - 1) * 4, y: Double(1 - index) * 4)
-                }
-            }
-        }
-    }
-
-    /// A curve being drawn with the pen: anchors and the handles of the middle one.
-    private var pathTile: some View {
-        tile(width: 76) {
-            let start = CGPoint(x: 4, y: 22)
-            let middle = CGPoint(x: 26, y: 8)
-            let end = CGPoint(x: 48, y: 22)
-            let handles = (CGPoint(x: 14, y: 8), CGPoint(x: 38, y: 8))
-            ZStack(alignment: .topLeading) {
-                Path { path in
-                    path.move(to: start)
-                    path.addQuadCurve(to: middle, control: CGPoint(x: 6, y: 8))
-                    path.addQuadCurve(to: end, control: CGPoint(x: 46, y: 8))
-                }
-                .stroke(.blue, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                Path { path in
-                    path.move(to: handles.0)
-                    path.addLine(to: handles.1)
-                }
-                .stroke(.secondary, lineWidth: 1)
-                ForEach([handles.0, handles.1], id: \.x) { point in
-                    Circle()
-                        .fill(.secondary)
-                        .frame(width: 4, height: 4)
-                        .position(point)
-                }
-                ForEach([start, middle, end], id: \.x) { point in
-                    Rectangle()
-                        .fill(Color(.secondarySystemGroupedBackground))
-                        .stroke(.blue, lineWidth: 1.5)
-                        .frame(width: 6, height: 6)
-                        .position(point)
-                }
-            }
-            .frame(width: 52, height: 28)
-        }
-    }
-
-    /// Marching ants around an ellipse.
-    private var selectionTile: some View {
-        tile(width: 60) {
-            ZStack {
-                Ellipse()
-                    .fill(Color.blue.opacity(0.12))
-                Ellipse()
-                    .stroke(.primary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2.5]))
-            }
-            .frame(width: 38, height: 26)
-        }
-    }
-
-    private var gradientTile: some View {
-        tile(width: 60) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(LinearGradient(colors: [.orange, .pink, .purple], startPoint: .leading, endPoint: .trailing))
-                .frame(width: 42, height: 22)
-        }
-    }
-
-    private var colorWheelTile: some View {
-        tile(width: tileHeight) {
-            Circle()
-                .fill(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center))
-                .overlay {
-                    Circle().fill(RadialGradient(colors: [.white, .white.opacity(0)], center: .center, startRadius: 0, endRadius: 12))
-                }
-                .frame(width: 24, height: 24)
-        }
-    }
-
-    /// A tone curve lifted into an S over its grid.
-    private var curvesTile: some View {
-        tile(width: tileHeight) {
-            ZStack {
-                Path { path in
-                    for step in 1..<3 {
-                        let offset = Double(step) * 26 / 3
-                        path.move(to: CGPoint(x: offset, y: 0))
-                        path.addLine(to: CGPoint(x: offset, y: 26))
-                        path.move(to: CGPoint(x: 0, y: offset))
-                        path.addLine(to: CGPoint(x: 26, y: offset))
-                    }
-                }
-                .stroke(.secondary.opacity(0.5), lineWidth: 0.5)
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 26))
-                    path.addCurve(to: CGPoint(x: 26, y: 0), control1: CGPoint(x: 14, y: 28), control2: CGPoint(x: 12, y: -2))
-                }
-                .stroke(.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-            }
-            .frame(width: 26, height: 26)
-        }
-    }
-
-    /// A histogram of a picture's tones, as the Levels panel shows it.
-    private var histogramTile: some View {
-        tile(width: 76) {
-            HStack(alignment: .bottom, spacing: 1.5) {
-                ForEach(Array([0.2, 0.35, 0.6, 0.85, 1.0, 0.7, 0.5, 0.65, 0.4, 0.25, 0.15].enumerated()), id: \.offset) { _, height in
-                    Capsule()
-                        .fill(LinearGradient(colors: [.pink, .purple], startPoint: .top, endPoint: .bottom))
-                        .frame(width: 3, height: 24 * height)
-                }
-            }
-            .frame(height: 24, alignment: .bottom)
-        }
-    }
-
-    /// A stroke mirrored across a dashed axis.
-    private var symmetryTile: some View {
-        tile(width: 60) {
-            HStack(spacing: 2) {
-                LaunchWave()
-                    .stroke(.teal, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 18, height: 18)
-                Rectangle()
-                    .fill(.secondary)
-                    .frame(width: 1, height: 28)
-                    .mask {
-                        VStack(spacing: 2) {
-                            ForEach(0..<7, id: \.self) { _ in Rectangle().frame(height: 2) }
-                        }
-                    }
-                LaunchWave()
-                    .stroke(.teal, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 18, height: 18)
-                    .scaleEffect(x: -1)
-            }
-        }
-    }
-
-    /// Letters set in a serif, as the text tool sets them.
-    private var typeTile: some View {
-        tile(width: tileHeight) {
-            Text(verbatim: "Aa")
-                .font(.system(size: 18, weight: .semibold, design: .serif))
-                .foregroundStyle(.indigo)
-        }
-    }
-
-    /// A small landscape: a sun over two hills under a warm sky.
-    private var pictureTile: some View {
-        tile(width: 60) {
-            ZStack(alignment: .bottomLeading) {
-                LinearGradient(colors: [.orange.opacity(0.55), .pink.opacity(0.35)], startPoint: .top, endPoint: .bottom)
-                Circle()
-                    .fill(.yellow)
-                    .frame(width: 8, height: 8)
-                    .position(x: 30, y: 8)
-                LaunchHills()
-                    .fill(.mint)
-            }
-            .frame(width: 40, height: 28)
-            .clipShape(.rect(cornerRadius: 4))
-        }
+    /// The fractions along the curve that are sampled, up to how far the
+    /// stroke has been painted.
+    func steps(upTo progress: CGFloat) -> [CGFloat] {
+        let count = max(2, Int(CGFloat(Self.samples) * progress))
+        return (0...count).map { CGFloat($0) / CGFloat(count) * progress }
     }
 }
 
-/// A single swing up and back down across its frame, the shape a quick test
-/// stroke makes.
-private struct LaunchWave: Shape {
+/// The body of a brush stroke, drawn out along its curve as `progress` runs
+/// from 0 to 1.
+private struct LaunchBrushShape: Shape {
+    var stroke: LaunchBrushStroke
+    var scale: CGFloat
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
     func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: rect.minX, y: rect.maxY * 0.75))
+        guard progress > 0 else { return Path() }
+        var left: [CGPoint] = []
+        var right: [CGPoint] = []
+        for t in stroke.steps(upTo: progress) {
+            let center = stroke.point(at: t, in: rect)
+            let normal = stroke.normal(at: t, in: rect)
+            let half = stroke.halfWidth(at: t, scale: scale)
+            left.append(CGPoint(x: center.x + normal.dx * half, y: center.y + normal.dy * half))
+            right.append(CGPoint(x: center.x - normal.dx * half, y: center.y - normal.dy * half))
+        }
+        var path = Path()
+        path.addLines(left + right.reversed())
+        // Rounded off behind where the brush first touched down.
+        let start = stroke.point(at: 0, in: rect)
+        let normal = stroke.normal(at: 0, in: rect)
+        let reach = stroke.width * scale * 0.45
+        path.addQuadCurve(
+            to: left[0],
+            control: CGPoint(x: start.x - normal.dy * reach, y: start.y + normal.dx * reach)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// Streaks along a brush stroke at fractions of its half-width, the marks
+/// single bristles leave. Each runs out a little before the stroke does.
+private struct LaunchBristleShape: Shape {
+    var stroke: LaunchBrushStroke
+    var scale: CGFloat
+    var progress: CGFloat
+    var offsets: [CGFloat]
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        guard progress > 0 else { return path }
+        for (index, offset) in offsets.enumerated() {
+            let finish = 0.7 + 0.08 * CGFloat(index)
+            let points = stroke.steps(upTo: min(progress, finish)).filter { $0 > 0.06 }.map { t in
+                let center = stroke.point(at: t, in: rect)
+                let normal = stroke.normal(at: t, in: rect)
+                let distance = stroke.halfWidth(at: t, scale: scale) * offset
+                return CGPoint(x: center.x + normal.dx * distance, y: center.y + normal.dy * distance)
+            }
+            if points.count > 1 { path.addLines(points) }
+        }
+        return path
+    }
+}
+
+/// Drops of paint flicked around a point: a few big ones near the middle and
+/// smaller ones further out.
+private struct LaunchSplatter: Shape {
+    var center: CGPoint
+    var spread: CGFloat
+    var seed: UInt64
+
+    func path(in rect: CGRect) -> Path {
+        var random = LaunchRandom(seed: seed)
+        let origin = CGPoint(x: rect.minX + center.x * rect.width, y: rect.minY + center.y * rect.height)
+        var path = Path()
+        for _ in 0..<12 {
+            let angle = random.next() * .pi * 2
+            let distance = spread * (0.1 + random.next() * 0.9)
+            // Drops shrink the further they fly.
+            let radius = max(1, (1 - distance / spread) * 4.5 + random.next() * 1.2)
+            let drop = CGPoint(x: origin.x + cos(angle) * distance, y: origin.y + sin(angle) * distance)
+            path.addEllipse(in: CGRect(x: drop.x - radius, y: drop.y - radius, width: radius * 2, height: radius * 2))
+        }
+        return path
+    }
+}
+
+/// A light pencil underdrawing that loops across the area, drawn in before
+/// the paint goes down.
+private struct LaunchSketch: Shape {
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    /// The points the pencil passes through, looping back on itself once
+    /// near the middle, the way the app icon's stroke does.
+    private static let points: [CGPoint] = [
+        CGPoint(x: -0.05, y: 0.56), CGPoint(x: 0.22, y: 0.44), CGPoint(x: 0.46, y: 0.50),
+        CGPoint(x: 0.58, y: 0.34), CGPoint(x: 0.48, y: 0.24), CGPoint(x: 0.40, y: 0.36),
+        CGPoint(x: 0.56, y: 0.50), CGPoint(x: 0.80, y: 0.44), CGPoint(x: 1.05, y: 0.32),
+    ]
+
+    func path(in rect: CGRect) -> Path {
+        let points = Self.points.map { CGPoint(x: rect.minX + $0.x * rect.width, y: rect.minY + $0.y * rect.height) }
+        var path = Path()
+        path.move(to: points[0])
+        // A smooth curve through every point, each span's handles set from
+        // its neighbours so the line never kinks.
+        for index in 0..<(points.count - 1) {
+            let previous = points[max(0, index - 1)], from = points[index]
+            let to = points[index + 1], next = points[min(points.count - 1, index + 2)]
             path.addCurve(
-                to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.25),
-                control1: CGPoint(x: rect.minX + rect.width * 0.4, y: rect.minY - rect.height * 0.5),
-                control2: CGPoint(x: rect.minX + rect.width * 0.6, y: rect.maxY + rect.height * 0.5)
+                to: to,
+                control1: CGPoint(x: from.x + (to.x - previous.x) / 6, y: from.y + (to.y - previous.y) / 6),
+                control2: CGPoint(x: to.x - (next.x - from.x) / 6, y: to.y - (next.y - from.y) / 6)
             )
         }
+        return path.trimmedPath(from: 0, to: progress)
     }
 }
 
-private struct LaunchHills: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - rect.height * 0.3))
-            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.35, y: rect.minY + rect.height * 0.45))
-            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.6, y: rect.maxY - rect.height * 0.3))
-            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.8, y: rect.maxY - rect.height * 0.45))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - rect.height * 0.2))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-            path.closeSubpath()
-        }
+/// A small, seeded random number source, so the grain and the splatters come
+/// out the same every time rather than shifting between launches.
+private struct LaunchRandom {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed &* 0x9E37_79B9_7F4A_7C15 | 1
     }
-}
 
-/// A gentle drift for the whole wall, so it floats without falling out of
-/// line. Held still when Reduce Motion is on.
-private struct LaunchFloating: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isShifted = false
-
-    func body(content: Content) -> some View {
-        content
-            .offset(x: reduceMotion ? 0 : (isShifted ? -6 : 6))
-            .animation(.easeInOut(duration: 6).repeatForever(autoreverses: true), value: isShifted)
-            .onAppear { isShifted = true }
+    /// The next number, from 0 up to 1.
+    mutating func next() -> CGFloat {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return CGFloat(state % 10_000) / 10_000
     }
 }

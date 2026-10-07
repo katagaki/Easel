@@ -9,7 +9,7 @@ struct EaselApp: App {
             DocumentView(document: configuration.$document, fileURL: configuration.fileURL)
         }
 
-        // An empty title, so the tool wall carries the header on its own.
+        // An empty title, so the painting carries the header on its own.
         // With no title at all, the scene falls back to the app's name.
         DocumentGroupLaunchScene(Text(verbatim: "")) {
             NewDocumentButton("Launch.NewImage")
@@ -21,7 +21,7 @@ struct EaselApp: App {
             DocumentLaunchBackground()
                 .modifier(PhotoEditPresenter(launcher: photoEditLauncher))
         } backgroundAccessoryView: { geometry in
-            DocumentLaunchToolWall(geometry: geometry)
+            DocumentLaunchPainting(geometry: geometry)
         }
     }
 }
