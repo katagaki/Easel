@@ -541,3 +541,34 @@ extension EditorState {
         return SelectionMask(bytes: region, width: pixels.width, height: pixels.height)
     }
 }
+
+// MARK: - Picking objects
+
+extension EditorState {
+    /// Selects the object under a point, or every object the picture shows
+    /// when `point` is nil.
+    func selectObject(at point: CGPoint?) {
+        let composition = composition
+        if let point, !composition.canvasRect.contains(point) {
+            selection = nil
+            return
+        }
+        enqueue({ () -> Result<SelectionMask, ObjectSelectionError> in
+            do {
+                return .success(try ObjectSelector.select(in: composition, at: point))
+            } catch {
+                return .failure(ObjectSelectionError(message: error.localizedDescription))
+            }
+        }, apply: { [weak self] result in
+            switch result {
+            case .success(let mask): self?.selection = Selection(shape: .mask(mask))
+            case .failure(let error): self?.errorMessage = error.message
+            }
+        })
+    }
+}
+
+/// Why no object could be selected, carried back from Vision.
+struct ObjectSelectionError: Error, Sendable {
+    let message: String
+}

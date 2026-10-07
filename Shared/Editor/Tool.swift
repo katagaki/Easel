@@ -110,6 +110,8 @@ enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
     case magnetic
     /// A tap picks out the run of similar colour around it.
     case magic
+    /// A tap picks out the object under it, found by Vision.
+    case object
 
     var id: String { rawValue }
 
@@ -120,6 +122,7 @@ enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
         case .lasso: return "lasso"
         case .magnetic: return "lasso.badge.sparkles"
         case .magic: return "wand.and.rays"
+        case .object: return "person.crop.rectangle.badge.plus"
         }
     }
 
@@ -130,11 +133,12 @@ enum SelectionKind: String, CaseIterable, Identifiable, Sendable {
         case .lasso: return "Select.Lasso"
         case .magnetic: return "Select.Magnetic"
         case .magic: return "Select.Magic"
+        case .object: return "Select.Object"
         }
     }
 
     /// Selections dragged out by hand, as opposed to picked with a tap.
-    var isDrawn: Bool { self != .magic }
+    var isDrawn: Bool { self != .magic && self != .object }
 }
 
 /// Fixed proportions the crop tool can hold to.

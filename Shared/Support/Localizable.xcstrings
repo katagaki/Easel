@@ -2206,6 +2206,76 @@
         }
       }
     },
+    "Error.NoObjectFound": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No people, animals or objects were found in the picture."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像内に人物、動物、物体が見つかりませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사진에서 사람, 동물 또는 사물을 찾을 수 없습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未在图片中找到人物、动物或物体。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未在圖片中找到人物、動物或物體。"
+          }
+        }
+      }
+    },
+    "Error.NoObjectHere": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "There is no object there. Tap a person, animal or thing to select it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そこにはオブジェクトがありません。人物、動物、物体をタップして選択してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "그곳에는 개체가 없습니다. 사람, 동물 또는 사물을 탭하여 선택하십시오."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "那里没有对象。请轻点人物、动物或物体以选择。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "那裡沒有物件。請點一下人物、動物或物體以選取。"
+          }
+        }
+      }
+    },
     "Error.NothingToPaste": {
       "extractionState": "manual",
       "localizations": {
@@ -2237,6 +2307,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "剪貼板上沒有圖片。"
+          }
+        }
+      }
+    },
+    "Error.ObjectSelectionUnavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Object selection isn't available on this device."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このデバイスではオブジェクト選択を使用できません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 기기에서는 개체 선택을 사용할 수 없습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此设备不支持选择对象。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此裝置不支援選取物件。"
           }
         }
       }
@@ -7596,6 +7701,41 @@
         }
       }
     },
+    "Select.Object": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Object Select"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オブジェクト選択"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "개체 선택"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择对象"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選取物件"
+          }
+        }
+      }
+    },
     "Select.Rectangle": {
       "extractionState": "manual",
       "localizations": {
@@ -7627,6 +7767,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "矩形"
+          }
+        }
+      }
+    },
+    "Select.Subject": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select Subject"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "被写体を選択"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "피사체 선택"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择主体"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選取主體"
           }
         }
       }

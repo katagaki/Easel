@@ -437,6 +437,7 @@ struct SelectionMenuItems: View {
         let hasSelection = state.selection != nil
         Section {
             Button("Select.All", systemImage: "selection.pin.in.out") { state.selectAll() }
+            Button("Select.Subject", systemImage: "person.and.background.dotted") { state.selectObject(at: nil) }
             Button("Select.Deselect", systemImage: "xmark.square") { state.deselect() }
                 .disabled(!hasSelection)
             Button("Select.Invert", systemImage: "square.on.square.intersection.dashed") { state.invertSelection() }

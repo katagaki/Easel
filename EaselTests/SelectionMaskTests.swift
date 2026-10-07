@@ -97,3 +97,14 @@ struct EdgeMapTests {
         #expect(state.selection != nil)
     }
 }
+
+@Suite("Object select")
+struct ObjectSelectorTests {
+    @Test func masksScaleUpToTheCanvas() throws {
+        // Left column selected in a 2 by 2 mask.
+        let scaled = try #require(ObjectSelector.scale([255, 0, 255, 0], width: 2, height: 2, to: CGSize(width: 20, height: 20)))
+        #expect(scaled.count == 400)
+        #expect(scaled[10 * 20 + 1] > 200)
+        #expect(scaled[10 * 20 + 18] < 50)
+    }
+}

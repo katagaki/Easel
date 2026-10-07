@@ -520,7 +520,8 @@ final class EditorState {
         case .select:
             defer { draftSelection = nil }
             if !selectionKind.isDrawn {
-                if isTap { magicSelect(at: point) }
+                guard isTap else { return }
+                if selectionKind == .object { selectObject(at: point) } else { magicSelect(at: point) }
             } else if isTap {
                 selection = nil
             } else if let draft = draftSelection, draft.isMeaningful {
@@ -573,7 +574,7 @@ final class EditorState {
         switch kind {
         case .rectangle: return .rectangle(rect)
         case .ellipse: return .ellipse(rect)
-        case .lasso, .magnetic, .magic: return .lasso([start])
+        case .lasso, .magnetic, .magic, .object: return .lasso([start])
         }
     }
 
