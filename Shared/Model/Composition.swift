@@ -12,6 +12,8 @@ struct Composition: Equatable, Sendable {
     var layers: [Layer]
     /// The folders layers are kept in; see `LayerGroup`.
     var groups: [LayerGroup] = []
+    /// Lines pulled out of the rulers to line things up against.
+    var guides: [Guide] = []
 
     static let defaultSize = CGSize(width: 2048, height: 1536)
 
@@ -179,6 +181,7 @@ struct Composition: Equatable, Sendable {
     private mutating func transformCanvas(to newSize: CGSize, by transform: CGAffineTransform, rotation: Double = 0,
                                           flipX: Bool = false, flipY: Bool = false) {
         size = newSize
+        guides = guides.compactMap { $0.applying(transform, in: newSize) }
         for index in layers.indices {
             var placement = layers[index].transform
             placement.position = placement.position.applying(transform)

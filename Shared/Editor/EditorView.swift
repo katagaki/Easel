@@ -257,6 +257,12 @@ struct EditorView: View {
                 }
                 .keyboardShortcut("1", modifiers: .command)
             }
+            Section {
+                Toggle("Canvas.ShowRulers", systemImage: "ruler", isOn: $state.showsRulers)
+                    .keyboardShortcut("r", modifiers: .command)
+                Button("Canvas.ClearGuides", systemImage: "xmark.square.fill") { state.clearGuides() }
+                    .disabled(composition.guides.isEmpty)
+            }
         }
     }
 }

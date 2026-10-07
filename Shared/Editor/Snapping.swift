@@ -2,14 +2,7 @@ import CoreGraphics
 
 /// A line something has snapped to, shown while it holds.
 struct SnapLine: Equatable, Sendable {
-    enum Axis: Sendable {
-        /// An upright line, at an x.
-        case vertical
-        /// A level line, at a y.
-        case horizontal
-    }
-
-    var axis: Axis
+    var axis: LineAxis
     var position: Double
 }
 
@@ -47,10 +40,15 @@ enum Snapping {
 }
 
 extension EditorState {
-    /// The lines a moved layer snaps to: the canvas's edges and middle.
+    /// The lines a moved layer snaps to: the canvas's edges and middle,
+    /// and the guides.
     var snapTargets: (verticals: [Double], horizontals: [Double]) {
         let size = composition.size
-        return ([0, size.width / 2, size.width], [0, size.height / 2, size.height])
+        let guides = composition.guides
+        return (
+            [0, size.width / 2, size.width] + guides.filter { $0.axis == .vertical }.map(\.position),
+            [0, size.height / 2, size.height] + guides.filter { $0.axis == .horizontal }.map(\.position)
+        )
     }
 
     /// Shifts a move by `offset` so the layers' bounds `rect` snap, when

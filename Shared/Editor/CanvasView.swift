@@ -60,7 +60,12 @@ struct CanvasView: View {
                 redo: { history.redo() }
             )
             .accessibilityIdentifier("canvas")
+
+            if state.showsRulers {
+                Rulers(state: state, viewport: viewport)
+            }
         }
+        .coordinateSpace(.named(Rulers.coordinateSpace))
         .clipped()
         .onGeometryChange(for: CGSize.self) { $0.size } action: { state.viewportSize = $0 }
     }

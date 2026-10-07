@@ -35,6 +35,7 @@ enum CompositionArchive {
         var height: Double
         var layers: [LayerRecord]
         var groups: [LayerGroup]?
+        var guides: [Guide]?
     }
 
     struct LayerRecord: Codable {
@@ -152,7 +153,8 @@ enum CompositionArchive {
         }
         return Manifest(
             version: currentVersion, width: composition.size.width, height: composition.size.height, layers: records,
-            groups: composition.groups.isEmpty ? nil : composition.groups
+            groups: composition.groups.isEmpty ? nil : composition.groups,
+            guides: composition.guides.isEmpty ? nil : composition.guides
         )
     }
 
@@ -191,6 +193,7 @@ enum CompositionArchive {
         var composition = Composition(
             size: CGSize(width: manifest.width, height: manifest.height), layers: layers, groups: manifest.groups ?? []
         )
+        composition.guides = manifest.guides ?? []
         composition.normalizeGroups()
         return composition
     }

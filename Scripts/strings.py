@@ -330,6 +330,8 @@ S = {
 "Brush.Preset.BrushPen": ("Brush Pen", "筆ペン", "붓펜", "毛笔", "毛筆"),
 "Brush.Preset.SoftAirbrush": ("Soft Airbrush", "ソフトエアブラシ", "부드러운 에어브러시", "柔和喷枪", "柔和噴槍"),
 "Brush.Preset.Pastel": ("Pastel", "パステル", "파스텔", "粉彩", "粉彩"),
+"Canvas.ShowRulers": ("Show Rulers", "定規を表示", "눈금자 보기", "显示标尺", "顯示尺標"),
+"Canvas.ClearGuides": ("Clear Guides", "ガイドを消去", "가이드 지우기", "清除参考线", "清除參考線"),
 "Options.Snap": ("Snap to Guides", "ガイドにスナップ", "가이드에 스냅", "对齐参考线", "對齊參考線"),
 "Symmetry.Title": ("Symmetry", "対称", "대칭", "对称", "對稱"),
 "Symmetry.Off": ("Off", "オフ", "끔", "关", "關閉"),

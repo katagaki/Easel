@@ -70,6 +70,8 @@ struct CanvasOverlay: View {
             drawVectorEditing(layer, in: &context, transform: transform)
         }
 
+        drawGuides(composition.guides + [state.draftGuide].compactMap { $0 }, in: &context, transform: transform)
+
         if !state.snapLines.isEmpty {
             drawSnapLines(in: &context, transform: transform)
         }
@@ -119,6 +121,24 @@ struct CanvasOverlay: View {
                 context.stroke(box, with: .color(.accentColor), lineWidth: 1.5)
             }
         }
+    }
+
+    /// The guides, across the whole canvas.
+    private func drawGuides(_ guides: [Guide], in context: inout GraphicsContext, transform: CGAffineTransform) {
+        guard !guides.isEmpty else { return }
+        let size = composition.size
+        var lines = Path()
+        for guide in guides {
+            switch guide.axis {
+            case .vertical:
+                lines.move(to: CGPoint(x: guide.position, y: 0).applying(transform))
+                lines.addLine(to: CGPoint(x: guide.position, y: size.height).applying(transform))
+            case .horizontal:
+                lines.move(to: CGPoint(x: 0, y: guide.position).applying(transform))
+                lines.addLine(to: CGPoint(x: size.width, y: guide.position).applying(transform))
+            }
+        }
+        context.stroke(lines, with: .color(.cyan), lineWidth: 1)
     }
 
     /// What a moved layer has snapped to, across the whole canvas.

@@ -52,6 +52,12 @@ final class EditorState {
     var snaps = true
     /// What a layer being moved has snapped to.
     var snapLines: [SnapLine] = []
+    /// Whether rulers run along the canvas.
+    var showsRulers = false
+    /// A guide being pulled out of a ruler.
+    var draftGuide: Guide?
+    /// The guide the Move tool is dragging.
+    @ObservationIgnored var draggedGuide: Guide.ID?
     var gradientOpacity = 1.0
     var shapeKind: ShapeSpec.Kind = .rectangle
     var shapeIsFilled = false
@@ -501,6 +507,11 @@ final class EditorState {
             guard paintingBlocker() == nil else { return }
             beginSmudge(at: point)
         case .move:
+            // A guide under the finger moves before any layer does.
+            if let guide = guide(near: point) {
+                draggedGuide = guide.id
+                return
+            }
             if let groupID = activeGroupID, let group = composition.group(groupID) {
                 guard !group.isLocked else { return }
                 let members = composition.layers(in: groupID).filter { !composition.isLocked($0) }
@@ -544,6 +555,10 @@ final class EditorState {
         case .smudge, .liquify:
             continueSmudge(to: points.map(\.location))
         case .move:
+            if let guide = draggedGuide {
+                moveGuide(guide, to: last.location)
+                return
+            }
             if let group = groupMoveOrigin {
                 var dx = last.location.x - group.start.x, dy = last.location.y - group.start.y
                 let bounds = group.layers.reduce(CGRect.null) { bounds, member in
@@ -637,6 +652,11 @@ final class EditorState {
                 commit(stroke, to: layerID)
             }
         case .move:
+            if let guide = draggedGuide {
+                draggedGuide = nil
+                dropGuide(guide)
+                return
+            }
             moveOrigin = nil
             groupMoveOrigin = nil
             snapLines = []
@@ -694,6 +714,7 @@ final class EditorState {
         draftGradient = nil
         cropDrag = nil
         snapLines = []
+        draggedGuide = nil
         if let drag = transformDrag, var draft = transformDraft {
             for handle in drag.handles { draft.points[handle.index] = handle.origin }
             transformDraft = draft
