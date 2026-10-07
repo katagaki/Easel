@@ -3956,6 +3956,41 @@
         }
       }
     },
+    "Layer.DefaultName.PixelmatorPreview": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pixelmator Preview"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pixelmatorのプレビュー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pixelmator 미리보기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pixelmator 预览"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pixelmator 預覽"
+          }
+        }
+      }
+    },
     "LayerFilter.BlackAndWhite": {
       "extractionState": "manual",
       "localizations": {

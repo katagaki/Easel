@@ -151,6 +151,7 @@ S = {
 "Layer.DefaultName.Image": ("Image", "画像", "이미지", "图像", "影像"),
 "Layer.DefaultName.Layer": ("Layer", "レイヤー", "레이어", "图层", "圖層"),
 "Layer.DefaultName.Pasted": ("Pasted", "ペースト", "붙여넣음", "粘贴", "貼上"),
+"Layer.DefaultName.PixelmatorPreview": ("Pixelmator Preview", "Pixelmatorのプレビュー", "Pixelmator 미리보기", "Pixelmator 预览", "Pixelmator 預覽"),
 "Layer.DefaultName.Photo": ("Photo", "写真", "사진", "照片", "照片"),
 "Layers.Add": ("Add Layer", "レイヤーを追加", "레이어 추가", "添加图层", "加入圖層"),
 "Layers.BlendMode": ("Blend Mode", "描画モード", "혼합 모드", "混合模式", "混合模式"),

@@ -529,7 +529,7 @@ enum PSDReader {
         return LayerMask(image: LayerImage(image), isEnabled: !mask.isDisabled)
     }
 
-    private static func blendMode(_ key: String) -> LayerBlendMode {
+    static func blendMode(_ key: String) -> LayerBlendMode {
         switch key {
         case "mul ": return .multiply
         case "scrn": return .screen
