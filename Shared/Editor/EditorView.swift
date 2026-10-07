@@ -79,6 +79,9 @@ struct EditorView: View {
                 .presentationBackgroundInteraction(panel.keepsCanvasVisible ? .enabled(upThrough: .medium) : .disabled)
                 .presentationDragIndicator(.visible)
                 .presentationBackground(.regularMaterial)
+                // A sheet covers the editor, so what goes wrong in a panel
+                // is told from the panel.
+                .errorAlert(state, isActive: true)
             }
             .toolbar { editingToolbar }
             .fileImporter(
@@ -99,14 +102,7 @@ struct EditorView: View {
                 state.tool = state.tool == .eraser ? .brush : .eraser
             }
             .sensoryFeedback(.selection, trigger: state.tool)
-            .alert(
-                "Alert.Error.Title",
-                isPresented: Binding(get: { state.errorMessage != nil }, set: { if !$0 { state.errorMessage = nil } })
-            ) {
-                Button("Common.OK", role: .cancel) { state.errorMessage = nil }
-            } message: {
-                Text(state.errorMessage ?? "")
-            }
+            .errorAlert(state, isActive: !isCompact || state.presentedPanel == nil)
             .onAppear(perform: attach)
             .onChange(of: composition) { _, new in state.sync(new) }
     }
@@ -278,6 +274,23 @@ private struct InspectorPresentation<Inspector: View>: ViewModifier {
             content.inspector(isPresented: $isPresented) { inspector }
         } else {
             content
+        }
+    }
+}
+
+extension View {
+    /// What went wrong, if anything, shown from this view while `isActive`.
+    func errorAlert(_ state: EditorState, isActive: Bool) -> some View {
+        alert(
+            "Alert.Error.Title",
+            isPresented: Binding(
+                get: { isActive && state.errorMessage != nil },
+                set: { if !$0 { state.errorMessage = nil } }
+            )
+        ) {
+            Button("Common.OK", role: .cancel) { state.errorMessage = nil }
+        } message: {
+            Text(state.errorMessage ?? "")
         }
     }
 }
