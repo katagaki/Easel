@@ -83,7 +83,15 @@
           "hidden" : false,
           "image-name" : "Back.svg",
           "name" : "Back",
-          "opacity" : 0.35,
+          "opacity-specializations" : [
+            {
+              "value" : 0.35
+            },
+            {
+              "appearance" : "dark",
+              "value" : 1
+            }
+          ],
           "position-specializations" : [
             {
               "value" : {

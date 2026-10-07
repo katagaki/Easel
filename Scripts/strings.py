@@ -174,7 +174,6 @@ S = {
 "Vector.Exclude": ("Exclude", "中マド", "제외", "差集", "差集"),
 "Launch.EditPhoto": ("Edit a Photo", "写真を編集", "사진 편집", "编辑照片", "編輯照片"),
 "Launch.NewImage": ("New Image", "新規画像", "새로운 이미지", "新建图像", "新增影像"),
-"Launch.Title": ("Easel", "Easel", "Easel", "Easel", "Easel"),
 "Layer.CopyName %@": ("%@ Copy", "%@のコピー", "%@ 사본", "%@ 副本", "%@ 副本"),
 "Layer.DefaultName.Background": ("Background", "背景", "배경", "背景", "背景"),
 "Layer.DefaultName.Group": ("Group", "グループ", "그룹", "组", "群組"),

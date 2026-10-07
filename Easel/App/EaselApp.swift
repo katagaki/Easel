@@ -9,19 +9,19 @@ struct EaselApp: App {
             DocumentView(document: configuration.$document, fileURL: configuration.fileURL)
         }
 
-        DocumentGroupLaunchScene("Launch.Title") {
+        // An empty title, so the tool wall carries the header on its own.
+        // With no title at all, the scene falls back to the app's name.
+        DocumentGroupLaunchScene(Text(verbatim: "")) {
             NewDocumentButton("Launch.NewImage")
             Button("Launch.EditPhoto", systemImage: "photo.on.rectangle.angled") {
                 photoEditLauncher.isPicking = true
             }
             .accessibilityIdentifier("editPhoto")
         } background: {
-            LinearGradient(
-                colors: [Color.accentColor, Color.accentColor.mix(with: .purple, by: 0.45)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            .modifier(PhotoEditPresenter(launcher: photoEditLauncher))
+            DocumentLaunchBackground()
+                .modifier(PhotoEditPresenter(launcher: photoEditLauncher))
+        } backgroundAccessoryView: { geometry in
+            DocumentLaunchToolWall(geometry: geometry)
         }
     }
 }
