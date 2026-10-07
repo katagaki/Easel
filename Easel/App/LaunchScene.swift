@@ -110,7 +110,6 @@ struct DocumentLaunchPainting: View {
     ]
 
     private static let duration = 0.9
-    private static let stagger = 0.22
 
     var body: some View {
         // The painting fills the top of the launch area and fades out above
@@ -128,7 +127,6 @@ struct DocumentLaunchPainting: View {
 
             ForEach(Self.strokes.indices, id: \.self) { index in
                 let stroke = Self.strokes[index]
-                let animation = Animation.easeOut(duration: Self.duration).delay(0.2 + Double(index) * Self.stagger)
                 ZStack {
                     LaunchBrushShape(stroke: stroke, scale: scale, progress: isPainted ? 1 : 0)
                         .fill(stroke.color)
@@ -139,7 +137,7 @@ struct DocumentLaunchPainting: View {
                         .stroke(.black.opacity(0.12), lineWidth: 1.5)
                 }
                 .blendMode(colorScheme == .dark ? .normal : .multiply)
-                .animation(animation, value: isPainted)
+                .animation(.easeOut(duration: Self.duration).delay(0.2), value: isPainted)
             }
 
             ForEach(Self.splatters.indices, id: \.self) { index in
