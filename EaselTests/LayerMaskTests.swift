@@ -124,6 +124,30 @@ struct MaskCommandTests {
         #expect(TestImages.isRed(CompositionRenderer.render(published()), x: 10, y: 2))
     }
 
+    @Test func aFoundSubjectReplacesTheMaskOfAMovedLayer() throws {
+        let (state, published) = host()
+        state.addMask()
+        state.updateActiveLayer { $0.transform.position.x += 5 }
+        // The subject: the canvas's right half.
+        var bytes = [UInt8](repeating: 0, count: 20 * 20)
+        for y in 0..<20 { for x in 10..<20 { bytes[y * 20 + x] = 255 } }
+        let subject = try #require(SelectionMask(bytes: bytes, width: 20, height: 20))
+        state.mask(state.activeLayerID!, revealing: Selection(shape: .mask(subject)))
+        #expect(!state.isEditingMask)
+        let image = CompositionRenderer.render(published())
+        #expect(TestImages.isRed(image, x: 15, y: 10))
+        #expect(TestImages.isClear(image, x: 7, y: 10))
+    }
+
+    @Test func removingTheBackgroundEndsWithAMaskOrAReason() async throws {
+        let (state, published) = host()
+        state.removeBackground()
+        for _ in 0..<200 where state.isBusy { try await Task.sleep(for: .milliseconds(20)) }
+        // Vision's model does not run in Simulator, which must say so
+        // rather than fail quietly.
+        #expect(published().layers[0].mask != nil || state.errorMessage != nil)
+    }
+
     @Test func otherToolsCannotPaintAMask() {
         let (state, _) = host()
         state.addMask()

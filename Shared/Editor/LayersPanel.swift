@@ -429,6 +429,11 @@ private struct MaskSection: View {
                 .disabled(layer.isLocked)
                 .accessibilityIdentifier("addMask")
             }
+            Button("Mask.RemoveBackground", systemImage: "person.and.background.dotted") {
+                state.removeBackground()
+            }
+            .disabled(layer.isLocked)
+            .accessibilityIdentifier("removeBackground")
         } header: {
             Text("Mask.Title")
         } footer: {

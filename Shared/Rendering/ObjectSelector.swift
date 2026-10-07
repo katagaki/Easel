@@ -60,6 +60,22 @@ enum ObjectSelector {
         return mask
     }
 
+    /// Every object in one layer, seen on its own: fully opaque, unmasked
+    /// and out of any group, so nothing above or below it is mistaken for
+    /// part of it.
+    static func subjects(of layer: Layer, in composition: Composition) throws -> SelectionMask {
+        var shown = layer
+        shown.isVisible = true
+        shown.opacity = 1
+        shown.blendMode = .normal
+        shown.mask = nil
+        shown.groupID = nil
+        var solo = composition
+        solo.layers = [shown]
+        solo.groups = []
+        return try select(in: solo, at: nil)
+    }
+
     /// Which object covers a point given as a fraction of the picture,
     /// top left first; 0 for the background.
     private static func label(in buffer: CVPixelBuffer, at unit: CGPoint) -> Int {

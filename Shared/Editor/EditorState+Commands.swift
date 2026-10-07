@@ -458,6 +458,34 @@ extension EditorState {
         isEditingMask = true
     }
 
+    /// Hides everything in the active layer but its subjects, through a
+    /// mask that can still be painted on to put back what was missed.
+    func removeBackground() {
+        guard let layer = activeLayer, !composition.isLocked(layer) else { return }
+        let composition = composition
+        enqueue({ () -> Result<SelectionMask, ObjectSelectionError> in
+            do {
+                return .success(try ObjectSelector.subjects(of: layer, in: composition))
+            } catch {
+                return .failure(ObjectSelectionError(message: error.localizedDescription))
+            }
+        }, apply: { [weak self] result in
+            switch result {
+            case .success(let mask): self?.mask(layer.id, revealing: Selection(shape: .mask(mask)))
+            case .failure(let error): self?.errorMessage = error.message
+            }
+        })
+    }
+
+    /// Gives a layer a new mask showing only what `selection` covers, in
+    /// place of any it had.
+    func mask(_ layerID: Layer.ID, revealing selection: Selection) {
+        guard let layer = composition[layerID] else { return }
+        let size = composition.size
+        update { $0[layerID]?.mask = LayerMask.revealing(selection, of: layer, canvasSize: size) }
+        isEditingMask = false
+    }
+
     func deleteMask() {
         updateActiveLayer { $0.mask = nil }
         isEditingMask = false
