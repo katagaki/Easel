@@ -291,6 +291,10 @@ private struct StrokePreview: View {
                     // put down at the brush's opacity and blend mode.
                     group.opacity = 1
                     group.blendMode = .normal
+                    if stroke.usesDabs {
+                        drawDabs(of: stroke, in: &group, transform: transform, scale: scale)
+                        return
+                    }
                     if stroke.settings.featherRadius > 0.5 {
                         group.addFilter(.blur(radius: stroke.settings.featherRadius * scale * 0.5))
                     }
@@ -314,6 +318,36 @@ private struct StrokePreview: View {
             }
         }
         .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height)
+    }
+}
+
+extension StrokePreview {
+    /// A stamped stroke's dabs, placed as `Stroke.drawDabs` places them.
+    fileprivate func drawDabs(of stroke: Stroke, in context: inout GraphicsContext, transform: CGAffineTransform, scale: Double) {
+        let color = stroke.isEraser ? RGBAColor.black : stroke.settings.color
+        let tip = context.resolve(Image(decorative: BrushTipImage.tinted(
+            stroke.settings.tip, softness: stroke.settings.softness, color: color
+        ), scale: 1))
+        for dab in stroke.dabs {
+            var stamp = context
+            let center = dab.center.applying(transform)
+            stamp.translateBy(x: center.x, y: center.y)
+            stamp.rotate(by: .radians(dab.angle))
+            stamp.scaleBy(x: 1, y: dab.roundness)
+            stamp.opacity = dab.opacity
+            let size = dab.diameter * scale
+            stamp.draw(tip, in: CGRect(x: -size / 2, y: -size / 2, width: size, height: size))
+        }
+        if let grain = PaperGrain.image(strength: stroke.settings.tip.grain) {
+            // The paper, pinned to the canvas so the grain stays put.
+            var paper = context
+            paper.blendMode = .destinationIn
+            let origin = CGPoint.zero.applying(transform)
+            paper.fill(
+                Path(stroke.bounds.applying(transform)),
+                with: .tiledImage(Image(decorative: grain, scale: 1), origin: origin, scale: stroke.grainScale * scale)
+            )
+        }
     }
 }
 

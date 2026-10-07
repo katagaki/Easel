@@ -476,6 +476,16 @@ private struct BrushSettingsButton: View {
         }
         .popover(isPresented: $isPresented) {
             Form {
+                if state.tool == .brush || state.tool == .eraser {
+                    Section {
+                        Picker("Brush.Tip", selection: $state.currentBrush.tip) {
+                            ForEach(BrushTip.allCases) { tip in
+                                Label(tip.label, systemImage: tip.symbolName).tag(tip)
+                            }
+                        }
+                        .accessibilityIdentifier("brushTip")
+                    }
+                }
                 Section {
                     LabeledSlider(
                         label: "Options.Size",

@@ -10,6 +10,7 @@ struct BrushSettings: Codable, Equatable, Sendable {
     var color: RGBAColor = .black
     /// Whether Apple Pencil pressure thins the line.
     var usesPressure = true
+    var tip: BrushTip = .round
 
     static let sizeRange: ClosedRange<Double> = 1...1500
 
@@ -125,7 +126,8 @@ struct Stroke: Equatable, Sendable {
 
     /// The canvas area the stroke can touch.
     var bounds: CGRect {
-        let reach = settings.size / 2 + settings.featherRadius * 2 + 2
+        // Chalk scatters its dabs a little past the line.
+        let reach = settings.size / 2 + settings.featherRadius * 2 + (usesDabs ? settings.size * 0.1 : 0) + 2
         return smoothedPath.boundingBoxOfPath.insetBy(dx: -reach, dy: -reach)
     }
 
@@ -166,7 +168,10 @@ struct Stroke: Equatable, Sendable {
         context.setAlpha(1)
         context.setBlendMode(.normal)
         let color = isEraser ? RGBAColor.black.cgColor : settings.color.withAlpha(1).cgColor
-        if settings.featherRadius > 0.5 {
+        if usesDabs {
+            // Stamped tips carry their own soft edge.
+            drawDabs(in: context, color: isEraser ? .black : settings.color)
+        } else if settings.featherRadius > 0.5 {
             // A shadow is CoreGraphics' only blur. The shape is drawn a canvas
             // away and only its blurred shadow is cast back into place. The
             // offset is horizontal: shadows ignore the flipped y axis.
