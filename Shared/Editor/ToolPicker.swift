@@ -16,7 +16,7 @@ struct ToolPicker: View {
     /// Lets the panels these buttons open zoom out of them.
     var namespace: Namespace.ID
 
-    private static let panels: [EditorPanel] = [.adjustments, .filters, .looks]
+    private static let panels: [EditorPanel] = [.adjustments, .filters, .looks, .history]
 
     var body: some View {
         switch layout {

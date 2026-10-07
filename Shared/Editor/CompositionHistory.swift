@@ -12,6 +12,13 @@ import SwiftUI
 final class CompositionHistory {
     private(set) var canUndo = false
     private(set) var canRedo = false
+    /// What each step did, oldest first: the first is how the picture was
+    /// when it was opened, or the oldest step still kept.
+    private(set) var steps: [String] = [String(localized: "History.Opened")]
+    /// Which of `steps` the picture is at now; later ones can be redone.
+    private(set) var position = 0
+    /// The picture as it was opened, to compare against.
+    private(set) var original: Composition?
 
     /// How long a pause ends a run of changes that would otherwise be one
     /// step, such as dragging an opacity slider.
@@ -37,6 +44,10 @@ final class CompositionHistory {
     @ObservationIgnored private var lastScope: EditScope?
     @ObservationIgnored private var lastChange = Date.distantPast
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    /// Whether a change has been registered in the undo group still open.
+    /// The undo manager groups every change in one event into a step, and
+    /// the list of steps follows it.
+    @ObservationIgnored private var groupIsOpen = false
 
     private var undoManager: UndoManager? { attachedManager ?? fallbackManager }
 
@@ -49,6 +60,7 @@ final class CompositionHistory {
         self.read = read
         self.write = write
         self.restored = restored
+        if original == nil { original = read() }
         let manager = undoManager ?? fallbackManager
         guard manager !== attachedManager else { return }
         attachedManager = manager
@@ -59,15 +71,20 @@ final class CompositionHistory {
             .NSUndoManagerDidRedoChange, .NSUndoManagerCheckpoint,
         ]
         observers = names.map { name in
-            NotificationCenter.default.addObserver(forName: name, object: manager, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refresh() }
+            NotificationCenter.default.addObserver(forName: name, object: manager, queue: .main) { [weak self] notification in
+                let closed = notification.name == .NSUndoManagerDidCloseUndoGroup
+                MainActor.assumeIsolated {
+                    if closed { self?.groupIsOpen = false }
+                    self?.refresh()
+                }
             }
         }
         refresh()
     }
 
     /// Notes a change the user made, unless it is one an undo or redo made.
-    func record(from old: Composition, to new: Composition) {
+    /// `tool` is the one in hand, which names a change to a layer's pixels.
+    func record(from old: Composition, to new: Composition, tool: Tool? = nil) {
         if let restoring {
             self.restoring = nil
             if restoring == new { return }
@@ -85,19 +102,46 @@ final class CompositionHistory {
             return
         }
         register(restoring: old, with: undoManager)
+        let name = HistoryNaming.name(from: old, to: new, tool: tool)
+        if groupIsOpen, position > 0 {
+            // Part of the same step as the change before it.
+            steps[position] = name
+            refresh()
+            return
+        }
+        groupIsOpen = true
+        // A new step drops whatever could have been redone.
+        steps = Array(steps.prefix(position + 1)) + [name]
+        position += 1
+        // The undo manager forgets the oldest steps past its limit.
+        let overflow = steps.count - (Self.levels + 1)
+        if overflow > 0 {
+            steps.removeFirst(overflow)
+            position -= overflow
+        }
         refresh()
     }
 
     func undo() {
         guard let undoManager, undoManager.canUndo else { return }
         undoManager.undo()
+        groupIsOpen = false
+        position = max(0, position - 1)
         refresh()
     }
 
     func redo() {
         guard let undoManager, undoManager.canRedo else { return }
         undoManager.redo()
+        groupIsOpen = false
+        position = min(steps.count - 1, position + 1)
         refresh()
+    }
+
+    /// Goes back or forward to just after step `index`.
+    func jump(to index: Int) {
+        while position > index, canUndo { undo() }
+        while position < index, canRedo { redo() }
     }
 
     /// Run from inside an undo, the inverse it registers lands on the redo

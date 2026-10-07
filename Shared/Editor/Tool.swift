@@ -52,7 +52,10 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var label: LocalizedStringKey {
+    var label: LocalizedStringKey { LocalizedStringKey(labelKey) }
+
+    /// The string catalog key of the tool's name.
+    var labelKey: String {
         switch self {
         case .move: return "Tool.Move"
         case .select: return "Tool.Select"
@@ -210,6 +213,8 @@ enum EditorPanel: String, Identifiable, Hashable, Sendable {
     case looks
     case text
     case imageSize
+    /// The steps taken, to go back to.
+    case history
 
     var id: String { rawValue }
 
@@ -221,6 +226,7 @@ enum EditorPanel: String, Identifiable, Hashable, Sendable {
         case .looks: return "Panel.Looks.Title"
         case .text: return "Panel.Text.Title"
         case .imageSize: return "Panel.ImageSize.Title"
+        case .history: return "Panel.History.Title"
         }
     }
 
@@ -232,6 +238,7 @@ enum EditorPanel: String, Identifiable, Hashable, Sendable {
         case .looks: return "wand.and.sparkles"
         case .text: return "textformat"
         case .imageSize: return "arrow.up.left.and.arrow.down.right"
+        case .history: return "clock.arrow.circlepath"
         }
     }
 
@@ -239,7 +246,7 @@ enum EditorPanel: String, Identifiable, Hashable, Sendable {
     /// they stop at half height and the canvas moves into the top half.
     var keepsCanvasVisible: Bool {
         switch self {
-        case .layers, .adjustments, .filters, .looks, .text: return true
+        case .layers, .adjustments, .filters, .looks, .text, .history: return true
         case .imageSize: return false
         }
     }

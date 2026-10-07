@@ -54,6 +54,8 @@ final class EditorState {
     var snapLines: [SnapLine] = []
     /// Whether rulers run along the canvas.
     var showsRulers = false
+    /// Whether the canvas shows the picture as it was opened, for comparing.
+    var isComparing = false
     /// A guide being pulled out of a ruler.
     var draftGuide: Guide?
     /// The guide the Move tool is dragging.

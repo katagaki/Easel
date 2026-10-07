@@ -23,7 +23,12 @@ struct EditorView: View {
     private var isCompact: Bool { horizontalSizeClass != .regular }
 
     var body: some View {
-        CanvasView(composition: state.composition, state: state, history: history)
+        // While comparing, the picture as it was opened, untouchable.
+        CanvasView(
+            composition: state.isComparing ? history.original ?? state.composition : state.composition,
+            state: state, history: history
+        )
+        .allowsHitTesting(!state.isComparing)
             .background(Color(.secondarySystemBackground).ignoresSafeArea())
             .overlay(alignment: .bottom) {
                 if isCompact {
@@ -112,7 +117,7 @@ struct EditorView: View {
         state.attach(to: composition) { binding.wrappedValue = $0 }
         let state = state
         let history = history
-        state.edited = { history.record(from: $0, to: $1) }
+        state.edited = { history.record(from: $0, to: $1, tool: state.tool) }
         // Always the editor's own undo manager; see `CompositionHistory`.
         history.attach(
             to: nil,
@@ -199,6 +204,7 @@ struct EditorView: View {
         case .looks: LooksPanel(state: state)
         case .text: TextPanel(state: state)
         case .imageSize: CanvasSizePanel(state: state)
+        case .history: HistoryPanel(history: history, state: state)
         }
     }
 
