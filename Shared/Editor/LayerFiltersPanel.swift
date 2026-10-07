@@ -124,6 +124,15 @@ private struct FilterRow: View {
                 .accessibilityIdentifier("filterEnabled.\(filter.kind.rawValue)")
             }
             Group {
+                if filter.kind == .levels { levelsControls }
+                if filter.kind == .curves {
+                    CurveEditor(values: filter.curve ?? LayerFilter.straightCurve) { values in
+                        state.updateFilter(filter.id) { $0.curve = values }
+                    }
+                    .frame(height: 200)
+                    .accessibilityIdentifier("curveEditor")
+                }
+                if filter.kind.hasAmount {
                 LabeledSlider(
                     label: "LayerFilters.Amount",
                     value: binding(\.amount),
@@ -131,6 +140,7 @@ private struct FilterRow: View {
                     valueText: "\(Int((filter.amount * 100).rounded()))"
                 )
                 .accessibilityIdentifier("filterAmount.\(filter.kind.rawValue)")
+                }
                 if filter.kind.hasAngle {
                     LabeledSlider(
                         label: "LayerFilters.Angle", value: binding(\.angle), range: -180...180,
@@ -174,6 +184,29 @@ private struct FilterRow: View {
         state.moveFilters(from: [index], to: offset > 0 ? index + 2 : index - 1)
     }
 
+    @ViewBuilder
+    private var levelsControls: some View {
+        LabeledSlider(
+            label: "LayerFilters.Black", value: optionalBinding(\.black, default: 0), range: 0...0.9,
+            valueText: "\(Int(((filter.black ?? 0) * 255).rounded()))"
+        )
+        LabeledSlider(
+            label: "LayerFilters.Gamma", value: optionalBinding(\.gamma, default: 1), range: 0.2...3,
+            valueText: String(format: "%.2f", filter.gamma ?? 1)
+        )
+        LabeledSlider(
+            label: "LayerFilters.White", value: optionalBinding(\.white, default: 1), range: 0.1...1,
+            valueText: "\(Int(((filter.white ?? 1) * 255).rounded()))"
+        )
+    }
+
+    private func optionalBinding(_ keyPath: WritableKeyPath<LayerFilter, Double?>, default fallback: Double) -> Binding<Double> {
+        Binding(
+            get: { filter[keyPath: keyPath] ?? fallback },
+            set: { value in state.updateFilter(filter.id) { $0[keyPath: keyPath] = value } }
+        )
+    }
+
     private func binding(_ keyPath: WritableKeyPath<LayerFilter, Double>) -> Binding<Double> {
         Binding(
             get: { filter[keyPath: keyPath] },
@@ -211,5 +244,66 @@ struct AddFilterMenu<Label: View>: View {
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
+    }
+}
+
+/// A tone curve with five points along it, each dragged up or down.
+struct CurveEditor: View {
+    let values: [Double]
+    let change: ([Double]) -> Void
+    @State private var dragging: Int?
+
+    /// Room around the plot so the knobs at its ends show whole.
+    private static let inset = 8.0
+
+    var body: some View {
+        GeometryReader { geometry in
+            let plot = CGRect(origin: .zero, size: geometry.size).insetBy(dx: Self.inset, dy: Self.inset)
+            Canvas { context, _ in
+                var grid = Path()
+                for step in 1..<4 {
+                    let x = plot.minX + plot.width * Double(step) / 4, y = plot.minY + plot.height * Double(step) / 4
+                    grid.move(to: CGPoint(x: x, y: plot.minY))
+                    grid.addLine(to: CGPoint(x: x, y: plot.maxY))
+                    grid.move(to: CGPoint(x: plot.minX, y: y))
+                    grid.addLine(to: CGPoint(x: plot.maxX, y: y))
+                }
+                context.stroke(grid, with: .color(.secondary.opacity(0.3)), lineWidth: 0.5)
+                var diagonal = Path()
+                diagonal.move(to: CGPoint(x: plot.minX, y: plot.maxY))
+                diagonal.addLine(to: CGPoint(x: plot.maxX, y: plot.minY))
+                context.stroke(diagonal, with: .color(.secondary.opacity(0.4)), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                var curve = Path()
+                let points = (0..<5).map { index in
+                    CGPoint(x: plot.minX + Double(index) / 4 * plot.width, y: plot.minY + (1 - values[index]) * plot.height)
+                }
+                curve.move(to: points[0])
+                // A smooth line through the points (Catmull-Rom).
+                for index in 0..<4 {
+                    let p0 = points[max(index - 1, 0)], p1 = points[index]
+                    let p2 = points[index + 1], p3 = points[min(index + 2, 4)]
+                    curve.addCurve(
+                        to: p2,
+                        control1: CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6),
+                        control2: CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+                    )
+                }
+                context.stroke(curve, with: .color(.accentColor), lineWidth: 2)
+                for point in points {
+                    let knob = Path(ellipseIn: CGRect(x: point.x - 7, y: point.y - 7, width: 14, height: 14))
+                    context.fill(knob, with: .color(.white))
+                    context.stroke(knob, with: .color(.accentColor), lineWidth: 2)
+                }
+            }
+            .background(Color.secondary.opacity(0.08), in: .rect(cornerRadius: 8))
+            .contentShape(.rect)
+            .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
+                let index = dragging ?? Int(((drag.startLocation.x - plot.minX) / plot.width * 4).rounded())
+                dragging = min(max(index, 0), 4)
+                var updated = values
+                updated[dragging!] = min(max(1 - (drag.location.y - plot.minY) / plot.height, 0), 1)
+                change(updated)
+            }.onEnded { _ in dragging = nil })
+        }
     }
 }

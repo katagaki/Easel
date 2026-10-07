@@ -35,6 +35,34 @@ extension LayerFilter {
             filter.inputImage = input
             filter.contrast = Float(1 + amount * (amount > 0 ? 1 : 0.75))
             output = filter.outputImage ?? input
+        case .levels:
+            let black = min(max(self.black ?? 0, 0), 0.99)
+            let white = max(min(self.white ?? 1, 1), black + 0.01)
+            let scale = 1 / (white - black)
+            // Points are shades as they look, so the stretch works on
+            // gamma-encoded values rather than Core Image's linear ones.
+            let stretch = CIFilter.colorMatrix()
+            stretch.inputImage = input.unpremultiplyingAlpha().applyingFilter("CILinearToSRGBToneCurve")
+            stretch.rVector = CIVector(x: scale, y: 0, z: 0, w: 0)
+            stretch.gVector = CIVector(x: 0, y: scale, z: 0, w: 0)
+            stretch.bVector = CIVector(x: 0, y: 0, z: scale, w: 0)
+            stretch.biasVector = CIVector(x: -black * scale, y: -black * scale, z: -black * scale, w: 0)
+            let clamp = CIFilter.colorClamp()
+            clamp.inputImage = stretch.outputImage
+            let gammaFilter = CIFilter.gammaAdjust()
+            gammaFilter.inputImage = clamp.outputImage
+            gammaFilter.power = Float(1 / max(gamma ?? 1, 0.05))
+            output = gammaFilter.outputImage?.applyingFilter("CISRGBToneCurveToLinear").premultiplyingAlpha() ?? input
+        case .curves:
+            let values = (curve?.count == 5 ? curve! : Self.straightCurve).map { min(max($0, 0), 1) }
+            let filter = CIFilter.toneCurve()
+            filter.inputImage = input
+            filter.point0 = CGPoint(x: 0, y: values[0])
+            filter.point1 = CGPoint(x: 0.25, y: values[1])
+            filter.point2 = CGPoint(x: 0.5, y: values[2])
+            filter.point3 = CGPoint(x: 0.75, y: values[3])
+            filter.point4 = CGPoint(x: 1, y: values[4])
+            output = filter.outputImage ?? input
         case .gaussianBlur:
             // Clamped first so the edges blur into themselves rather than
             // into transparency.

@@ -143,3 +143,62 @@ struct LayerFilterCommandTests {
         #expect(TestImages.pixel(published.layers[0].image.cgImage, x: 10, y: 10).red < 50)
     }
 }
+
+@Suite("Curves and Levels")
+struct ToneFilterTests {
+    /// A grey ramp, dark on the left to light on the right.
+    private func ramp() -> Layer {
+        let image = Bitmap.render(size: CGSize(width: 256, height: 1)) { context in
+            for x in 0..<256 {
+                let v = Double(x) / 255
+                context.setFillColor(CGColor(colorSpace: Bitmap.colorSpace, components: [v, v, v, 1])!)
+                context.fill(CGRect(x: x, y: 0, width: 1, height: 1))
+            }
+        }
+        return Layer(name: "Ramp", image: LayerImage(image), canvasSize: CGSize(width: 256, height: 1))
+    }
+
+    private func value(_ layer: Layer, at x: Int) -> Double { TestImages.pixel(layer.renderedImage, x: x, y: 0).red }
+
+    @Test func levelsStretchTheRange() {
+        var layer = ramp()
+        var filter = LayerFilter(kind: .levels)
+        filter.black = 0.25
+        filter.white = 0.75
+        layer.filters = [filter]
+        #expect(value(layer, at: 40) < 5)
+        #expect(value(layer, at: 220) > 250)
+        #expect(abs(value(layer, at: 128) - 128) < 12)
+    }
+
+    @Test func levelsGammaBrightensMidtones() {
+        var layer = ramp()
+        var filter = LayerFilter(kind: .levels)
+        filter.gamma = 2
+        layer.filters = [filter]
+        #expect(value(layer, at: 128) > 160)
+    }
+
+    @Test func aStraightCurveChangesNothing() {
+        var layer = ramp()
+        layer.filters = [LayerFilter(kind: .curves)]
+        #expect(abs(value(layer, at: 64) - 64) < 4)
+        #expect(abs(value(layer, at: 192) - 192) < 4)
+    }
+
+    @Test func liftingTheMiddleOfTheCurveBrightens() {
+        var layer = ramp()
+        var filter = LayerFilter(kind: .curves)
+        filter.curve = [0, 0.4, 0.75, 0.9, 1]
+        layer.filters = [filter]
+        #expect(value(layer, at: 128) > 170)
+        #expect(value(layer, at: 0) < 5)
+    }
+
+    @Test func toneSettingsAreSaved() throws {
+        var filter = LayerFilter(kind: .curves)
+        filter.curve = [0.1, 0.2, 0.3, 0.4, 0.9]
+        let data = try JSONEncoder().encode(filter)
+        #expect(try JSONDecoder().decode(LayerFilter.self, from: data) == filter)
+    }
+}

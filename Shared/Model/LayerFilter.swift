@@ -7,6 +7,7 @@ import Foundation
 struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
     enum Kind: String, Codable, CaseIterable, Identifiable, Sendable {
         case blackAndWhite, sepia, saturation, brightness, contrast
+        case levels, curves
         case gaussianBlur, motionBlur, zoomBlur, mosaic
 
         var id: String { rawValue }
@@ -15,6 +16,7 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
         /// the add menu groups them.
         static let groups: [[Kind]] = [
             [.blackAndWhite, .sepia, .saturation, .brightness, .contrast],
+            [.levels, .curves],
             [.gaussianBlur, .motionBlur, .zoomBlur, .mosaic],
         ]
 
@@ -25,6 +27,8 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
             case .saturation: return String(localized: "LayerFilter.Saturation")
             case .brightness: return String(localized: "LayerFilter.Brightness")
             case .contrast: return String(localized: "LayerFilter.Contrast")
+            case .levels: return String(localized: "LayerFilter.Levels")
+            case .curves: return String(localized: "LayerFilter.Curves")
             case .gaussianBlur: return String(localized: "LayerFilter.GaussianBlur")
             case .motionBlur: return String(localized: "LayerFilter.MotionBlur")
             case .zoomBlur: return String(localized: "LayerFilter.ZoomBlur")
@@ -39,6 +43,8 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
             case .saturation: return "drop.halffull"
             case .brightness: return "sun.max"
             case .contrast: return "circle.lefthalf.filled"
+            case .levels: return "chart.bar.fill"
+            case .curves: return "point.bottomleft.forward.to.point.topright.scurvepath"
             case .gaussianBlur: return "aqi.medium"
             case .motionBlur: return "wind"
             case .zoomBlur: return "scope"
@@ -58,7 +64,7 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
         /// Where a new filter starts: enough to see it working.
         var defaultAmount: Double {
             switch self {
-            case .blackAndWhite, .sepia: return 1
+            case .blackAndWhite, .sepia, .levels, .curves: return 1
             case .saturation: return 0.5
             case .brightness: return 0.2
             case .contrast: return 0.3
@@ -67,6 +73,8 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
         }
 
         var hasAngle: Bool { self == .motionBlur }
+        /// Filters set with their own controls rather than one amount.
+        var hasAmount: Bool { self != .levels && self != .curves }
         var hasCenter: Bool { self == .zoomBlur }
     }
 
@@ -81,6 +89,15 @@ struct LayerFilter: Identifiable, Codable, Hashable, Sendable {
     /// from its top left.
     var centerX: Double = 0.5
     var centerY: Double = 0.5
+    /// Levels: the input shades that become black and white, and the
+    /// midtone gamma. Optional so files from before them still open.
+    var black: Double?
+    var white: Double?
+    var gamma: Double?
+    /// Curves: the output at inputs 0, ¼, ½, ¾ and 1.
+    var curve: [Double]?
+
+    static let straightCurve = [0, 0.25, 0.5, 0.75, 1.0]
 
     init(kind: Kind) {
         self.kind = kind
