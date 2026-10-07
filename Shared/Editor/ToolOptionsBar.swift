@@ -465,21 +465,6 @@ struct OptionSlider: View {
     }
 }
 
-/// The colour in use, which opens the system colour picker.
-struct ColorWell: View {
-    @Bindable var state: EditorState
-
-    var body: some View {
-        ColorPicker(
-            "Options.Color",
-            selection: Binding(get: { state.color.color }, set: { state.color = RGBAColor($0) }),
-            supportsOpacity: false
-        )
-        .labelsHidden()
-        .frame(width: 40, height: 40)
-        .accessibilityIdentifier("colorWell")
-    }
-}
 
 /// Everything about the brush or eraser that does not fit the bar.
 private struct BrushSettingsButton: View {

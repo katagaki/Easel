@@ -14,6 +14,8 @@ struct Composition: Equatable, Sendable {
     var groups: [LayerGroup] = []
     /// Lines pulled out of the rulers to line things up against.
     var guides: [Guide] = []
+    /// Colours kept with the picture, to paint with again.
+    var swatches: [RGBAColor] = []
 
     static let defaultSize = CGSize(width: 2048, height: 1536)
 

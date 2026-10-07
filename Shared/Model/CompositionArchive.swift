@@ -36,6 +36,7 @@ enum CompositionArchive {
         var layers: [LayerRecord]
         var groups: [LayerGroup]?
         var guides: [Guide]?
+        var swatches: [RGBAColor]?
     }
 
     struct LayerRecord: Codable {
@@ -154,7 +155,8 @@ enum CompositionArchive {
         return Manifest(
             version: currentVersion, width: composition.size.width, height: composition.size.height, layers: records,
             groups: composition.groups.isEmpty ? nil : composition.groups,
-            guides: composition.guides.isEmpty ? nil : composition.guides
+            guides: composition.guides.isEmpty ? nil : composition.guides,
+            swatches: composition.swatches.isEmpty ? nil : composition.swatches
         )
     }
 
@@ -194,6 +196,7 @@ enum CompositionArchive {
             size: CGSize(width: manifest.width, height: manifest.height), layers: layers, groups: manifest.groups ?? []
         )
         composition.guides = manifest.guides ?? []
+        composition.swatches = manifest.swatches ?? []
         composition.normalizeGroups()
         return composition
     }
