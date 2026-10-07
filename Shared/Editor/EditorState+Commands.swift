@@ -146,6 +146,8 @@ extension EditorState {
             presentedPanel = .text
             return
         }
+        // Off the picture there is nowhere for new text to be seen.
+        guard composition.canvasRect.contains(point) else { return }
         let content = TextContent(
             string: String(localized: "Text.Placeholder"),
             fontSize: max(24, (min(composition.size.width, composition.size.height) * 0.08).rounded()),

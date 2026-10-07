@@ -152,3 +152,16 @@ struct EditScopeTests {
         #expect(!EditScope(from: before, to: after).coalesces)
     }
 }
+
+@MainActor
+@Suite("Text tool")
+struct TextToolTests {
+    @Test func tapsOffThePictureAddNoText() {
+        let state = EditorState()
+        state.attach(to: .blank(size: CGSize(width: 100, height: 100))) { _ in }
+        state.tool = .text
+        state.toolEnded(isTap: true, at: CGPoint(x: 50, y: 400))
+        #expect(state.composition.layers.count == 1)
+        #expect(state.presentedPanel == nil)
+    }
+}
