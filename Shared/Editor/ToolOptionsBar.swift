@@ -56,6 +56,16 @@ struct ToolOptionsBar: View {
             )
             .accessibilityIdentifier("brushSize")
             BrushSettingsButton(state: state)
+            if state.tool == .brush || state.tool == .eraser {
+                GlassMenuButton(symbol: state.symmetry.symbolName, label: "Symmetry.Title") {
+                    Picker("Symmetry.Title", selection: $state.symmetry) {
+                        ForEach(Symmetry.allCases) { symmetry in
+                            Label(symmetry.label, systemImage: symmetry.symbolName).tag(symmetry)
+                        }
+                    }
+                }
+                .accessibilityIdentifier("symmetry")
+            }
         }
     }
 

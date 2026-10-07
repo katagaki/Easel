@@ -46,6 +46,8 @@ final class EditorState {
     /// Whether the next tap picks the clone stamp's source.
     var isPickingCloneSource = false
     var fillTolerance = 0.12
+    /// Whether the brush and eraser paint mirrored copies of each stroke.
+    var symmetry: Symmetry = .off
     var gradientOpacity = 1.0
     var shapeKind: ShapeSpec.Kind = .rectangle
     var shapeIsFilled = false
@@ -912,17 +914,39 @@ final class EditorState {
         }
     }
 
+    /// The stroke and, with symmetry on, its mirror images. Only the brush
+    /// and eraser paint mirrored.
+    func mirrored(_ stroke: Stroke) -> [Stroke] {
+        guard stroke.kind.isPaint else { return [stroke] }
+        return symmetry.strokes(for: stroke, in: composition.size)
+    }
+
     private func commitMask(_ stroke: Stroke, to layerID: Layer.ID) {
-        let pending = PendingStroke(layerID: layerID, stroke: stroke, isMask: true)
-        pendingStrokes.append(pending)
+        let strokes = mirrored(stroke)
+        let pending = strokes.map { PendingStroke(layerID: layerID, stroke: $0, isMask: true) }
+        pendingStrokes.append(contentsOf: pending)
+        let ids = Set(pending.map(\.id))
         editPixels(of: layerID, mask: true, finally: { [weak self] in
-            self?.pendingStrokes.removeAll { $0.id == pending.id }
+            self?.pendingStrokes.removeAll { ids.contains($0.id) }
         }) { image, _ in
-            Painter.paint(stroke, onto: image)
+            strokes.reduce(image) { Painter.paint($1, onto: $0) }
         }
     }
 
     private func commit(_ stroke: Stroke, to layerID: Layer.ID) {
+        if stroke.kind.isPaint, symmetry != .off {
+            // Every copy in one edit, so one undo takes the whole stroke.
+            let strokes = mirrored(stroke)
+            let pending = strokes.map { PendingStroke(layerID: layerID, stroke: $0) }
+            pendingStrokes.append(contentsOf: pending)
+            let ids = Set(pending.map(\.id))
+            editPixels(of: layerID, finally: { [weak self] in
+                self?.pendingStrokes.removeAll { ids.contains($0.id) }
+            }) { image, _ in
+                strokes.reduce(image) { Painter.paint($1, onto: $0) }
+            }
+            return
+        }
         let pending = PendingStroke(layerID: layerID, stroke: stroke)
         pendingStrokes.append(pending)
         // The blurred or tiled layer worked out for showing the stroke, if

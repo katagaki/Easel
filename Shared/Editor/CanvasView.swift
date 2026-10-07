@@ -132,7 +132,7 @@ struct CanvasView: View {
     private func strokes(on layerID: Layer.ID, mask: Bool) -> [Stroke] {
         var strokes = state.pendingStrokes.filter { $0.layerID == layerID && $0.isMask == mask }.map(\.stroke)
         if let active = state.activeStroke, state.activeLayerID == layerID, state.editsMask == mask {
-            strokes.append(active)
+            strokes.append(contentsOf: state.mirrored(active))
         }
         return strokes
     }

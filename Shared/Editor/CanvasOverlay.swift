@@ -70,6 +70,10 @@ struct CanvasOverlay: View {
             drawVectorEditing(layer, in: &context, transform: transform)
         }
 
+        if state.symmetry != .off, state.tool == .brush || state.tool == .eraser {
+            drawSymmetryAxes(in: &context, transform: transform)
+        }
+
         if state.tool == .transform, let draft = state.transformDraft {
             drawTransform(draft, in: &context, transform: transform)
         }
@@ -111,6 +115,22 @@ struct CanvasOverlay: View {
                 context.stroke(box, with: .color(.accentColor), lineWidth: 1.5)
             }
         }
+    }
+
+    /// The lines strokes are mirrored across.
+    private func drawSymmetryAxes(in context: inout GraphicsContext, transform: CGAffineTransform) {
+        let size = composition.size
+        var axes = Path()
+        if state.symmetry == .vertical || state.symmetry == .both {
+            axes.move(to: CGPoint(x: size.width / 2, y: 0).applying(transform))
+            axes.addLine(to: CGPoint(x: size.width / 2, y: size.height).applying(transform))
+        }
+        if state.symmetry == .horizontal || state.symmetry == .both {
+            axes.move(to: CGPoint(x: 0, y: size.height / 2).applying(transform))
+            axes.addLine(to: CGPoint(x: size.width, y: size.height / 2).applying(transform))
+        }
+        context.stroke(axes, with: .color(.white.opacity(0.8)), lineWidth: 2)
+        context.stroke(axes, with: .color(.accentColor), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
     }
 
     /// The bent layer's outline, its grid when warping, and its handles.
