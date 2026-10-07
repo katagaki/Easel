@@ -36,6 +36,7 @@ enum VectorRenderer {
                 context.setLineWidth(path.strokeWidth)
                 context.strokePath()
             }
+            if let text = path.text { PathTextRenderer.draw(text, along: path, in: context) }
         }
     }
 }

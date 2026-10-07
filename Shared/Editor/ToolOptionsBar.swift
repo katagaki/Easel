@@ -320,6 +320,7 @@ struct ToolOptionsBar: View {
                         state.deleteSelectedNode()
                     }
                     .accessibilityIdentifier("deletePoint")
+                    PathTextButton(state: state)
                     GlassIconButton(
                         symbol: state.selectedVectorPath?.isClosed == true ? "circle.dashed" : "circle",
                         label: state.selectedVectorPath?.isClosed == true ? "Options.OpenPath" : "Options.ClosePath"
@@ -609,5 +610,58 @@ private struct VectorColorWell: View {
         )
         .labelsHidden()
         .frame(width: 40, height: 40)
+    }
+}
+
+/// Sets or changes the text running along the picked point's path.
+private struct PathTextButton: View {
+    @Bindable var state: EditorState
+    @State private var isPresented = false
+    @State private var draft = ""
+
+    var body: some View {
+        GlassIconButton(symbol: "point.topleft.down.to.point.bottomright.curvepath.fill", label: "Options.PathText",
+                        isOn: state.selectedVectorPath?.text != nil) {
+            draft = state.selectedVectorPath?.text?.string ?? ""
+            isPresented = true
+        }
+        .accessibilityIdentifier("pathText")
+        .popover(isPresented: $isPresented) {
+            Form {
+                Section {
+                    TextField("Text.Placeholder", text: $draft)
+                        .onSubmit { state.setPathText(draft) }
+                        .accessibilityIdentifier("pathTextField")
+                    Button("Options.PathText.Apply") { state.setPathText(draft) }
+                }
+                if let text = state.selectedVectorPath?.text {
+                    Section {
+                        LabeledSlider(
+                            label: "Text.Size",
+                            value: Binding(
+                                get: { BrushSizeScale.position(for: text.fontSize) },
+                                set: { value in state.updatePathText { $0.fontSize = max(4, BrushSizeScale.size(at: value)) } }
+                            ),
+                            valueText: "\(Int(text.fontSize.rounded())) px"
+                        )
+                        LabeledSlider(
+                            label: "Options.PathText.Start",
+                            value: Binding(get: { text.start }, set: { value in state.updatePathText { $0.start = value } }),
+                            valueText: "\(Int((text.start * 100).rounded()))%"
+                        )
+                        ColorPicker("Text.Color", selection: Binding(
+                            get: { text.color.color }, set: { value in state.updatePathText { $0.color = RGBAColor(value) } }
+                        ))
+                        Toggle("Text.Bold", isOn: Binding(
+                            get: { text.isBold }, set: { value in state.updatePathText { $0.isBold = value } }
+                        ))
+                        Button("Options.PathText.Remove", role: .destructive) { state.setPathText("") }
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .frame(minWidth: 320, minHeight: 360)
+            .presentationCompactAdaptation(.popover)
+        }
     }
 }

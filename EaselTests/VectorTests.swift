@@ -364,3 +364,45 @@ struct VectorBooleanTests {
         #expect(filled(image, 15, 15) && filled(image, 60, 60))
     }
 }
+
+@Suite("Text on a path")
+struct PathTextTests {
+    private func line(from: CGPoint, to: CGPoint) -> VectorPath {
+        VectorPath(nodes: [VectorNode(point: from), VectorNode(point: to)], isClosed: false, fill: nil, stroke: nil, strokeWidth: 1)
+    }
+
+    @Test func lettersFollowAStraightLine() {
+        var path = line(from: CGPoint(x: 10, y: 50), to: CGPoint(x: 290, y: 50))
+        path.text = PathText(string: "HELLO", fontSize: 30, color: .black)
+        let placed = PathTextRenderer.layout(path.text!, along: path)
+        #expect(placed.count == 5)
+        #expect(placed.allSatisfy { abs($0.angle) < 0.001 && abs($0.point.y - 50) < 0.001 })
+        #expect(zip(placed, placed.dropFirst()).allSatisfy { $0.point.x < $1.point.x })
+    }
+
+    @Test func lettersTurnWithTheLine() {
+        var path = line(from: CGPoint(x: 50, y: 10), to: CGPoint(x: 50, y: 290))
+        path.text = PathText(string: "AB", fontSize: 30, color: .black)
+        let placed = PathTextRenderer.layout(path.text!, along: path)
+        #expect(placed.allSatisfy { abs($0.angle - .pi / 2) < 0.001 })
+    }
+
+    @Test func textPastTheEndIsLeftOff() {
+        var path = line(from: .zero, to: CGPoint(x: 30, y: 0))
+        path.text = PathText(string: "A long sentence", fontSize: 30, color: .black)
+        #expect(PathTextRenderer.layout(path.text!, along: path).count < 15)
+    }
+
+    @Test func textIsDrawnAndSaved() throws {
+        var path = line(from: CGPoint(x: 10, y: 60), to: CGPoint(x: 290, y: 60))
+        path.text = PathText(string: "WWWW", fontSize: 40, color: RGBAColor(red: 1, green: 0, blue: 0))
+        let layer = Layer.vector([path], name: "Words")
+        let image = CompositionRenderer.render(Composition(size: CGSize(width: 300, height: 120), layers: [layer]))
+        let pixels = Bitmap.pixels(of: image)!
+        var red = 0
+        for y in 0..<pixels.height { for x in 0..<pixels.width where pixels.color(x: x, y: y).red > 200 && pixels.color(x: x, y: y).alpha > 200 { red += 1 } }
+        #expect(red > 200)
+        let data = try JSONEncoder().encode(layer.vector)
+        #expect(try JSONDecoder().decode(VectorContent.self, from: data) == layer.vector)
+    }
+}

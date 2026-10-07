@@ -390,3 +390,42 @@ extension EditorState {
         additionalNodes = []
     }
 }
+
+// MARK: - Text on a path
+
+extension EditorState {
+    /// Sets text along the picked point's path, or takes it off with an
+    /// empty string. The path itself stops showing so the text stands alone.
+    func setPathText(_ string: String) {
+        guard let ref = selectedNode, let path = selectedVectorPath else { return }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        updateVector(ref.layerID) { content in
+            if trimmed.isEmpty {
+                content.paths[ref.path].text = nil
+                if content.paths[ref.path].stroke == nil, content.paths[ref.path].fill == nil {
+                    content.paths[ref.path].stroke = path.text?.color ?? self.color
+                }
+                return
+            }
+            if var text = content.paths[ref.path].text {
+                text.string = trimmed
+                content.paths[ref.path].text = text
+            } else {
+                content.paths[ref.path].text = PathText(
+                    string: trimmed, fontSize: max(12, path.strokeWidth * 6), color: path.stroke ?? path.fill ?? self.color
+                )
+                content.paths[ref.path].stroke = nil
+                content.paths[ref.path].fill = nil
+            }
+        }
+    }
+
+    func updatePathText(_ change: (inout PathText) -> Void) {
+        guard let ref = selectedNode, selectedVectorPath?.text != nil else { return }
+        updateVector(ref.layerID) { content in
+            guard var text = content.paths[ref.path].text else { return }
+            change(&text)
+            content.paths[ref.path].text = text
+        }
+    }
+}

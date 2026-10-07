@@ -33,6 +33,8 @@ struct VectorPath: Codable, Equatable, Sendable, Identifiable {
     var fill: RGBAColor?
     var stroke: RGBAColor?
     var strokeWidth: Double
+    /// Words set along the path, following its curve.
+    var text: PathText?
 
     var cgPath: CGPath {
         let path = CGMutablePath()
@@ -72,7 +74,9 @@ struct VectorPath: Codable, Equatable, Sendable, Identifiable {
     var bounds: CGRect {
         guard !nodes.isEmpty else { return .null }
         let box = cgPath.boundingBoxOfPath
-        let reach = stroke == nil ? 1 : strokeWidth / 2 + 1
+        var reach = stroke == nil ? 1 : strokeWidth / 2 + 1
+        // Letters stand up to a font size off the line either way.
+        if let text { reach = max(reach, text.fontSize * 1.2) }
         return box.insetBy(dx: -reach, dy: -reach)
     }
 
@@ -156,4 +160,14 @@ extension VectorPath {
             ]
         }
     }
+}
+
+/// Text set along a vector path.
+struct PathText: Codable, Equatable, Sendable {
+    var string: String
+    var fontSize: Double
+    var color: RGBAColor
+    var isBold = true
+    /// How far along the path the text starts, 0 at its first point.
+    var start = 0.0
 }
