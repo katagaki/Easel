@@ -7,6 +7,8 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
     case transform
     case brush, eraser, fill, gradient, eyedropper
     case smudge, blur, mosaic, heal
+    /// Pushes the picture along a drag as if it were soft.
+    case liquify
     /// Paints with pixels copied from another part of the layer.
     case clone
     case text, shape
@@ -22,7 +24,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
     static let groups: [[Tool]] = [
         [.move, .transform, .select, .crop],
         [.brush, .eraser, .fill, .gradient, .eyedropper],
-        [.smudge, .blur, .mosaic, .heal, .clone],
+        [.smudge, .liquify, .blur, .mosaic, .heal, .clone],
         [.text, .shape, .pen, .nodes],
     ]
 
@@ -41,6 +43,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .blur: return "aqi.medium"
         case .mosaic: return "square.grid.3x3.fill"
         case .heal: return "bandage"
+        case .liquify: return "hand.draw"
         case .clone: return "square.on.square.dashed"
         case .text: return "textformat"
         case .shape: return "square.on.circle"
@@ -64,6 +67,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .blur: return "Tool.Blur"
         case .mosaic: return "Tool.Mosaic"
         case .heal: return "Tool.Heal"
+        case .liquify: return "Tool.Liquify"
         case .clone: return "Tool.Clone"
         case .text: return "Tool.Text"
         case .shape: return "Tool.Shape"
@@ -89,6 +93,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
         case .blur: return "r"
         case .mosaic: return "o"
         case .heal: return "j"
+        case .liquify: return "l"
         case .clone: return "k"
         case .text: return "t"
         case .shape: return "u"
@@ -101,7 +106,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
     /// visible and unlocked.
     var paintsPixels: Bool {
         switch self {
-        case .brush, .eraser, .fill, .gradient, .smudge, .blur, .mosaic, .heal, .clone: return true
+        case .brush, .eraser, .fill, .gradient, .smudge, .liquify, .blur, .mosaic, .heal, .clone: return true
         default: return false
         }
     }
@@ -109,7 +114,7 @@ enum Tool: String, CaseIterable, Identifiable, Sendable {
     /// Brushes that change what is already there rather than adding colour.
     var isRetouch: Bool {
         switch self {
-        case .smudge, .blur, .mosaic, .heal, .clone: return true
+        case .smudge, .liquify, .blur, .mosaic, .heal, .clone: return true
         default: return false
         }
     }

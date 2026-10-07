@@ -85,7 +85,7 @@ extension Painter {
 
 /// Pushes paint along a drag, the way a finger drags wet paint: each dab
 /// lays down what the brush picked up, and picks up some of what it lands on.
-struct Smudger: Sendable {
+struct Smudger: PixelPusher {
     private(set) var pixels: PixelBuffer
     let settings: BrushSettings
     /// 255 where the selection allows change, or nil for everywhere.
@@ -190,20 +190,6 @@ struct Smudger: Sendable {
         }
         return CGRect(x: originX, y: originY, width: diameter, height: diameter)
             .intersection(CGRect(x: 0, y: 0, width: width, height: height))
-    }
-
-    /// The pixels in `rect` as an image, for showing a smear as it happens.
-    func patch(_ rect: CGRect) -> CGImage? {
-        let rect = rect.integral.intersection(CGRect(x: 0, y: 0, width: pixels.width, height: pixels.height))
-        guard rect.width >= 1, rect.height >= 1 else { return nil }
-        let width = Int(rect.width)
-        let height = Int(rect.height)
-        var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        for row in 0..<height {
-            let source = ((Int(rect.minY) + row) * pixels.width + Int(rect.minX)) * 4
-            bytes.replaceSubrange((row * width * 4)..<((row + 1) * width * 4), with: pixels.bytes[source..<(source + width * 4)])
-        }
-        return PixelBuffer(width: width, height: height, bytes: bytes).makeImage()
     }
 }
 

@@ -30,6 +30,7 @@ final class EditorState {
     /// For the retouching brushes, opacity is strength: how far a smear
     /// carries, how blurred or how coarse the tiles, how fully a spot heals.
     var smudgeBrush = BrushSettings(size: 60, opacity: 0.7, softness: 0.5, usesPressure: false)
+    var liquifyBrush = BrushSettings(size: 120, opacity: 0.6, softness: 0.5, usesPressure: false)
     var blurBrush = BrushSettings(size: 80, opacity: 0.5, softness: 0.5, usesPressure: false)
     var mosaicBrush = BrushSettings(size: 80, opacity: 0.6, usesPressure: false)
     var healBrush = BrushSettings(size: 40, softness: 0.3, usesPressure: false)
@@ -235,6 +236,7 @@ final class EditorState {
         scaled(&brush)
         scaled(&eraser)
         scaled(&smudgeBrush)
+        scaled(&liquifyBrush)
         scaled(&blurBrush)
         scaled(&mosaicBrush)
         scaled(&healBrush)
@@ -395,6 +397,7 @@ final class EditorState {
             switch tool {
             case .eraser: return eraser
             case .smudge: return smudgeBrush
+            case .liquify: return liquifyBrush
             case .blur: return blurBrush
             case .mosaic: return mosaicBrush
             case .heal: return healBrush
@@ -406,6 +409,7 @@ final class EditorState {
             switch tool {
             case .eraser: eraser = newValue
             case .smudge: smudgeBrush = newValue
+            case .liquify: liquifyBrush = newValue
             case .blur: blurBrush = newValue
             case .mosaic: mosaicBrush = newValue
             case .heal: healBrush = newValue
@@ -487,7 +491,7 @@ final class EditorState {
                 points: [StrokePoint(location: point, pressure: pressure)],
                 settings: currentBrush, kind: strokeKind, clip: selection
             )
-        case .smudge:
+        case .smudge, .liquify:
             guard paintingBlocker() == nil else { return }
             beginSmudge(at: point)
         case .move:
@@ -531,7 +535,7 @@ final class EditorState {
         switch tool {
         case .brush, .eraser, .blur, .mosaic, .heal, .clone:
             activeStroke?.points.append(contentsOf: points)
-        case .smudge:
+        case .smudge, .liquify:
             continueSmudge(to: points.map(\.location))
         case .move:
             if let group = groupMoveOrigin {
@@ -585,7 +589,7 @@ final class EditorState {
     /// The finger lifted. `isTap` when it barely moved.
     func toolEnded(isTap: Bool, at point: CGPoint) {
         switch tool {
-        case .smudge:
+        case .smudge, .liquify:
             if let blocker = paintingBlocker(), isTap {
                 errorMessage = blocker
                 return

@@ -19,11 +19,11 @@ struct RetouchPreparation: @unchecked Sendable {
     }
 }
 
-/// A smear in progress: the layer's pixels being pushed around, and the
-/// parts that changed, shown over the layer until the finger lifts.
+/// A smear or liquify in progress: the layer's pixels being pushed around,
+/// and the parts that changed, shown over the layer until the finger lifts.
 struct SmudgeSession {
     var layerID: Layer.ID
-    var smudger: Smudger
+    var smudger: any PixelPusher
     /// Canvas-aligned pieces of the smeared pixels, oldest first; later ones
     /// are newer and are drawn over earlier ones.
     var patches: [(rect: CGRect, image: CGImage)] = []
@@ -62,10 +62,10 @@ extension EditorState {
         guard let layer = activeLayer else { return }
         let aligned = layer.aligned(in: composition.size)
         guard let pixels = Bitmap.pixels(of: aligned.image.cgImage) else { return }
-        smudge = SmudgeSession(
-            layerID: layer.id,
-            smudger: Smudger(pixels: pixels, settings: currentBrush, selection: selection, start: point)
-        )
+        let pusher: any PixelPusher = tool == .liquify
+            ? Liquifier(pixels: pixels, settings: currentBrush, selection: selection, start: point)
+            : Smudger(pixels: pixels, settings: currentBrush, selection: selection, start: point)
+        smudge = SmudgeSession(layerID: layer.id, smudger: pusher)
     }
 
     func continueSmudge(to points: [CGPoint]) {

@@ -81,6 +81,39 @@ struct RetouchTests {
         #expect(TestImages.pixel(filled, x: 32, y: 20).green < TestImages.pixel(filled, x: 48, y: 20).green)
     }
 
+    @Test func liquifyPushesThePictureAlongTheDrag() throws {
+        // Red left of x = 20, blue right of it.
+        let pixels = try #require(Bitmap.pixels(of: TestImages.halves(width: 40, height: 20)))
+        let settings = BrushSettings(size: 16, opacity: 1, softness: 0.5, usesPressure: false)
+        var liquifier = Liquifier(pixels: pixels, settings: settings, selection: nil, start: CGPoint(x: 18, y: 10))
+        _ = liquifier.drag(to: CGPoint(x: 24, y: 10))
+        let pushed = try #require(liquifier.pixels.makeImage())
+        // Red has been pushed past the old edge, where the brush was.
+        #expect(TestImages.isRed(pushed, x: 21, y: 10))
+        // Out of the brush's reach, nothing moved.
+        #expect(TestImages.isBlue(pushed, x: 21, y: 1))
+        #expect(TestImages.isRed(pushed, x: 2, y: 10))
+    }
+
+    @Test func liquifyingBackAndForthKeepsThePictureSharp() throws {
+        let pixels = try #require(Bitmap.pixels(of: TestImages.halves(width: 40, height: 20)))
+        let settings = BrushSettings(size: 16, opacity: 1, softness: 0.5, usesPressure: false)
+        var liquifier = Liquifier(pixels: pixels, settings: settings, selection: nil, start: CGPoint(x: 18, y: 10))
+        for _ in 0..<5 {
+            _ = liquifier.drag(to: CGPoint(x: 24, y: 10))
+            _ = liquifier.drag(to: CGPoint(x: 18, y: 10))
+        }
+        let image = try #require(liquifier.pixels.makeImage())
+        // Still plainly red or blue, but for the one pixel the edge may
+        // fall within; pushing the pixels themselves each time would have
+        // smeared a wide band.
+        let muddy = (0..<40).filter { x in
+            let pixel = TestImages.pixel(image, x: x, y: 10)
+            return pixel.red <= 200 && pixel.blue <= 200
+        }
+        #expect(muddy.count <= 1)
+    }
+
     @Test func mosaicBrushMakesTilesOnTheCanvasGrid() {
         let source = Bitmap.render(size: CGSize(width: 40, height: 40)) { context in
             for x in 0..<40 {
@@ -209,6 +242,22 @@ struct RetouchToolTests {
         state.toolEnded(isTap: true, at: CGPoint(x: 1, y: 1))
         #expect(state.cloneOffset == nil)
         #expect(!state.isPickingCloneSource)
+    }
+
+    @Test func liquifyChangesTheLayerWhenTheFingerLifts() throws {
+        let state = EditorState()
+        var composition = Composition.blank(size: CGSize(width: 40, height: 20))
+        composition.layers[0].image = LayerImage(TestImages.halves(width: 40, height: 20))
+        var published = composition
+        state.attach(to: published) { published = $0 }
+        state.tool = .liquify
+        state.liquifyBrush.size = 16
+        state.toolBegan(at: CGPoint(x: 16, y: 10), pressure: 1)
+        state.toolMoved(to: [StrokePoint(location: CGPoint(x: 26, y: 10))])
+        #expect(state.smudge?.patches.isEmpty == false)
+        state.toolEnded(isTap: false, at: CGPoint(x: 26, y: 10))
+        #expect(state.smudge == nil)
+        #expect(TestImages.isRed(published.layers[0].image.cgImage, x: 22, y: 10))
     }
 
     @Test func retouchToolsKeepTheirOwnSettings() {

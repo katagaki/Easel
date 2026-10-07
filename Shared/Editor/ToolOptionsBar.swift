@@ -24,7 +24,7 @@ struct ToolOptionsBar: View {
     @ViewBuilder
     private var options: some View {
         switch state.tool {
-        case .brush, .eraser, .smudge, .blur, .mosaic, .heal: brushOptions
+        case .brush, .eraser, .smudge, .liquify, .blur, .mosaic, .heal: brushOptions
         case .clone:
             brushOptions
             cloneOptions
@@ -500,7 +500,7 @@ private struct BrushSettingsButton: View {
                         valueText: "\(Int((state.currentBrush.softness * 100).rounded()))%"
                     )
                 }
-                if state.tool != .smudge {
+                if state.tool != .smudge && state.tool != .liquify {
                     Section {
                         Toggle("Options.PencilPressure", isOn: $state.currentBrush.usesPressure)
                     }
