@@ -45,6 +45,42 @@ struct RetouchTests {
         #expect(pixel.blue > 80 && pixel.blue < 180)
     }
 
+    @Test func fillingASelectionFromItsSurroundingsHidesWhatWasThere() {
+        let size = CGSize(width: 60, height: 60)
+        let image = Bitmap.render(size: size) { context in
+            context.setFillColor(RGBAColor(red: 0, green: 0, blue: 1).cgColor)
+            context.fill(CGRect(origin: .zero, size: size))
+            context.setFillColor(RGBAColor(red: 1, green: 0, blue: 0).cgColor)
+            context.fill(CGRect(x: 20, y: 20, width: 20, height: 20))
+        }
+        let selection = Selection(shape: .rectangle(CGRect(x: 18, y: 18, width: 24, height: 24)))
+        let filled = Healer.fill(image, selection: selection)
+        #expect(TestImages.isBlue(filled, x: 30, y: 30))
+        #expect(TestImages.isBlue(filled, x: 21, y: 21))
+        #expect(TestImages.isBlue(filled, x: 5, y: 5))
+    }
+
+    @Test func fillingFollowsAGradientAcrossTheHole() {
+        let size = CGSize(width: 80, height: 40)
+        let image = Bitmap.render(size: size) { context in
+            for x in 0..<80 {
+                let value = Double(x) / 79
+                context.setFillColor(RGBAColor(red: value, green: value, blue: value).cgColor)
+                context.fill(CGRect(x: x, y: 0, width: 1, height: 40))
+            }
+            context.setFillColor(RGBAColor(red: 1, green: 0, blue: 0).cgColor)
+            context.fill(CGRect(x: 30, y: 12, width: 20, height: 16))
+        }
+        let selection = Selection(shape: .ellipse(CGRect(x: 26, y: 8, width: 28, height: 24)))
+        let filled = Healer.fill(image, selection: selection)
+        let center = TestImages.pixel(filled, x: 40, y: 20)
+        // Grey near the middle of the ramp, the red gone.
+        #expect(abs(center.red - center.green) < 25)
+        #expect(center.green > 70 && center.green < 190)
+        // Darker on the left of the hole than on the right.
+        #expect(TestImages.pixel(filled, x: 32, y: 20).green < TestImages.pixel(filled, x: 48, y: 20).green)
+    }
+
     @Test func mosaicBrushMakesTilesOnTheCanvasGrid() {
         let source = Bitmap.render(size: CGSize(width: 40, height: 40)) { context in
             for x in 0..<40 {

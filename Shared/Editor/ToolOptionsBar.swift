@@ -603,6 +603,7 @@ struct SelectionMenuItems: View {
             Button("Select.CopyToLayer", systemImage: "square.on.square") { state.copySelectionToNewLayer(cut: false) }
             Button("Select.CutToLayer", systemImage: "scissors") { state.copySelectionToNewLayer(cut: true) }
             Button("Select.Fill", systemImage: "drop.fill") { state.fillSelection() }
+            Button("Select.FillFromSurroundings", systemImage: "bandage") { state.fillSelectionFromSurroundings() }
             Button("Select.Clear", systemImage: "trash", role: .destructive) { state.clearSelection() }
         }
         .disabled(!hasSelection)

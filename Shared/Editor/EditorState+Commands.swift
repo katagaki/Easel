@@ -195,6 +195,19 @@ extension EditorState {
         }
     }
 
+    /// Fills the selection from what is around it, so whatever was there
+    /// disappears into its background.
+    func fillSelectionFromSurroundings() {
+        guard let selection, let layerID = activeLayerID else { return }
+        if let blocker = paintingBlocker() {
+            errorMessage = blocker
+            return
+        }
+        editPixels(of: layerID) { image, _ in
+            Healer.fill(image, selection: selection)
+        }
+    }
+
     func fillSelection() {
         guard let selection, let layerID = activeLayerID else { return }
         if let blocker = paintingBlocker() {

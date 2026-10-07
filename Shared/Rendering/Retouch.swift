@@ -214,9 +214,40 @@ struct Smudger: Sendable {
 enum Healer {
     static func heal(_ image: CGImage, with stroke: Stroke) -> CGImage {
         let canvasSize = CGSize(width: image.width, height: image.height)
+        return fill(image, marked: stroke.bounds, radius: max(2, stroke.settings.size / 2)) { region in
+            Painter.coverage(of: stroke, in: region, canvasSize: canvasSize)
+        }
+    }
+
+    /// The selected area filled from around it, as if healed in one stroke
+    /// as wide as the selection. A long thin selection, like a stroke, is
+    /// filled from either side of it rather than from its far ends.
+    static func fill(_ image: CGImage, selection: Selection) -> CGImage {
+        let canvasSize = CGSize(width: image.width, height: image.height)
+        let marked = selection.bounds(in: canvasSize)
+        return fill(image, marked: marked, radius: max(2, min(marked.width, marked.height) / 2)) { region in
+            let covered = Bitmap.render(size: region.size) { context in
+                context.translateBy(x: -region.minX, y: -region.minY)
+                selection.clip(context, canvasSize: canvasSize)
+                context.setFillColor(RGBAColor.white.cgColor)
+                context.fill(region)
+            }
+            let count = Int(region.width) * Int(region.height)
+            guard let pixels = Bitmap.pixels(of: covered) else { return [Float](repeating: 0, count: count) }
+            return (0..<count).map { Float(pixels.bytes[$0 * 4 + 3]) / 255 }
+        }
+    }
+
+    /// Fills what `coverage` marks, within `marked`, from its surroundings.
+    /// `radius` is how far the fill reaches in, half the mark's width.
+    /// `coverage` gives, for a region of the canvas, how much of each pixel
+    /// is marked, 0...1, top row first.
+    private static func fill(
+        _ image: CGImage, marked: CGRect, radius: Double, coverage: (CGRect) -> [Float]
+    ) -> CGImage {
+        let canvasSize = CGSize(width: image.width, height: image.height)
         let canvas = CGRect(origin: .zero, size: canvasSize)
-        let radius = max(2, stroke.settings.size / 2)
-        let marked = stroke.bounds.intersection(canvas).integral
+        let marked = marked.intersection(canvas).integral
         guard !marked.isNull, marked.width >= 1, marked.height >= 1 else { return image }
 
         // Enough room around the mark to find its surroundings and a clean
@@ -226,7 +257,7 @@ enum Healer {
         let width = pixels.width
         let height = pixels.height
         let count = width * height
-        let mask = Painter.coverage(of: stroke, in: region, canvasSize: canvasSize)
+        let mask = coverage(region)
 
         // The mark's surroundings, averaged inward: a blur that counts only
         // pixels outside the mark, so the mark's own colour is left out.

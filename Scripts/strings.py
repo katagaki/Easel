@@ -276,6 +276,7 @@ S = {
 "Select.Magnetic": ("Magnetic Lasso", "マグネット選択", "자석 올가미", "磁性套索", "磁性套索"),
 "Select.Object": ("Object Select", "オブジェクト選択", "개체 선택", "选择对象", "選取物件"),
 "Mask.RemoveBackground": ("Remove Background", "背景を削除", "배경 제거", "移除背景", "移除背景"),
+"Select.FillFromSurroundings": ("Fill from Surroundings", "周囲から塗りつぶし", "주변으로 채우기", "根据周围填充", "依周圍填滿"),
 "Select.Subject": ("Select Subject", "被写体を選択", "피사체 선택", "选择主体", "選取主體"),
 "Select.Rectangle": ("Rectangle", "長方形", "직사각형", "矩形", "矩形"),
 "Shape.Arrow": ("Arrow", "矢印", "화살표", "箭头", "箭頭"),
