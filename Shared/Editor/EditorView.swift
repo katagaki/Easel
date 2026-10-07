@@ -30,6 +30,7 @@ struct EditorView: View {
         )
         .allowsHitTesting(!state.isComparing)
             .background(Color(.secondarySystemBackground).ignoresSafeArea())
+            .background { KeyboardCommands(state: state) }
             .overlay(alignment: .bottom) {
                 if isCompact {
                     VStack(spacing: 8) {
@@ -234,6 +235,30 @@ struct EditorView: View {
         }
         ToolbarItemGroup(placement: .secondaryAction) {
             Section {
+                Button("Edit.Copy", systemImage: "doc.on.doc") { state.copyToClipboard() }
+                    .keyboardShortcut("c", modifiers: .command)
+                    .disabled(state.activeLayer == nil)
+                Button("Edit.Cut", systemImage: "scissors") { state.cutToClipboard() }
+                    .keyboardShortcut("x", modifiers: .command)
+                    .disabled(state.selection == nil)
+                Button("Edit.Paste", systemImage: "doc.on.clipboard") { state.pasteFromClipboard() }
+                    .keyboardShortcut("v", modifiers: .command)
+            }
+            Section {
+                Button("Layers.NewLayer", systemImage: "square.badge.plus") { state.addEmptyLayer() }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                Button("Layers.Duplicate", systemImage: "plus.square.on.square") {
+                    if let id = state.activeLayerID { state.duplicateLayer(id) }
+                }
+                .keyboardShortcut("j", modifiers: .command)
+                .disabled(state.activeLayer == nil)
+                Button("Layers.MergeDown", systemImage: "square.2.layers.3d.bottom.filled") {
+                    if let id = state.activeLayerID { state.mergeDown(id) }
+                }
+                .keyboardShortcut("e", modifiers: .command)
+                .disabled(state.activeLayer == nil)
+            }
+            Section {
                 Button("Canvas.ImageSize", systemImage: EditorPanel.imageSize.symbolName) {
                     state.presentedPanel = .imageSize
                 }
@@ -251,6 +276,9 @@ struct EditorView: View {
                     .keyboardShortcut("a", modifiers: .command)
                 Button("Select.Deselect", systemImage: "xmark.square") { state.deselect() }
                     .keyboardShortcut("d", modifiers: .command)
+                    .disabled(state.selection == nil)
+                Button("Select.Invert", systemImage: "square.on.square.intersection.dashed") { state.invertSelection() }
+                    .keyboardShortcut("i", modifiers: [.command, .shift])
                     .disabled(state.selection == nil)
             }
             Section {
