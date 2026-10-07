@@ -139,7 +139,6 @@ private struct LayerView: View {
     var body: some View {
         let image = preview ?? displayed
         let transform = layer.transform
-        let size = layer.image.size
         let scale = viewport.scale
         // Past twice the screen's resolution, pixels show as squares, which
         // is what someone zoomed that far in is looking for.

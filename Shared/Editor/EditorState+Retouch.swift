@@ -42,10 +42,9 @@ extension EditorState {
             return
         }
         retouchEffect = nil
-        nonisolated(unsafe) let unsafeSource = source
         Task { @MainActor in
             let image = await Task.detached(priority: .userInitiated) {
-                RetouchEffect.image(kind, settings: settings, of: unsafeSource)
+                RetouchEffect.image(kind, settings: settings, of: source)
             }.value
             // Only if nothing newer was asked for meanwhile.
             guard activeLayerID == layer.id, strokeKind == kind, currentBrush.size == settings.size,
