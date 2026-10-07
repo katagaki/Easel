@@ -91,7 +91,7 @@ struct KeyboardCommands: View {
     }
 
     private func key(_ key: KeyEquivalent, _ modifiers: EventModifiers = [], action: @escaping () -> Void) -> some View {
-        Button("", action: action)
+        Button(action: action) { EmptyView() }
             .keyboardShortcut(key, modifiers: modifiers)
     }
 }

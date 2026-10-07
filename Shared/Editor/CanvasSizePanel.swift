@@ -38,7 +38,7 @@ struct CanvasSizePanel: View {
                 Toggle("ImageSize.KeepProportions", isOn: $keepsProportions)
                 HStack {
                     ForEach([50, 100, 200], id: \.self) { percent in
-                        Button("\(percent)%") {
+                        Button(percent.formatted(.percent)) {
                             width = max(1, Int(original.width) * percent / 100)
                             height = max(1, Int(original.height) * percent / 100)
                         }
@@ -224,7 +224,7 @@ struct AnchorPicker: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("ImageSize.Anchor")
-                        .accessibilityValue("\(Int(x * 2)), \(Int(y * 2))")
+                        .accessibilityValue(Text(verbatim: "\(Int(x * 2)), \(Int(y * 2))"))
                         .accessibilityAddTraits(isSelected ? .isSelected : [])
                         .accessibilityIdentifier("anchor.\(Int(x * 2)).\(Int(y * 2))")
                     }
