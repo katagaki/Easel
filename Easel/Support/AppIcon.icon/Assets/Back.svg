@@ -1,4 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- The page the pencil draws on. -->
-  <rect x="232" y="232" width="560" height="560" rx="85" fill="#FFFFFF"/>
+  <!--
+    The page the pencil draws on, anchored to the bottom left so the pencil can
+    reach out past its top right corner. Every layer shares the same transform,
+    which fits the whole drawing into the same margins as the Tables icon.
+  -->
+  <g transform="translate(512 512) scale(0.931) translate(-544 -512)">
+    <rect x="196" y="308" width="520" height="520" rx="80" fill="#FFFFFF"/>
+  </g>
 </svg>
