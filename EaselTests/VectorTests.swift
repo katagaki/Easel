@@ -242,3 +242,58 @@ struct NodeToolTests {
         #expect(split.middle.point == CGPoint(x: 5, y: 7.5))
     }
 }
+
+@MainActor
+@Suite("Picking several points")
+struct MultiplePointTests {
+    private func editor() -> EditorState {
+        let state = EditorState()
+        state.attach(to: .blank(size: CGSize(width: 200, height: 200))) { _ in }
+        state.viewportSize = CGSize(width: 400, height: 400)
+        state.addShapeLayer(ShapeSpec(kind: .rectangle, start: CGPoint(x: 50, y: 50), end: CGPoint(x: 150, y: 150),
+                                      isFilled: true, lineWidth: 2, color: .black))
+        state.tool = .nodes
+        return state
+    }
+
+    private func tap(_ state: EditorState, _ point: CGPoint) {
+        state.toolBegan(at: point, pressure: 1)
+        state.toolEnded(isTap: true, at: point)
+    }
+
+    private func corners(_ state: EditorState) -> [CGPoint] {
+        let layer = state.activeLayer!
+        return layer.vector!.paths[0].nodes.map { $0.point.applying(layer.affineTransform) }
+    }
+
+    @Test func pickedPointsMoveTogether() {
+        let state = editor()
+        state.isSelectingMultiplePoints = true
+        tap(state, CGPoint(x: 150, y: 50))
+        tap(state, CGPoint(x: 150, y: 150))
+        #expect(state.selectedNodes.count == 2)
+        state.toolBegan(at: CGPoint(x: 150, y: 150), pressure: 1)
+        state.toolMoved(to: [StrokePoint(location: CGPoint(x: 170, y: 150))])
+        state.toolEnded(isTap: false, at: CGPoint(x: 170, y: 150))
+        let points = corners(state)
+        #expect(abs(points[1].x - 170) < 0.01 && abs(points[2].x - 170) < 0.01)
+        #expect(abs(points[0].x - 50) < 0.01 && abs(points[3].x - 50) < 0.01)
+    }
+
+    @Test func pickingAnotherWithoutMultipleStartsAfresh() {
+        let state = editor()
+        tap(state, CGPoint(x: 150, y: 50))
+        tap(state, CGPoint(x: 150, y: 150))
+        #expect(state.selectedNodes.count == 1)
+    }
+
+    @Test func deletingPickedPointsTogether() {
+        let state = editor()
+        state.selectAllPoints()
+        #expect(state.selectedNodes.count == 4)
+        state.additionalNodes.removeLast()
+        state.deleteSelectedNode()
+        // Three of four gone leaves too few for a path, so the layer goes.
+        #expect(!state.composition.layers.contains { $0.isVector })
+    }
+}

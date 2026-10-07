@@ -73,6 +73,10 @@ final class EditorState {
     var penAddsToLayer = true
     /// The point picked out for editing.
     var selectedNode: VectorNodeRef?
+    /// Points picked alongside it, which move and go with it.
+    var additionalNodes: [VectorNodeRef] = []
+    /// Whether tapping a point adds it to those picked.
+    var isSelectingMultiplePoints = false
     @ObservationIgnored var vectorDrag: VectorDrag?
     var draftSelection: Selection?
     var draftShape: ShapeSpec?

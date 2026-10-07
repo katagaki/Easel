@@ -244,6 +244,19 @@ struct ToolOptionsBar: View {
 
     @ViewBuilder
     private var nodeOptions: some View {
+        if state.styledVectorPath != nil {
+            GlassGroup {
+                GlassIconButton(
+                    symbol: "checklist", label: "Options.SelectMultiplePoints", isOn: state.isSelectingMultiplePoints
+                ) {
+                    state.isSelectingMultiplePoints.toggle()
+                }
+                .accessibilityIdentifier("selectMultiplePoints")
+                GlassIconButton(symbol: "circle.grid.3x3.fill", label: "Options.SelectAllPoints") {
+                    state.selectAllPoints()
+                }
+            }
+        }
         if let path = state.styledVectorPath {
             GlassGroup {
                 GlassIconButton(

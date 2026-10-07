@@ -83,7 +83,8 @@ struct CanvasOverlay: View {
         for (pathIndex, path) in content.paths.enumerated() {
             context.stroke(Path(path.cgPath).applying(toScreen), with: .color(.accentColor), lineWidth: 1.5)
             for (nodeIndex, node) in path.nodes.enumerated() {
-                let isSelected = state.selectedNode == VectorNodeRef(layerID: layer.id, path: pathIndex, node: nodeIndex)
+                let ref = VectorNodeRef(layerID: layer.id, path: pathIndex, node: nodeIndex)
+                let isSelected = state.selectedNode == ref || state.additionalNodes.contains(ref)
                 let anchor = node.point.applying(toScreen)
                 if isSelected {
                     for handle in [node.controlIn, node.controlOut].compactMap({ $0 }) {

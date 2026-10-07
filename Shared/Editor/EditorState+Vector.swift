@@ -22,6 +22,8 @@ enum VectorDrag {
     /// A new point's handle being pulled out by the pen.
     case penHandle(VectorNodeRef, start: CGPoint)
     case anchor(VectorNodeRef, original: VectorNode, start: CGPoint)
+    /// Every picked point moving together, from where each began.
+    case anchors([(VectorNodeRef, VectorNode)], start: CGPoint)
     case handleIn(VectorNodeRef)
     case handleOut(VectorNodeRef)
 }
@@ -139,12 +141,41 @@ extension EditorState {
         return nil
     }
 
+    /// Every picked point: the main one and any picked alongside it.
+    var selectedNodes: [VectorNodeRef] {
+        (selectedNode.map { [$0] } ?? []) + additionalNodes.filter { $0 != selectedNode }
+    }
+
     func nodesBegan(at point: CGPoint) {
         vectorDrag = vectorHit(at: point)
-        switch vectorDrag {
-        case .anchor(let ref, _, _): selectedNode = ref
-        default: break
+        guard case .anchor(let ref, _, let start) = vectorDrag else { return }
+        let alreadyPicked = selectedNodes.contains(ref)
+        if isSelectingMultiplePoints, !alreadyPicked, let main = selectedNode, main.layerID == ref.layerID {
+            additionalNodes.append(main)
+        } else if !alreadyPicked {
+            additionalNodes = []
         }
+        if !alreadyPicked || selectedNode == nil { selectedNode = ref }
+        // Several points picked: they move as one.
+        let picked = selectedNodes.filter { $0.layerID == ref.layerID }
+        if picked.count > 1, let layer = composition[ref.layerID], let content = layer.vector {
+            let originals = picked.compactMap { node -> (VectorNodeRef, VectorNode)? in
+                guard content.paths.indices.contains(node.path),
+                      content.paths[node.path].nodes.indices.contains(node.node) else { return nil }
+                return (node, content.paths[node.path].nodes[node.node].mapped(layer.affineTransform))
+            }
+            vectorDrag = .anchors(originals, start: start)
+        }
+    }
+
+    /// Picks every point of the active vector layer.
+    func selectAllPoints() {
+        guard let layer = activeLayer, let content = layer.vector else { return }
+        let all = content.paths.indices.flatMap { path in
+            content.paths[path].nodes.indices.map { VectorNodeRef(layerID: layer.id, path: path, node: $0) }
+        }
+        selectedNode = all.first
+        additionalNodes = Array(all.dropFirst())
     }
 
     func nodesMoved(to point: CGPoint) {
@@ -156,6 +187,16 @@ extension EditorState {
             let delta = CGPoint(x: point.x - start.x, y: point.y - start.y)
             moveNode(ref) { layer in
                 original.offset(by: delta).mapped(layer.affineTransform.inverted())
+            }
+        case .anchors(let originals, let start):
+            let delta = CGPoint(x: point.x - start.x, y: point.y - start.y)
+            guard let layerID = originals.first?.0.layerID, let layer = composition[layerID] else { return }
+            let inverse = layer.affineTransform.inverted()
+            updateVector(layerID) { content in
+                for (ref, original) in originals where content.paths.indices.contains(ref.path)
+                    && content.paths[ref.path].nodes.indices.contains(ref.node) {
+                    content.paths[ref.path].nodes[ref.node] = original.offset(by: delta).mapped(inverse)
+                }
             }
         case .handleOut(let ref), .handleIn(let ref):
             let isOut = if case .handleOut = drag { true } else { false }
@@ -188,6 +229,7 @@ extension EditorState {
             activeLayerID = hit.id
         }
         selectedNode = nil
+        additionalNodes = []
     }
 
     private func moveNode(_ ref: VectorNodeRef, _ make: (Layer) -> VectorNode?) {
@@ -218,11 +260,18 @@ extension EditorState {
 
     func deleteSelectedNode() {
         guard let ref = selectedNode, selectedVectorNode != nil else { return }
+        // Highest first, so earlier positions stay right as points go.
+        let doomed = selectedNodes.filter { $0.layerID == ref.layerID }
+            .sorted { ($0.path, $0.node) > ($1.path, $1.node) }
         updateVector(ref.layerID) { content in
-            content.paths[ref.path].nodes.remove(at: ref.node)
-            if content.paths[ref.path].nodes.count < 2 { content.paths.remove(at: ref.path) }
+            for node in doomed where content.paths.indices.contains(node.path)
+                && content.paths[node.path].nodes.indices.contains(node.node) {
+                content.paths[node.path].nodes.remove(at: node.node)
+            }
+            content.paths.removeAll { $0.nodes.count < 2 }
         }
         selectedNode = nil
+        additionalNodes = []
         // Nothing left to draw: the layer goes too.
         if composition[ref.layerID]?.vector?.paths.isEmpty == true { deleteLayer(ref.layerID) }
     }

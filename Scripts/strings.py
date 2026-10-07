@@ -210,6 +210,8 @@ S = {
 "Options.OpenPath": ("Open Path", "パスを開く", "패스 열기", "断开路径", "斷開路徑"),
 "Options.PickVectorLayer": ("Tap a shape or path to edit it", "図形やパスをタップして編集", "도형이나 패스를 탭하여 편집", "轻点形状或路径以编辑", "點一下形狀或路徑以編輯"),
 "Options.PenAddsToLayer": ("Add Paths to Current Layer", "現在のレイヤーにパスを追加", "현재 레이어에 패스 추가", "将路径添加到当前图层", "將路徑加入目前圖層"),
+"Options.SelectMultiplePoints": ("Select Multiple Points", "複数のポイントを選択", "여러 포인트 선택", "选择多个锚点", "選取多個錨點"),
+"Options.SelectAllPoints": ("Select All Points", "すべてのポイントを選択", "모든 포인트 선택", "选择所有锚点", "選取所有錨點"),
 "Options.FitToCanvas": ("Fit to Canvas", "カンバスに合わせる", "캔버스에 맞추기", "适合画布", "符合畫布"),
 "Options.FlipHorizontal": ("Flip Layer Horizontally", "レイヤーを左右に反転", "레이어를 수평으로 뒤집기", "水平翻转图层", "水平翻轉圖層"),
 "Options.FlipVertical": ("Flip Layer Vertically", "レイヤーを上下に反転", "레이어를 수직으로 뒤집기", "垂直翻转图层", "垂直翻轉圖層"),
