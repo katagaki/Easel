@@ -55,7 +55,7 @@
           "hidden" : false,
           "image-name" : "Middle.svg",
           "name" : "Middle",
-          "opacity" : 0.6,
+          "opacity" : 0.9,
           "position-specializations" : [
             {
               "value" : {
