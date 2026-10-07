@@ -4,13 +4,17 @@ import UniformTypeIdentifiers
 extension UTType {
     /// Easel's own layered document, declared in Info.plist.
     static let easelImage = UTType(exportedAs: "com.tsubuzaki.Easel.image", conformingTo: .package)
+    /// Photoshop documents, declared by the system.
+    static let photoshopImage = UTType("com.adobe.photoshop-image") ?? UTType(importedAs: "com.adobe.photoshop-image")
 }
 
 /// The app's document: a layered composition, kept as an `.easel` package,
 /// or a plain picture file edited where it lies — which keeps its format
 /// and so is flattened when it is saved.
 struct EaselDocument: FileDocument {
-    static let readableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic]
+    /// Photoshop files open but are not written back: Keep Layers turns them
+    /// into an Easel image.
+    static let readableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic, .photoshopImage]
     static let writableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic]
 
     var composition: Composition
@@ -26,6 +30,9 @@ struct EaselDocument: FileDocument {
     init(configuration: ReadConfiguration) throws {
         if configuration.file.isDirectory {
             composition = try CompositionArchive.composition(from: configuration.file)
+        } else if configuration.contentType.conforms(to: .photoshopImage) {
+            guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+            composition = try PSDReader.composition(from: data)
         } else {
             guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
             composition = Composition(

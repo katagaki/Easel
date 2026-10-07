@@ -2346,6 +2346,41 @@
         }
       }
     },
+    "Error.PSDUnsupported": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Photoshop document uses a colour mode or size Easel can't open."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このPhotoshop書類は、Easelで開けないカラーモードまたはサイズを使用しています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 Photoshop 문서는 Easel에서 열 수 없는 색상 모드 또는 크기를 사용합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 Photoshop 文稿使用了 Easel 无法打开的颜色模式或尺寸。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 Photoshop 文件使用了 Easel 無法打開的色彩模式或尺寸。"
+          }
+        }
+      }
+    },
     "Error.PhotoUnavailable": {
       "extractionState": "manual",
       "localizations": {

@@ -142,6 +142,7 @@ S = {
 "Error.NoObjectFound": ("No people, animals or objects were found in the picture.", "画像内に人物、動物、物体が見つかりませんでした。", "사진에서 사람, 동물 또는 사물을 찾을 수 없습니다.", "未在图片中找到人物、动物或物体。", "未在圖片中找到人物、動物或物體。"),
 "Error.NoObjectHere": ("There is no object there. Tap a person, animal or thing to select it.", "そこにはオブジェクトがありません。人物、動物、物体をタップして選択してください。", "그곳에는 개체가 없습니다. 사람, 동물 또는 사물을 탭하여 선택하십시오.", "那里没有对象。请轻点人物、动物或物体以选择。", "那裡沒有物件。請點一下人物、動物或物體以選取。"),
 "Error.ObjectSelectionUnavailable": ("Object selection isn't available on this device.", "このデバイスではオブジェクト選択を使用できません。", "이 기기에서는 개체 선택을 사용할 수 없습니다.", "此设备不支持选择对象。", "此裝置不支援選取物件。"),
+"Error.PSDUnsupported": ("This Photoshop document uses a colour mode or size Easel can't open.", "このPhotoshop書類は、Easelで開けないカラーモードまたはサイズを使用しています。", "이 Photoshop 문서는 Easel에서 열 수 없는 색상 모드 또는 크기를 사용합니다.", "此 Photoshop 文稿使用了 Easel 无法打开的颜色模式或尺寸。", "此 Photoshop 文件使用了 Easel 無法打開的色彩模式或尺寸。"),
 "Launch.EditPhoto": ("Edit a Photo", "写真を編集", "사진 편집", "编辑照片", "編輯照片"),
 "Launch.NewImage": ("New Image", "新規画像", "새로운 이미지", "新建图像", "新增影像"),
 "Launch.Title": ("Easel", "Easel", "Easel", "Easel", "Easel"),
