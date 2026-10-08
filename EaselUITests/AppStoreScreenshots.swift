@@ -29,16 +29,21 @@ final class AppStoreScreenshots: XCTestCase {
         let stage: Stage
         /// Which of the picture's own swatches to paint with, if not black.
         var swatch: Int?
+        /// Where to zoom in, as "zoom x y" with x and y fractions of the
+        /// canvas, for the editor's debug-only screenshot hook.
+        var focus: String?
     }
 
     private static let lakeside = ["en": "Lakeside Evening", "ja": "湖畔の夕暮れ"]
     private static let poppies = ["en": "Poppy Study", "ja": "ポピーの習作"]
     private static let poster = ["en": "Summer Festival", "ja": "夏まつり"]
     private static let passport = ["en": "Passport Scan", "ja": "パスポートのスキャン"]
+    private static let plush = ["en": "Plush Portrait", "ja": "ぬいぐるみの肖像"]
 
     private static let shots = [
         Shot(name: "01-paint", document: lakeside, stage: .canvas, swatch: 0),
-        Shot(name: "02-layers", document: lakeside, stage: .layers),
+        // Close in on the plush's hand on the left, its cuff and pink tag.
+        Shot(name: "02-layers", document: plush, stage: .layers, focus: "3.2 0.18 0.77"),
         Shot(name: "03-brushes", document: poppies, stage: .brushSettings, swatch: 0),
         Shot(name: "04-filters", document: lakeside, stage: .filters(layer: ["en": "Sky", "ja": "空"])),
         Shot(name: "05-design", document: poster, stage: .points),
@@ -69,7 +74,7 @@ final class AppStoreScreenshots: XCTestCase {
         // The switch takes a moment to reach the system.
         Thread.sleep(forTimeInterval: 3)
         for shot in Self.shots {
-            launch()
+            launch(focus: shot.focus)
             open(try XCTUnwrap(shot.document[language]))
             if let swatch = shot.swatch { pickSwatch(swatch) }
             try stage(shot.stage)
@@ -86,10 +91,11 @@ final class AppStoreScreenshots: XCTestCase {
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     @MainActor
-    private func launch() {
+    private func launch(focus: String? = nil) {
         app = XCUIApplication()
         let locale = language == "ja" ? "ja_JP" : "en_US"
         app.launchArguments += ["-AppleLanguages", "(\(language))", "-AppleLocale", locale]
+        if let focus { app.launchArguments += ["-ScreenshotFocus", focus] }
         app.launch()
     }
 

@@ -111,6 +111,9 @@ struct EditorView: View {
             .errorAlert(state, isActive: !isCompact || state.presentedPanel == nil)
             .onAppear(perform: attach)
             .onChange(of: composition) { _, new in state.sync(new) }
+            #if DEBUG
+            .modifier(ScreenshotFocus(state: state))
+            #endif
     }
 
     private func attach() {
@@ -300,6 +303,32 @@ struct EditorView: View {
         }
     }
 }
+
+#if DEBUG
+/// For the App Store screenshots: launched with `-ScreenshotFocus "zoom x y"`,
+/// x and y as fractions of the canvas, the editor frames that point at that
+/// zoom, and again whenever the view changes, such as when a panel comes up.
+private struct ScreenshotFocus: ViewModifier {
+    let state: EditorState
+
+    private static let focus: (zoom: Double, x: Double, y: Double)? = {
+        let parts = UserDefaults.standard.string(forKey: "ScreenshotFocus")?.split(separator: " ").compactMap { Double($0) }
+        guard let parts, parts.count == 3 else { return nil }
+        return (parts[0], parts[1], parts[2])
+    }()
+
+    func body(content: Content) -> some View {
+        if let focus = Self.focus {
+            content.onChange(of: state.viewport, initial: true) {
+                let size = state.viewport.canvasSize
+                state.focus(on: CGPoint(x: focus.x * size.width, y: focus.y * size.height), zoom: focus.zoom)
+            }
+        } else {
+            content
+        }
+    }
+}
+#endif
 
 /// The inspector beside the canvas, only where there is room for one. On
 /// iPhone the panels are sheets, and an inspector there — even a closed one —

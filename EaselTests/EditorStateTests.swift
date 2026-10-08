@@ -28,6 +28,17 @@ struct EditorStateTests {
         #expect(host.state.tool == .move)
     }
 
+    @Test func focusingPutsThePointInTheMiddleOfTheClearArea() {
+        let host = Host(.blank(size: CGSize(width: 200, height: 100)))
+        host.state.viewportSize = CGSize(width: 400, height: 300)
+        host.state.canvasInsets = .init(top: 8, leading: 0, bottom: 124, trailing: 0)
+        host.state.focus(on: CGPoint(x: 30, y: 80), zoom: 3)
+        #expect(host.state.zoom == 3)
+        let point = host.state.viewport.screenPoint(CGPoint(x: 30, y: 80))
+        #expect(abs(point.x - 200) < 0.001)
+        #expect(abs(point.y - (8 + (300 - 8 - 124) / 2)) < 0.001)
+    }
+
     @Test func picturesStackOnADrawnCanvas() {
         var composition = Composition.blank(size: CGSize(width: 100, height: 100))
         composition.layers[0].image = LayerImage(TestImages.solid(.white, width: 100, height: 100))

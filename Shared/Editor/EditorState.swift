@@ -374,6 +374,15 @@ final class EditorState {
         pan = .zero
     }
 
+    /// Zooms to `newZoom` times the fitted size with `canvasPoint` in the
+    /// middle of the clear area.
+    func focus(on canvasPoint: CGPoint, zoom newZoom: Double) {
+        zoom = min(max(newZoom, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
+        let size = read().size
+        let scale = viewport.scale
+        pan = CGSize(width: (size.width / 2 - canvasPoint.x) * scale, height: (size.height / 2 - canvasPoint.y) * scale)
+    }
+
     /// Shows canvas pixels one for one with screen pixels.
     func zoomToActualSize(displayScale: Double) {
         let fit = viewport.fitScale

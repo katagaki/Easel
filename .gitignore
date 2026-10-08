@@ -28,3 +28,6 @@ Packages/
 # Playgrounds
 timeline.xctimeline
 playground.xcworkspace
+
+# The plush photo the App Store sample is drawn from, kept locally only.
+Assets/App Store/Samples/Plush.png
