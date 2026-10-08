@@ -60,6 +60,7 @@ final class AppStoreScreenshots: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
+    @MainActor
     func testScreens() throws {
         // Every shot is in Dark Mode.
         defer { XCUIDevice.shared.appearance = .light }
@@ -81,8 +82,10 @@ final class AppStoreScreenshots: XCTestCase {
 
     // MARK: - Steps
 
+    @MainActor
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
+    @MainActor
     private func launch() {
         app = XCUIApplication()
         let locale = language == "ja" ? "ja_JP" : "en_US"
@@ -91,6 +94,7 @@ final class AppStoreScreenshots: XCTestCase {
     }
 
     /// Opens a document from the app's folder in the document browser.
+    @MainActor
     private func open(_ name: String) {
         let browse = app.buttons[language == "ja" ? "ブラウズ" : "Browse"].firstMatch
         if browse.waitForExistence(timeout: 15), !browse.isSelected {
@@ -111,6 +115,7 @@ final class AppStoreScreenshots: XCTestCase {
         Thread.sleep(forTimeInterval: 1)
     }
 
+    @MainActor
     private func stage(_ stage: Stage) throws {
         switch stage {
         case .canvas:
@@ -147,6 +152,7 @@ final class AppStoreScreenshots: XCTestCase {
     /// Picks one of the picture's own swatches from the colour well, then
     /// puts the swatches away with a tap outside them, which only closes the
     /// popover: nothing is painted where it lands.
+    @MainActor
     private func pickSwatch(_ index: Int) {
         tap("colorWell")
         let swatches = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '#'"))
@@ -158,6 +164,7 @@ final class AppStoreScreenshots: XCTestCase {
 
     /// Taps a row of a panel's list, scrolling the list up to it first: the
     /// rows below the fold are not made until they are scrolled to.
+    @MainActor
     private func tapInList(_ identifier: String) {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         let list = app.collectionViews.firstMatch
@@ -170,6 +177,7 @@ final class AppStoreScreenshots: XCTestCase {
 
     /// Taps the element with `identifier`, scrolling the tool carousel along
     /// first if the element is off the end of it.
+    @MainActor
     private func tap(_ identifier: String) {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(element.waitForExistence(timeout: 5), "missing \(identifier)")
