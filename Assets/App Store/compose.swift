@@ -40,8 +40,6 @@ struct Screenshot {
     let name: String
     /// Keyed by language code. A language without copy is skipped.
     let copy: [String: Copy]
-    let gradientTop: NSColor
-    let gradientBottom: NSColor
 }
 
 func color(_ hex: UInt32) -> NSColor {
@@ -53,12 +51,9 @@ func color(_ hex: UInt32) -> NSColor {
     )
 }
 
-// From the app icon and the launch painting: its pink, the orange stroke,
-// the violet one and the teal.
-let pink = (color(0xF2789A), color(0xC2185B))
-let orange = (color(0xFFB36B), color(0xE8632B))
-let violet = (color(0x9C7CF0), color(0x5B3BB5))
-let teal = (color(0x5CC8C8), color(0x1E8A8F))
+// Every screenshot sits on the app icon's pink.
+let gradientTop = color(0xF2789A)
+let gradientBottom = color(0xC2185B)
 
 let screenshots = [
     Screenshot(
@@ -66,48 +61,42 @@ let screenshots = [
         copy: [
             "en": Copy(header: "Paint like you mean it", caption: "Layers, brushes, and Apple Pencil, all in one"),
             "ja": Copy(header: "思いのままに描く", caption: "レイヤーもブラシもApple Pencilも"),
-        ],
-        gradientTop: pink.0, gradientBottom: pink.1
+        ]
     ),
     Screenshot(
         name: "02-layers",
         copy: [
             "en": Copy(header: "Layers, groups, and masks", caption: "Build a picture up one piece at a time"),
             "ja": Copy(header: "レイヤーを重ねて", caption: "グループもマスクも、ひとつずつ組み立てる"),
-        ],
-        gradientTop: violet.0, gradientBottom: violet.1
+        ]
     ),
     Screenshot(
         name: "03-brushes",
         copy: [
             "en": Copy(header: "A brush for every mood", caption: "Pencil, chalk, airbrush, and calligraphy"),
             "ja": Copy(header: "気分に合わせたブラシ", caption: "鉛筆・チョーク・エアブラシ・カリグラフィ"),
-        ],
-        gradientTop: orange.0, gradientBottom: orange.1
+        ]
     ),
     Screenshot(
         name: "04-filters",
         copy: [
             "en": Copy(header: "Filters you can take back", caption: "Curves, levels, and blurs that stay editable"),
             "ja": Copy(header: "あとから変えられるフィルタ", caption: "トーンカーブもレベルもぼかしも"),
-        ],
-        gradientTop: teal.0, gradientBottom: teal.1
+        ]
     ),
     Screenshot(
         name: "05-design",
         copy: [
             "en": Copy(header: "Text and vector shapes", caption: "Set words along a path and shape every point"),
             "ja": Copy(header: "文字もベクター図形も", caption: "パスに沿った文字も、ポイントの編集も"),
-        ],
-        gradientTop: pink.0, gradientBottom: pink.1
+        ]
     ),
     Screenshot(
         name: "06-mosaic",
         copy: [
             "en": Copy(header: "Hide what's private", caption: "Brush a mosaic over names and numbers"),
             "ja": Copy(header: "見せたくない所はモザイクで", caption: "名前も番号も、なぞるだけで隠す"),
-        ],
-        gradientTop: violet.0, gradientBottom: violet.1
+        ]
     ),
 ]
 
@@ -298,7 +287,7 @@ func compose(_ shot: Screenshot, language: String, device: Device) -> Bool {
     let image = NSImage(size: canvasSize)
     image.lockFocus()
 
-    NSGradient(starting: shot.gradientTop, ending: shot.gradientBottom)?
+    NSGradient(starting: gradientTop, ending: gradientBottom)?
         .draw(in: NSRect(origin: .zero, size: canvasSize), angle: -90)
 
     // One-line header and caption. AppKit's origin is bottom-left.
