@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import UIKit
 import XCTest
 @testable import Easel
 
@@ -23,6 +24,7 @@ final class AppStoreSamples: XCTestCase {
             try write(Self.lakeside(words), named: words.lakesideTitle, to: directory)
             try write(Self.poppies(words), named: words.poppiesTitle, to: directory)
             try write(Self.poster(words), named: words.posterTitle, to: directory)
+            try write(Self.passport(words), named: words.passportTitle, to: directory)
         }
     }
 
@@ -43,6 +45,7 @@ final class AppStoreSamples: XCTestCase {
         var lakesideTitle: String { t("Lakeside Evening", "湖畔の夕暮れ") }
         var poppiesTitle: String { t("Poppy Study", "ポピーの習作") }
         var posterTitle: String { t("Summer Festival", "夏まつり") }
+        var passportTitle: String { t("Passport Scan", "パスポートのスキャン") }
     }
 
     // MARK: - Lakeside Evening
@@ -499,6 +502,193 @@ final class AppStoreSamples: XCTestCase {
             name: name, image: LayerImage(TextRenderer.render(content)), text: content,
             transform: LayerTransform(position: point)
         )
+    }
+
+    // MARK: - Passport
+
+    /// The open pages of a made-up passport, a specimen from a country that
+    /// does not exist, with the mosaic brush already run over the holder's
+    /// name, birth date, number and machine-readable lines.
+    static func passport(_ words: Words) -> Composition {
+        let size = size
+        var random = SampleRandom(seed: 13)
+        let desk = Bitmap.render(size: size) { context in
+            fillGradient(context, in: CGRect(origin: .zero, size: size), stops: [
+                (0, RGBAColor(red: 0.22, green: 0.24, blue: 0.27)),
+                (1, RGBAColor(red: 0.12, green: 0.13, blue: 0.15)),
+            ])
+            context.setFillColor(RGBAColor.white.withAlpha(0.04).cgColor)
+            for _ in 0..<9000 {
+                let radius = 1 + random.next() * 2
+                context.fillEllipse(in: CGRect(x: random.next() * size.width, y: random.next() * size.height, width: radius, height: radius))
+            }
+        }
+
+        let ink = UIColor(red: 0.12, green: 0.16, blue: 0.30, alpha: 1)
+        let label = UIColor(red: 0.38, green: 0.42, blue: 0.50, alpha: 1)
+        let visaPage = CGRect(x: 118, y: 110, width: 1300, height: 880)
+        let dataPage = CGRect(x: 118, y: 1010, width: 1300, height: 920)
+        // Where the private details are, for the mosaic to cover.
+        var privateLines: [CGRect] = []
+
+        var page = Bitmap.render(size: size) { context in
+            UIGraphicsPushContext(context)
+            defer { UIGraphicsPopContext() }
+
+            // The booklet, with a shadow on the desk and a fold between pages.
+            context.saveGState()
+            context.setShadow(offset: CGSize(width: 0, height: 24), blur: 60, color: RGBAColor.black.withAlpha(0.5).cgColor)
+            context.addPath(CGPath(roundedRect: visaPage.union(dataPage), cornerWidth: 36, cornerHeight: 36, transform: nil))
+            context.setFillColor(RGBAColor(red: 0.95, green: 0.95, blue: 0.91).cgColor)
+            context.fillPath()
+            context.restoreGState()
+            for (rect, tint) in [(visaPage, RGBAColor(red: 0.90, green: 0.94, blue: 0.90)), (dataPage, RGBAColor(red: 0.90, green: 0.92, blue: 0.97))] {
+                context.saveGState()
+                context.addPath(CGPath(roundedRect: rect, cornerWidth: 36, cornerHeight: 36, transform: nil))
+                context.clip()
+                context.setFillColor(tint.cgColor)
+                context.fill(rect)
+                // Guilloche: fine interlaced waves across the page.
+                context.setLineWidth(1.4)
+                for line in 0..<46 {
+                    let phase = Double(line) * 0.42
+                    let path = CGMutablePath()
+                    for step in 0...130 {
+                        let x = rect.minX + rect.width * Double(step) / 130
+                        let y = rect.minY + Double(line) * rect.height / 44 + sin(Double(step) * 0.16 + phase) * 22
+                        if step == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+                    }
+                    context.addPath(path)
+                    context.setStrokeColor(RGBAColor(red: 0.45, green: 0.55, blue: 0.75, alpha: 0.13).cgColor)
+                    context.strokePath()
+                }
+                context.restoreGState()
+            }
+            fillGradient(context, in: CGRect(x: visaPage.minX, y: 975, width: visaPage.width, height: 50), stops: [
+                (0, RGBAColor(red: 0, green: 0, blue: 0, alpha: 0)),
+                (0.5, RGBAColor(red: 0, green: 0, blue: 0, alpha: 0.18)),
+                (1, RGBAColor(red: 0, green: 0, blue: 0, alpha: 0)),
+            ])
+
+            func draw(_ text: String, at point: CGPoint, size: Double, weight: UIFont.Weight = .regular, color: UIColor = ink, mono: Bool = false, spacing: Double = 0) -> CGRect {
+                let font = mono ? UIFont.monospacedSystemFont(ofSize: size, weight: weight) : UIFont.systemFont(ofSize: size, weight: weight)
+                let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .kern: spacing]
+                (text as NSString).draw(at: point, withAttributes: attributes)
+                return CGRect(origin: point, size: (text as NSString).size(withAttributes: attributes))
+            }
+
+            // Visa stamps on the upper page, each at its own angle.
+            _ = draw("VISAS", at: CGPoint(x: visaPage.minX + 60, y: visaPage.minY + 40), size: 34, weight: .semibold, color: label, spacing: 8)
+            let stamps: [(CGPoint, Double, RGBAColor, String, String)] = [
+                (CGPoint(x: 420, y: 420), -0.18, RGBAColor(red: 0.75, green: 0.15, blue: 0.20), "ARRIVED", "12 JUL 2026"),
+                (CGPoint(x: 1050, y: 380), 0.12, RGBAColor(red: 0.20, green: 0.30, blue: 0.70), "DEPARTED", "03 AUG 2026"),
+                (CGPoint(x: 760, y: 740), -0.06, RGBAColor(red: 0.45, green: 0.25, blue: 0.60), "ENTRY", "21 SEP 2026"),
+            ]
+            for (index, (center, angle, color, title, date)) in stamps.enumerated() {
+                context.saveGState()
+                context.translateBy(x: center.x, y: center.y)
+                context.rotate(by: angle)
+                context.setStrokeColor(color.withAlpha(0.75).cgColor)
+                context.setLineWidth(7)
+                let box = CGRect(x: -190, y: -110, width: 380, height: 220)
+                if index == 1 {
+                    context.strokeEllipse(in: box.insetBy(dx: 30, dy: -20))
+                } else {
+                    context.addPath(CGPath(roundedRect: box, cornerWidth: 24, cornerHeight: 24, transform: nil))
+                    context.strokePath()
+                }
+                let stampColor = UIColor(cgColor: color.withAlpha(0.8).cgColor)
+                let titleRect = (title as NSString).size(withAttributes: [.font: UIFont.systemFont(ofSize: 54, weight: .heavy), .kern: 4])
+                _ = draw(title, at: CGPoint(x: -titleRect.width / 2, y: -70), size: 54, weight: .heavy, color: stampColor, spacing: 4)
+                let dateRect = (date as NSString).size(withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 40, weight: .bold)])
+                _ = draw(date, at: CGPoint(x: -dateRect.width / 2, y: 10), size: 40, weight: .bold, color: stampColor, mono: true)
+                context.restoreGState()
+            }
+
+            // The data page.
+            _ = draw("PASSPORT", at: CGPoint(x: dataPage.minX + 60, y: dataPage.minY + 40), size: 40, weight: .heavy, color: ink, spacing: 6)
+            _ = draw("REPUBLIC OF EASELIA", at: CGPoint(x: dataPage.minX + 470, y: dataPage.minY + 44), size: 36, weight: .semibold, color: label, spacing: 4)
+
+            let photo = CGRect(x: dataPage.minX + 60, y: dataPage.minY + 130, width: 330, height: 420)
+            context.saveGState()
+            context.addPath(CGPath(roundedRect: photo, cornerWidth: 14, cornerHeight: 14, transform: nil))
+            context.clip()
+            fillGradient(context, in: photo, stops: [
+                (0, RGBAColor(red: 0.80, green: 0.86, blue: 0.94)), (1, RGBAColor(red: 0.62, green: 0.72, blue: 0.86)),
+            ])
+            let skin = RGBAColor(red: 0.93, green: 0.76, blue: 0.64).cgColor
+            let hair = RGBAColor(red: 0.30, green: 0.20, blue: 0.16).cgColor
+            context.setFillColor(RGBAColor(red: 0.20, green: 0.36, blue: 0.55).cgColor)
+            context.fillEllipse(in: CGRect(x: photo.midX - 170, y: photo.maxY - 140, width: 340, height: 300))
+            context.setFillColor(skin)
+            context.fill(CGRect(x: photo.midX - 36, y: photo.minY + 250, width: 72, height: 60))
+            context.setFillColor(hair)
+            context.fillEllipse(in: CGRect(x: photo.midX - 112, y: photo.minY + 58, width: 224, height: 250))
+            context.setFillColor(skin)
+            context.fillEllipse(in: CGRect(x: photo.midX - 90, y: photo.minY + 100, width: 180, height: 210))
+            context.setFillColor(hair)
+            context.fillEllipse(in: CGRect(x: photo.midX - 100, y: photo.minY + 66, width: 200, height: 90))
+            context.setFillColor(RGBAColor(red: 0.20, green: 0.15, blue: 0.15).cgColor)
+            context.fillEllipse(in: CGRect(x: photo.midX - 45, y: photo.minY + 190, width: 16, height: 16))
+            context.fillEllipse(in: CGRect(x: photo.midX + 29, y: photo.minY + 190, width: 16, height: 16))
+            context.setStrokeColor(RGBAColor(red: 0.70, green: 0.35, blue: 0.35).cgColor)
+            context.setLineWidth(5)
+            context.addArc(center: CGPoint(x: photo.midX, y: photo.minY + 236), radius: 28, startAngle: 0.5, endAngle: .pi - 0.5, clockwise: false)
+            context.strokePath()
+            context.restoreGState()
+
+            let column = dataPage.minX + 450
+            let fields: [(label: String, value: String, x: Double, y: Double, isPrivate: Bool)] = [
+                ("Type", "P", column, 140, false),
+                ("Code", "EAS", column + 150, 140, false),
+                ("Passport No.", "E 4815 1623", column + 340, 140, true),
+                ("Surname", "SAMPLE", column, 245, true),
+                ("Given names", "ALEX JORDAN", column, 350, true),
+                ("Nationality", "EASELIAN", column, 455, false),
+                ("Date of birth", "14 MAR 1994", column, 560, true),
+                ("Sex", "X", column + 340, 560, false),
+                ("Date of expiry", "08 OCT 2036", column + 460, 560, false),
+            ]
+            for field in fields {
+                _ = draw(field.label, at: CGPoint(x: field.x, y: dataPage.minY + field.y), size: 26, weight: .medium, color: label)
+                let value = draw(field.value, at: CGPoint(x: field.x, y: dataPage.minY + field.y + 34), size: 46, weight: .bold, mono: field.value.contains(where: \.isNumber))
+                if field.isPrivate { privateLines.append(value) }
+            }
+
+            let mrzTop = dataPage.minY + 690
+            for (index, line) in ["P<EASSAMPLE<<ALEX<JORDAN<<<<<<<<<<<<<<<<<<<", "E48151623<6EAS9403146X3610083<<<<<<<<<<<<04"].enumerated() {
+                privateLines.append(draw(line, at: CGPoint(x: dataPage.minX + 60, y: mrzTop + Double(index) * 76), size: 44, weight: .medium, mono: true, spacing: 0.5))
+            }
+
+            // Specimen, printed across the page so nobody takes it for real.
+            context.saveGState()
+            context.translateBy(x: dataPage.midX + 260, y: dataPage.minY + 330)
+            context.rotate(by: -0.28)
+            let specimen = "SPECIMEN"
+            let specimenFont = UIFont.systemFont(ofSize: 120, weight: .black)
+            let specimenSize = (specimen as NSString).size(withAttributes: [.font: specimenFont, .kern: 20])
+            (specimen as NSString).draw(at: CGPoint(x: -specimenSize.width / 2, y: -specimenSize.height / 2), withAttributes: [
+                .font: specimenFont, .kern: 20, .foregroundColor: UIColor(red: 0.85, green: 0.20, blue: 0.25, alpha: 0.18),
+            ])
+            context.restoreGState()
+        }
+
+        // The mosaic brush, run along each private line.
+        let settings = BrushSettings(size: 70, opacity: 0.6, usesPressure: false, usesTilt: false)
+        let mosaic = RetouchEffect.image(.mosaic, settings: settings, of: page)
+        for line in privateLines {
+            let y = line.midY
+            let stroke = Stroke(
+                points: densified([CGPoint(x: line.minX + 10, y: y), CGPoint(x: line.maxX - 10, y: y)]).map { StrokePoint(location: $0) },
+                settings: settings, kind: .mosaic
+            )
+            page = Painter.apply(mosaic, onto: page, through: stroke)
+        }
+
+        return Composition(size: size, layers: [
+            layer(words.t("Desk", "机"), desk),
+            layer(words.t("Passport", "パスポート"), page),
+        ])
     }
 
     // MARK: - Painting
