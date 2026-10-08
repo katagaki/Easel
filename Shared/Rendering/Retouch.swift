@@ -19,6 +19,7 @@ enum RetouchEffect {
     /// with the canvas's top left, so strokes made separately share a grid.
     static func image(_ kind: Stroke.Kind, settings: BrushSettings, of image: CGImage) -> CGImage {
         if case .clone(let offset) = kind { return shifted(image, by: offset) }
+        if kind == .mosaic { return mosaic(image, cell: mosaicCell(for: settings)) }
         return ImageProcessing.apply({ input in
             switch kind {
             case .blur:
@@ -26,16 +27,7 @@ enum RetouchEffect {
                 filter.inputImage = input.clampedToExtent()
                 filter.radius = Float(blurRadius(for: settings))
                 return filter.outputImage ?? input
-            case .mosaic:
-                let filter = CIFilter.pixellate()
-                filter.inputImage = input.clampedToExtent()
-                let cell = mosaicCell(for: settings)
-                filter.scale = Float(cell)
-                // Tile corners fall on `center`; Core Image's y runs up, so
-                // the canvas's top left is the extent's top left corner.
-                filter.center = CGPoint(x: 0, y: input.extent.maxY)
-                return filter.outputImage ?? input
-            case .paint, .erase, .heal, .clone:
+            case .paint, .erase, .heal, .clone, .mosaic:
                 return input
             }
         }, to: image)
@@ -43,6 +35,26 @@ enum RetouchEffect {
 }
 
 extension RetouchEffect {
+    /// The image in square tiles, each the average of everything it covers.
+    /// Shrunk so a tile becomes one pixel, then blown back up unsmoothed:
+    /// sampling one pixel per tile instead would lose thin lines such as
+    /// text into blank tiles.
+    static func mosaic(_ image: CGImage, cell: Double) -> CGImage {
+        let size = CGSize(width: image.width, height: image.height)
+        let small = CGSize(width: (size.width / cell).rounded(.up), height: (size.height / cell).rounded(.up))
+        let shrunk = Bitmap.render(size: small) { context in
+            context.interpolationQuality = .high
+            // The last row and column of tiles run past the image. A copy
+            // stretched to fill them goes underneath, so they stay opaque.
+            Bitmap.draw(image, in: CGRect(origin: .zero, size: small), context: context)
+            Bitmap.draw(image, in: CGRect(x: 0, y: 0, width: size.width / cell, height: size.height / cell), context: context)
+        }
+        return Bitmap.render(size: size) { context in
+            context.interpolationQuality = .none
+            Bitmap.draw(shrunk, in: CGRect(x: 0, y: 0, width: small.width * cell, height: small.height * cell), context: context)
+        }
+    }
+
     /// The layer moved so the pixel `offset` away from each point lands on
     /// it: what the clone stamp paints.
     static func shifted(_ image: CGImage, by offset: CGVector) -> CGImage {

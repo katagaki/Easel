@@ -130,6 +130,21 @@ struct RetouchTests {
         #expect(TestImages.pixel(effect, x: 0, y: 0) != TestImages.pixel(effect, x: cell, y: 0))
     }
 
+    @Test func mosaicTilesAverageWhatTheyCover() {
+        // A thin dark line, like a stroke of text, off the middle of a tile.
+        let source = Bitmap.render(size: CGSize(width: 40, height: 40)) { context in
+            context.setFillColor(RGBAColor.white.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 40))
+            context.setFillColor(RGBAColor.black.cgColor)
+            context.fill(CGRect(x: 2, y: 0, width: 2, height: 40))
+        }
+        let settings = BrushSettings(size: 40, opacity: 0.5, usesPressure: false)
+        let effect = RetouchEffect.image(.mosaic, settings: settings, of: source)
+        // The tile is neither left white nor turned black, but grey.
+        let pixel = TestImages.pixel(effect, x: 6, y: 6)
+        #expect(pixel.red > 120 && pixel.red < 240)
+    }
+
     @Test func smudgeDragsColourAlong() {
         let pixels = Bitmap.pixels(of: halves)!
         var smudger = Smudger(
