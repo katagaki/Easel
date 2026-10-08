@@ -110,8 +110,11 @@ capture() {
     # Match the file times in the browser to the 9:41 status bar.
     find "$documents" -exec touch -t 202610080915 {} +
 
-    run_screenshots $udid $language "$raw_dir"
-    echo "captured $device/$language"
+    if run_screenshots $udid $language "$raw_dir"; then
+      echo "captured $device/$language"
+    else
+      echo "failed to capture $device/$language"
+    fi
   done
 }
 
