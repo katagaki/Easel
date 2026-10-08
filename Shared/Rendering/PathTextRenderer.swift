@@ -60,14 +60,15 @@ enum PathTextRenderer {
         UIFont.systemFont(ofSize: max(1, text.fontSize), weight: text.isBold ? .bold : .regular) as CTFont
     }
 
-    /// Where each letter goes, in order; letters past the path's end are
-    /// left off.
-    static func layout(_ text: PathText, along path: VectorPath) -> [(glyph: CGGlyph, point: CGPoint, angle: Double)] {
+    /// Where each letter goes, in order, and the font it is drawn in: a
+    /// letter the system font lacks, such as Japanese, comes from the font
+    /// Core Text falls back on. Letters past the path's end are left off.
+    static func layout(_ text: PathText, along path: VectorPath) -> [(glyph: CGGlyph, font: CTFont, point: CGPoint, angle: Double)] {
         let line = Polyline(path)
         let font = font(for: text)
         let attributed = NSAttributedString(string: text.string, attributes: [.font: font])
         let ctLine = CTLineCreateWithAttributedString(attributed)
-        var placed: [(CGGlyph, CGPoint, Double)] = []
+        var placed: [(CGGlyph, CTFont, CGPoint, Double)] = []
         var cursor = text.start * line.length
         for run in (CTLineGetGlyphRuns(ctLine) as? [CTRun]) ?? [] {
             let count = CTRunGetGlyphCount(run)
@@ -75,6 +76,8 @@ enum PathTextRenderer {
             var advances = [CGSize](repeating: .zero, count: count)
             CTRunGetGlyphs(run, CFRange(location: 0, length: count), &glyphs)
             CTRunGetAdvances(run, CFRange(location: 0, length: count), &advances)
+            // A glyph is a number within its own font only.
+            let runFont = (CTRunGetAttributes(run) as NSDictionary)[kCTFontAttributeName].map { $0 as! CTFont } ?? font
             for index in 0..<count {
                 let advance = advances[index].width
                 // Placed by its middle, so it turns about where it sits.
@@ -83,7 +86,7 @@ enum PathTextRenderer {
                         x: position.point.x - cos(position.angle) * advance / 2,
                         y: position.point.y - sin(position.angle) * advance / 2
                     )
-                    placed.append((glyphs[index], back, position.angle))
+                    placed.append((glyphs[index], runFont, back, position.angle))
                 }
                 cursor += advance
             }
@@ -92,10 +95,9 @@ enum PathTextRenderer {
     }
 
     static func draw(_ text: PathText, along path: VectorPath, in context: CGContext) {
-        let font = font(for: text)
         context.saveGState()
         context.setFillColor(text.color.cgColor)
-        for (glyph, point, angle) in layout(text, along: path) {
+        for (glyph, font, point, angle) in layout(text, along: path) {
             context.saveGState()
             context.translateBy(x: point.x, y: point.y)
             context.rotate(by: angle)

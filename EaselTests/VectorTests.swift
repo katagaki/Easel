@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import Foundation
 import Testing
 @testable import Easel
@@ -385,6 +386,17 @@ struct PathTextTests {
         path.text = PathText(string: "AB", fontSize: 30, color: .black)
         let placed = PathTextRenderer.layout(path.text!, along: path)
         #expect(placed.allSatisfy { abs($0.angle - .pi / 2) < 0.001 })
+    }
+
+    @Test func lettersTheSystemFontLacksComeFromTheirOwnFont() {
+        var path = line(from: CGPoint(x: 10, y: 50), to: CGPoint(x: 290, y: 50))
+        path.text = PathText(string: "夏", fontSize: 30, color: .black)
+        let placed = PathTextRenderer.layout(path.text!, along: path)
+        #expect(placed.count == 1)
+        var character: UniChar = "夏".utf16.first!
+        var glyph: CGGlyph = 0
+        #expect(CTFontGetGlyphsForCharacters(placed[0].font, &character, &glyph, 1))
+        #expect(glyph == placed[0].glyph)
     }
 
     @Test func textPastTheEndIsLeftOff() {
