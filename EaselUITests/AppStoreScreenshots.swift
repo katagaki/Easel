@@ -18,7 +18,8 @@ final class AppStoreScreenshots: XCTestCase {
         case filters(layer: [String: String])
         /// The top layer's points, handles and text, ready to edit.
         case points
-        case adjustments
+        /// The mosaic brush in hand.
+        case mosaic
     }
 
     private struct Shot {
@@ -28,12 +29,12 @@ final class AppStoreScreenshots: XCTestCase {
         let stage: Stage
         /// Which of the picture's own swatches to paint with, if not black.
         var swatch: Int?
-        var isDark = false
     }
 
     private static let lakeside = ["en": "Lakeside Evening", "ja": "湖畔の夕暮れ"]
     private static let poppies = ["en": "Poppy Study", "ja": "ポピーの習作"]
     private static let poster = ["en": "Summer Festival", "ja": "夏まつり"]
+    private static let passport = ["en": "Passport Scan", "ja": "パスポートのスキャン"]
 
     private static let shots = [
         Shot(name: "01-paint", document: lakeside, stage: .canvas, swatch: 0),
@@ -41,7 +42,7 @@ final class AppStoreScreenshots: XCTestCase {
         Shot(name: "03-brushes", document: poppies, stage: .brushSettings, swatch: 0),
         Shot(name: "04-filters", document: lakeside, stage: .filters(layer: ["en": "Sky", "ja": "空"])),
         Shot(name: "05-design", document: poster, stage: .points),
-        Shot(name: "06-dark", document: poppies, stage: .adjustments, swatch: 1, isDark: true),
+        Shot(name: "06-mosaic", document: passport, stage: .mosaic),
     ]
 
     private var directory: URL!
@@ -60,15 +61,13 @@ final class AppStoreScreenshots: XCTestCase {
     }
 
     func testScreens() throws {
+        // Every shot is in Dark Mode.
         defer { XCUIDevice.shared.appearance = .light }
         XCUIDevice.shared.orientation = .portrait
+        XCUIDevice.shared.appearance = .dark
+        // The switch takes a moment to reach the system.
+        Thread.sleep(forTimeInterval: 3)
         for shot in Self.shots {
-            let appearance: XCUIDevice.Appearance = shot.isDark ? .dark : .light
-            if XCUIDevice.shared.appearance != appearance {
-                XCUIDevice.shared.appearance = appearance
-                // The switch takes a moment to reach the system.
-                Thread.sleep(forTimeInterval: 3)
-            }
             launch()
             open(try XCTUnwrap(shot.document[language]))
             if let swatch = shot.swatch { pickSwatch(swatch) }
@@ -138,8 +137,10 @@ final class AppStoreScreenshots: XCTestCase {
             tapInList("layerFilters")
         case .points:
             tap("tool.nodes")
-        case .adjustments:
-            tap("panel.adjustments")
+        case .mosaic:
+            // The passport's details want the whole screen on an iPad too.
+            if isPad { tap("toggleInspector") }
+            tap("tool.mosaic")
         }
     }
 
@@ -173,9 +174,18 @@ final class AppStoreScreenshots: XCTestCase {
         let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         XCTAssertTrue(element.waitForExistence(timeout: 5), "missing \(identifier)")
         // Off the end of the carousel, a button has no point to tap, so
-        // where it sits is checked rather than whether it can be hit.
-        for _ in 0..<3 where !app.frame.contains(CGPoint(x: element.frame.midX, y: element.frame.midY)) {
-            app.scrollViews.containing(.button, identifier: "tool.brush").firstMatch.swipeLeft()
+        // where it sits is checked rather than whether it can be hit, and
+        // the carousel is turned towards it a little at a time.
+        let carousel = app.scrollViews.containing(.button, identifier: "tool.brush").firstMatch
+        for _ in 0..<6 {
+            let middle = element.frame.midX
+            if middle < 0 {
+                carousel.swipeRight(velocity: .slow)
+            } else if middle > app.frame.maxX {
+                carousel.swipeLeft(velocity: .slow)
+            } else {
+                break
+            }
         }
         element.tap()
     }
