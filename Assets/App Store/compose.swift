@@ -102,10 +102,10 @@ let screenshots = [
         gradientTop: pink.0, gradientBottom: pink.1
     ),
     Screenshot(
-        name: "06-dark",
+        name: "06-mosaic",
         copy: [
-            "en": Copy(header: "Made for Dark Mode", caption: "Easy on the eyes, late into the night"),
-            "ja": Copy(header: "ダークモードに対応", caption: "夜遅くまで目にやさしく"),
+            "en": Copy(header: "Hide what's private", caption: "Brush a mosaic over names and numbers"),
+            "ja": Copy(header: "見せたくない所はモザイクで", caption: "名前も番号も、なぞるだけで隠す"),
         ],
         gradientTop: violet.0, gradientBottom: violet.1
     ),
