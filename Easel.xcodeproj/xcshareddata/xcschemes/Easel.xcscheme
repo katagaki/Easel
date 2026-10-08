@@ -51,6 +51,17 @@
                ReferencedContainer = "container:Easel.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "EA5E10000000000000000034"
+               BuildableName = "EaselUITests.xctest"
+               BlueprintName = "EaselUITests"
+               ReferencedContainer = "container:Easel.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
