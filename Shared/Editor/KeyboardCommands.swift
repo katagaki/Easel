@@ -60,12 +60,14 @@ extension EditorState {
     }
 }
 
-/// Keys with no menu item of their own: nudging with the arrows, brush
-/// size with the brackets, zoom, and the layer actions, whose buttons are
-/// in the layers panel. Plain keys stand down while text is being
-/// typed, when they are the text's.
+/// The editor's keys: nudging with the arrows, brush size with the
+/// brackets, zoom, and the commands whose buttons are in the "…" menu or
+/// the layers panel, where a shortcut only answers while the menu is open.
+/// Plain keys, and the clipboard's, stand down while text is being typed,
+/// when they are the text's.
 struct KeyboardCommands: View {
     @Bindable var state: EditorState
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         let typing = state.presentedPanel == .text
@@ -81,7 +83,18 @@ struct KeyboardCommands: View {
                 key(.downArrow, .shift) { state.nudge(dx: 0, dy: 10) }
                 key("[") { state.stepBrushSize(larger: false) }
                 key("]") { state.stepBrushSize(larger: true) }
+                key("x", .command) { state.cutToClipboard() }
+                key("c", .command) { state.copyToClipboard() }
+                key("v", .command) { state.pasteFromClipboard() }
+                key("a", .command) { state.selectAll() }
             }
+            key("d", .command) { state.deselect() }
+            key("i", [.command, .shift]) { state.invertSelection() }
+            key("0", .command) { withAnimation(.snappy) { state.fitCanvas() } }
+            key("1", .command) {
+                withAnimation(.snappy) { state.zoomToActualSize(displayScale: displayScale) }
+            }
+            key("r", .command) { state.showsRulers.toggle() }
             key("=", .command) { state.zoomStep(larger: true) }
             key("+", .command) { state.zoomStep(larger: true) }
             key("-", .command) { state.zoomStep(larger: false) }

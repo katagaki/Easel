@@ -14,12 +14,9 @@ struct DocumentView: View {
     }
 
     var body: some View {
-        EditorView(composition: $document.composition)
+        EditorView(composition: $document.composition) { exportMenu }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarTitleMenu { titleMenu }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) { exportMenu }
-            }
             .alert(
                 "Alert.Error.Title",
                 isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })

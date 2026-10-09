@@ -444,6 +444,7 @@ S = {
 "Tool.Shape": ("Shape", "図形", "도형", "形状", "形狀"),
 "Tool.Text": ("Text", "テキスト", "텍스트", "文本", "文字"),
 "Toolbar.Inspector": ("Show or Hide Inspector", "インスペクタを表示/非表示", "속성 보기/가리기", "显示或隐藏检查器", "顯示或隱藏檢閱器"),
+"Toolbar.More": ("More", "その他", "더 보기", "更多", "更多"),
 "Toolbar.Redo": ("Redo", "やり直す", "실행 복귀", "重做", "重做"),
 "Toolbar.Share": ("Share", "共有", "공유", "共享", "分享"),
 "Toolbar.Undo": ("Undo", "取り消す", "실행 취소", "撤销", "還原"),

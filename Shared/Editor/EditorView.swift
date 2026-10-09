@@ -9,8 +9,11 @@ import UniformTypeIdentifiers
 ///
 /// Hosts — a document window, a photo opened from the library, the Photos
 /// editing extension — supply the picture and add their own toolbar items.
-struct EditorView: View {
+/// A host's own action, such as sharing, goes in `actions`, grouped with the
+/// "…" menu.
+struct EditorView<Actions: View>: View {
     @Binding var composition: Composition
+    private let actions: Actions
     @State private var state = EditorState()
     @State private var history = CompositionHistory()
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -19,6 +22,11 @@ struct EditorView: View {
     /// The height of the panel sheet on iPhone. Set afresh for each panel:
     /// one panel opening from another would otherwise keep its height.
     @State private var panelDetent: PresentationDetent = .medium
+
+    init(composition: Binding<Composition>, @ViewBuilder actions: () -> Actions) {
+        _composition = composition
+        self.actions = actions()
+    }
 
     private var isCompact: Bool { horizontalSizeClass != .regular }
 
@@ -216,6 +224,12 @@ struct EditorView: View {
 
     @ToolbarContentBuilder
     private var editingToolbar: some ToolbarContent {
+        // On iPad the clipboard sits out in the bar, ahead of Undo and Redo;
+        // on iPhone there is no room, and it is in the "…" menu instead.
+        if !isCompact {
+            ToolbarItemGroup(placement: .topBarTrailing) { clipboardButtons }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+        }
         // Pinned to the trailing edge: as primary actions the bar would fold
         // Redo into the "…" menu once it ran short of room.
         ToolbarItemGroup(placement: .topBarTrailing) {
@@ -228,7 +242,23 @@ struct EditorView: View {
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .accessibilityIdentifier("redo")
         }
-        if !isCompact {
+        ToolbarSpacer(.fixed, placement: .topBarTrailing)
+        // On iPhone the bar has no room for the host's action beside the
+        // menu, and would fold both into a menu of its own; inside the "…"
+        // menu, the action is one tap away instead of two.
+        if isCompact {
+            ToolbarItem(placement: .topBarTrailing) {
+                moreMenu {
+                    Section { actions }
+                    Section { clipboardButtons }
+                }
+            }
+        } else {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                actions
+                moreMenu()
+            }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Toolbar.Inspector", systemImage: "sidebar.trailing") {
                     state.isInspectorPresented.toggle()
@@ -236,18 +266,14 @@ struct EditorView: View {
                 .accessibilityIdentifier("toggleInspector")
             }
         }
-        // The layer actions live with the layers, in their panel.
-        ToolbarItemGroup(placement: .secondaryAction) {
-            Section {
-                Button("Edit.Copy", systemImage: "doc.on.doc") { state.copyToClipboard() }
-                    .keyboardShortcut("c", modifiers: .command)
-                    .disabled(state.activeLayer == nil)
-                Button("Edit.Cut", systemImage: "scissors") { state.cutToClipboard() }
-                    .keyboardShortcut("x", modifiers: .command)
-                    .disabled(state.selection == nil)
-                Button("Edit.Paste", systemImage: "doc.on.clipboard") { state.pasteFromClipboard() }
-                    .keyboardShortcut("v", modifiers: .command)
-            }
+    }
+
+    /// A menu of its own rather than secondary actions, which iPad would
+    /// spread across the bar. The layer actions live with the layers, in
+    /// their panel.
+    private func moreMenu(@ViewBuilder leading: () -> some View = { EmptyView() }) -> some View {
+        Menu {
+            leading()
             Section {
                 Button("Canvas.ImageSize", systemImage: EditorPanel.imageSize.symbolName) {
                     state.presentedPanel = .imageSize
@@ -263,31 +289,43 @@ struct EditorView: View {
             }
             Section {
                 Button("Select.All", systemImage: "selection.pin.in.out") { state.selectAll() }
-                    .keyboardShortcut("a", modifiers: .command)
                 Button("Select.Deselect", systemImage: "xmark.square") { state.deselect() }
-                    .keyboardShortcut("d", modifiers: .command)
                     .disabled(state.selection == nil)
                 Button("Select.Invert", systemImage: "square.on.square.intersection.dashed") { state.invertSelection() }
-                    .keyboardShortcut("i", modifiers: [.command, .shift])
                     .disabled(state.selection == nil)
             }
             Section {
                 Button("Canvas.FitToScreen", systemImage: "arrow.down.right.and.arrow.up.left") {
                     withAnimation(.snappy) { state.fitCanvas() }
                 }
-                .keyboardShortcut("0", modifiers: .command)
                 Button("Canvas.ActualSize", systemImage: "1.magnifyingglass") {
                     withAnimation(.snappy) { state.zoomToActualSize(displayScale: displayScale) }
                 }
-                .keyboardShortcut("1", modifiers: .command)
             }
             Section {
                 Toggle("Canvas.ShowRulers", systemImage: "ruler", isOn: $state.showsRulers)
-                    .keyboardShortcut("r", modifiers: .command)
                 Button("Canvas.ClearGuides", systemImage: "xmark.square.fill") { state.clearGuides() }
                     .disabled(composition.guides.isEmpty)
             }
+        } label: {
+            Label("Toolbar.More", systemImage: "ellipsis")
         }
+        .accessibilityIdentifier("more")
+    }
+
+    @ViewBuilder
+    private var clipboardButtons: some View {
+        Button("Edit.Cut", systemImage: "scissors") { state.cutToClipboard() }
+            .disabled(state.selection == nil)
+        Button("Edit.Copy", systemImage: "doc.on.doc") { state.copyToClipboard() }
+            .disabled(state.activeLayer == nil)
+        Button("Edit.Paste", systemImage: "doc.on.clipboard") { state.pasteFromClipboard() }
+    }
+}
+
+extension EditorView where Actions == EmptyView {
+    init(composition: Binding<Composition>) {
+        self.init(composition: composition) { EmptyView() }
     }
 }
 
