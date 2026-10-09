@@ -58,9 +58,19 @@ struct CanvasView: View {
                 zoomed: { factor, anchor in state.zoom(by: factor, around: anchor) },
                 panned: { state.pan(by: $0) },
                 undo: { history.undo() },
-                redo: { history.redo() }
+                redo: { history.redo() },
+                rulerContains: { state.rulerContains($0) },
+                rulerMoved: { state.moveRuler(by: $0) },
+                rulerTurnBegan: { state.beginTurningRuler() },
+                rulerTurned: { state.turnRuler(by: $0, around: $1) },
+                rulerResized: { state.resizeRuler(by: $0) }
             )
             .accessibilityIdentifier("canvas")
+
+            if state.showsRuler, let ruler = state.ruler {
+                RulerView(ruler: ruler, viewport: viewport, dockedSide: state.dockedEdge?.side)
+                    .allowsHitTesting(false)
+            }
 
             if state.showsRulers {
                 Rulers(state: state, viewport: viewport)

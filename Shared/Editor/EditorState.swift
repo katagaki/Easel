@@ -48,6 +48,12 @@ final class EditorState {
     var fillTolerance = 0.12
     /// Whether the brush and eraser paint mirrored copies of each stroke.
     var symmetry: Symmetry = .off
+    /// The straightedge strokes run along, when it is out.
+    var ruler: Ruler?
+    /// How the ruler was turned when fingers came down to turn it.
+    @ObservationIgnored var rulerTurnStart = 0.0
+    /// The ruler's edge the stroke under the finger runs along.
+    var dockedEdge: Ruler.Edge?
     /// Whether moved layers snap to the canvas's edges and middle.
     var snaps = true
     /// What a layer being moved has snapped to.
@@ -506,6 +512,9 @@ final class EditorState {
         switch tool {
         case .brush, .eraser, .blur, .mosaic, .heal, .clone:
             guard paintingBlocker() == nil else { return }
+            // Started beside the ruler, the whole stroke runs along it.
+            dockedEdge = rulerEdge(near: point)
+            let point = dockedEdge?.project(point) ?? point
             if tool == .clone {
                 // Until there is a source, a touch only picks one.
                 guard let source = cloneSource, !isPickingCloneSource else { return }
@@ -575,7 +584,15 @@ final class EditorState {
         guard let last = points.last else { return }
         switch tool {
         case .brush, .eraser, .blur, .mosaic, .heal, .clone:
-            activeStroke?.points.append(contentsOf: points)
+            guard let edge = dockedEdge else {
+                activeStroke?.points.append(contentsOf: points)
+                return
+            }
+            activeStroke?.points.append(contentsOf: points.map { point in
+                var docked = point
+                docked.location = edge.project(point.location)
+                return docked
+            })
         case .smudge, .liquify:
             continueSmudge(to: points.map(\.location))
         case .move:
@@ -657,6 +674,7 @@ final class EditorState {
             }
             finishSmudge()
         case .brush, .eraser, .blur, .mosaic, .heal, .clone:
+            dockedEdge = nil
             if let blocker = paintingBlocker(), isTap {
                 errorMessage = blocker
                 return
@@ -732,6 +750,7 @@ final class EditorState {
     /// gesture had started is kept.
     func toolCancelled() {
         activeStroke = nil
+        dockedEdge = nil
         smudge = nil
         draftSelection = nil
         draftShape = nil

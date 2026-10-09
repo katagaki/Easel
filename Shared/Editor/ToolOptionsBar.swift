@@ -66,6 +66,12 @@ struct ToolOptionsBar: View {
                 }
                 .accessibilityIdentifier("symmetry")
             }
+            if state.tool.usesStrokes {
+                GlassIconButton(symbol: "ruler", label: "Ruler.Title", isOn: state.ruler != nil) {
+                    state.toggleRuler()
+                }
+                .accessibilityIdentifier("ruler.toggle")
+            }
         }
     }
 

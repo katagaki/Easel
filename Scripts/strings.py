@@ -422,6 +422,7 @@ S = {
 "Symmetry.Vertical": ("Left and Right", "左右", "좌우", "左右", "左右"),
 "Symmetry.Horizontal": ("Top and Bottom", "上下", "상하", "上下", "上下"),
 "Symmetry.Both": ("Four Ways", "上下左右", "상하좌우", "四向", "四向"),
+"Ruler.Title": ("Ruler", "定規", "자", "直尺", "直尺"),
 "Brush.Tip": ("Tip", "ブラシ先端", "브러시 팁", "笔尖", "筆尖"),
 "Brush.Tip.Round": ("Round", "円形", "원형", "圆形", "圓形"),
 "Brush.Tip.Pencil": ("Pencil", "鉛筆", "연필", "铅笔", "鉛筆"),

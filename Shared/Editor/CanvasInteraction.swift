@@ -7,6 +7,9 @@ import UIKit
 /// and pan the view. A second finger landing mid-stroke abandons the stroke,
 /// since it was the start of a pinch. Tapping with two fingers undoes and
 /// with three redoes, as in other drawing apps.
+///
+/// Fingers that land on the ruler move, turn and stretch it instead, and
+/// leave Apple Pencil free to draw along it.
 struct CanvasInteraction: UIViewRepresentable {
     var began: (StrokeGestureRecognizer.Sample) -> Void
     var moved: ([StrokeGestureRecognizer.Sample]) -> Void
@@ -19,6 +22,14 @@ struct CanvasInteraction: UIViewRepresentable {
     var panned: (CGSize) -> Void
     var undo: () -> Void
     var redo: () -> Void
+    /// Whether a finger at a point lands on the ruler.
+    var rulerContains: (CGPoint) -> Bool = { _ in false }
+    var rulerMoved: (CGSize) -> Void = { _ in /* Optional. */ }
+    var rulerTurnBegan: () -> Void = { /* Optional. */ }
+    /// How far the fingers have turned since they came down, and the point
+    /// between them.
+    var rulerTurned: (Double, CGPoint) -> Void = { _, _ in /* Optional. */ }
+    var rulerResized: (Double) -> Void = { _ in /* Optional. */ }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -42,6 +53,18 @@ struct CanvasInteraction: UIViewRepresentable {
             recognizer.delegate = coordinator
             view.addGestureRecognizer(recognizer)
         }
+
+        let rulerPan = UIPanGestureRecognizer(target: coordinator, action: #selector(Coordinator.rulerPan(_:)))
+        rulerPan.maximumNumberOfTouches = 2
+        let rulerPinch = UIPinchGestureRecognizer(target: coordinator, action: #selector(Coordinator.rulerPinch(_:)))
+        let rulerTurn = UIRotationGestureRecognizer(target: coordinator, action: #selector(Coordinator.rulerTurn(_:)))
+        coordinator.rulerRecognizers = [rulerPan, rulerPinch, rulerTurn]
+        for recognizer in coordinator.rulerRecognizers {
+            // Apple Pencil draws along the ruler; only fingers move it.
+            recognizer.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+            recognizer.delegate = coordinator
+            view.addGestureRecognizer(recognizer)
+        }
         return view
     }
 
@@ -54,6 +77,9 @@ struct CanvasInteraction: UIViewRepresentable {
         var parent: CanvasInteraction
         private var lastPinchScale: CGFloat = 1
         private var lastPanTranslation: CGPoint = .zero
+        var rulerRecognizers: [UIGestureRecognizer] = []
+        private var lastRulerTranslation: CGPoint = .zero
+        private var lastRulerScale: CGFloat = 1
 
         init(_ parent: CanvasInteraction) {
             self.parent = parent
@@ -122,12 +148,60 @@ struct CanvasInteraction: UIViewRepresentable {
             }
         }
 
+        @objc func rulerPan(_ recognizer: UIPanGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                lastRulerTranslation = .zero
+            case .changed:
+                let translation = recognizer.translation(in: recognizer.view)
+                parent.rulerMoved(CGSize(
+                    width: translation.x - lastRulerTranslation.x, height: translation.y - lastRulerTranslation.y
+                ))
+                lastRulerTranslation = translation
+            default:
+                break
+            }
+        }
+
+        @objc func rulerPinch(_ recognizer: UIPinchGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                lastRulerScale = 1
+            case .changed:
+                parent.rulerResized(recognizer.scale / lastRulerScale)
+                lastRulerScale = recognizer.scale
+            default:
+                break
+            }
+        }
+
+        @objc func rulerTurn(_ recognizer: UIRotationGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                parent.rulerTurnBegan()
+            case .changed:
+                parent.rulerTurned(recognizer.rotation, recognizer.location(in: recognizer.view))
+            default:
+                break
+            }
+        }
+
         @objc func undo(_ recognizer: UITapGestureRecognizer) {
             parent.undo()
         }
 
         @objc func redo(_ recognizer: UITapGestureRecognizer) {
             parent.redo()
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            // A finger on the ruler, or joining one already there, is the
+            // ruler's alone.
+            let isRulerTouch = touch.type != .pencil && (
+                rulerRecognizers.contains { $0.numberOfTouches > 0 }
+                    || parent.rulerContains(touch.location(in: touch.view))
+            )
+            return rulerRecognizers.contains(gestureRecognizer) == isRulerTouch
         }
 
         func gestureRecognizer(
@@ -177,7 +251,10 @@ final class StrokeGestureRecognizer: UIGestureRecognizer {
     private var travelled: CGFloat = 0
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
-        if trackedTouch != nil || touches.count > 1 || (event.allTouches?.count ?? 0) > 1 {
+        // Only touches meant for drawing count: a finger holding the ruler
+        // doesn't stop Apple Pencil drawing along it.
+        let drawing = event.allTouches?.filter { $0.gestureRecognizers?.contains(self) ?? false }.count ?? 0
+        if trackedTouch != nil || touches.count > 1 || drawing > 1 {
             state = state == .possible ? .failed : .cancelled
             return
         }
