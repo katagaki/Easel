@@ -61,7 +61,8 @@ extension EditorState {
 }
 
 /// Keys with no menu item of their own: nudging with the arrows, brush
-/// size with the brackets, zoom. Plain keys stand down while text is being
+/// size with the brackets, zoom, and the layer actions, whose buttons are
+/// in the layers panel. Plain keys stand down while text is being
 /// typed, when they are the text's.
 struct KeyboardCommands: View {
     @Bindable var state: EditorState
@@ -84,6 +85,13 @@ struct KeyboardCommands: View {
             key("=", .command) { state.zoomStep(larger: true) }
             key("+", .command) { state.zoomStep(larger: true) }
             key("-", .command) { state.zoomStep(larger: false) }
+            key("n", [.command, .shift]) { state.addEmptyLayer() }
+            key("j", .command) {
+                if let id = state.activeLayerID { state.duplicateLayer(id) }
+            }
+            key("e", .command) {
+                if let id = state.activeLayerID { state.mergeDown(id) }
+            }
         }
         .frame(width: 0, height: 0)
         .opacity(0)

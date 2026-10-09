@@ -236,6 +236,7 @@ struct EditorView: View {
                 .accessibilityIdentifier("toggleInspector")
             }
         }
+        // The layer actions live with the layers, in their panel.
         ToolbarItemGroup(placement: .secondaryAction) {
             Section {
                 Button("Edit.Copy", systemImage: "doc.on.doc") { state.copyToClipboard() }
@@ -246,20 +247,6 @@ struct EditorView: View {
                     .disabled(state.selection == nil)
                 Button("Edit.Paste", systemImage: "doc.on.clipboard") { state.pasteFromClipboard() }
                     .keyboardShortcut("v", modifiers: .command)
-            }
-            Section {
-                Button("Layers.NewLayer", systemImage: "square.badge.plus") { state.addEmptyLayer() }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                Button("Layers.Duplicate", systemImage: "plus.square.on.square") {
-                    if let id = state.activeLayerID { state.duplicateLayer(id) }
-                }
-                .keyboardShortcut("j", modifiers: .command)
-                .disabled(state.activeLayer == nil)
-                Button("Layers.MergeDown", systemImage: "square.2.layers.3d.bottom.filled") {
-                    if let id = state.activeLayerID { state.mergeDown(id) }
-                }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(state.activeLayer == nil)
             }
             Section {
                 Button("Canvas.ImageSize", systemImage: EditorPanel.imageSize.symbolName) {
