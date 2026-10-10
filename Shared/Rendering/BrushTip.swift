@@ -34,6 +34,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case flat
     /// Droplets flicked off a loaded brush, flung wide of the line.
     case spatter
+    /// A sea sponge dabbed along: porous blots, each turned its own way.
+    case sponge
 
     var id: String { rawValue }
 
@@ -53,6 +55,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .dryBrush: return "Brush.Tip.DryBrush"
         case .flat: return "Brush.Tip.Flat"
         case .spatter: return "Brush.Tip.Spatter"
+        case .sponge: return "Brush.Tip.Sponge"
         }
     }
 
@@ -72,6 +75,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .dryBrush: return "paintbrush.pointed"
         case .flat: return "rectangle.portrait"
         case .spatter: return "drop.degreesign"
+        case .sponge: return "circle.hexagongrid.fill"
         }
     }
 
@@ -89,6 +93,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .pixel: return 0.25
         case .bristle, .dryBrush, .flat: return 0.03
         case .spatter: return 0.35
+        case .sponge: return 0.35
         }
     }
 
@@ -122,6 +127,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crayon, .stipple, .pixel: return 1
         case .bristle, .dryBrush, .flat: return 0.9
         case .spatter: return 1
+        case .sponge: return 0.7
         }
     }
 
@@ -144,7 +150,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge: return 0
         }
     }
 
@@ -176,6 +182,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .stipple: return 0.45
         case .spatter: return 1.6
+        case .sponge: return 0.25
         default: return 0
         }
     }
@@ -185,6 +192,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .stipple: return 0.5
         case .spatter: return 0.85
+        case .sponge: return 0.3
         default: return 0
         }
     }
@@ -455,6 +463,10 @@ enum BrushTipImage {
             if tip == .flat { return (x: (random.next() - 0.5) * 1.8, y: (random.next() - 0.5) * 1.4, radius: radius, load: load) }
             return (x: cos(angle) * distance, y: sin(angle) * distance, radius: radius, load: load)
         }
+        // A sponge's holes.
+        let pores = (0..<55).map { _ in
+            (x: random.next() * 2 - 1, y: random.next() * 2 - 1, radius: 0.04 + random.next() * 0.1)
+        }
         // A few waves round the rim, for tips with a broken outline.
         let ripples = (0..<4).map { _ in random.next() * 2 * .pi }
         func rim(_ angle: Double) -> Double {
@@ -506,6 +518,10 @@ enum BrushTipImage {
                 case .spatter:
                     // A droplet, not quite round where it landed.
                     alpha = falloff(reach / (0.85 + 0.15 * rim(atan2(dy, dx))), hardest: 0.08)
+                case .sponge:
+                    // A lumpy blot, open wherever a pore is.
+                    let open = pores.contains { hypot(dx - $0.x, dy - $0.y) < $0.radius }
+                    alpha = open ? 0 : falloff(reach / (0.8 + 0.2 * rim(atan2(dy, dx))), hardest: 0.15)
                 case .crayon:
                     // A worn wax point, round but not quite.
                     alpha = falloff(reach / (0.92 + 0.08 * rim(atan2(dy, dx))))

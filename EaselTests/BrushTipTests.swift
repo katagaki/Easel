@@ -168,6 +168,17 @@ struct BrushTipTests {
         #expect(dabs.allSatisfy { bounds.contains($0.center) })
     }
 
+    @Test func aSpongeLeavesPorousBlots() {
+        let tip = BrushTipImage.image(.sponge, softness: 0)
+        // Holes all through it, not just round the edge.
+        var holes = 0
+        for y in 44..<84 { for x in 44..<84 where TestImages.pixel(tip, x: x, y: y).alpha == 0 { holes += 1 } }
+        #expect(holes > 100)
+        let dabs = stroke(.sponge, size: 20).dabs
+        #expect(Set(dabs.map(\.angle)).count == dabs.count)
+        #expect(Set(dabs.map(\.diameter)).count > 3)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
