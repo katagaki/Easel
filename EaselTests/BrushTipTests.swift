@@ -83,6 +83,16 @@ struct BrushTipTests {
         #expect(tilted.dabs[0].diameter > stroke(.charcoal).dabs[0].diameter * 1.8)
     }
 
+    @Test func crayonLeavesThePapersHollowsBare() {
+        let image = Painter.paint(stroke(.crayon, size: 16), onto: canvas)
+        let samples = (20..<80).flatMap { x in (16..<24).map { TestImages.pixel(image, x: x, y: $0).alpha } }
+        // Full wax on the peaks, next to nothing in the hollows.
+        #expect(samples.contains { $0 > 240 })
+        #expect(samples.contains { $0 < 90 })
+        // Coarser than a pencil's grain: the bare patches run wider.
+        #expect(stroke(.crayon).grainScale > stroke(.pencil).grainScale)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha

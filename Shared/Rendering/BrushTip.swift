@@ -18,6 +18,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case marker
     /// A crumbly stick: dark, broken and toothy, shading broad on its side.
     case charcoal
+    /// Wax that catches only the peaks of the paper, leaving its hollows.
+    case crayon
 
     var id: String { rawValue }
 
@@ -30,6 +32,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return "Brush.Tip.Chalk"
         case .marker: return "Brush.Tip.Marker"
         case .charcoal: return "Brush.Tip.Charcoal"
+        case .crayon: return "Brush.Tip.Crayon"
         }
     }
 
@@ -42,6 +45,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return "scribble.variable"
         case .marker: return "highlighter"
         case .charcoal: return "scribble"
+        case .crayon: return "pencil.tip.crop.circle"
         }
     }
 
@@ -54,6 +58,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.15
         case .marker: return 0.05
         case .charcoal: return 0.1
+        case .crayon: return 0.1
         }
     }
 
@@ -83,6 +88,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .airbrush: return 0.25
         case .chalk: return 0.75
         case .charcoal: return 0.95
+        case .crayon: return 1
         }
     }
 
@@ -103,13 +109,20 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .pencil: return 0.4
         case .chalk: return 0.7
         case .charcoal: return 0.55
+        case .crayon: return 0.8
         case .round, .calligraphy, .airbrush, .marker: return 0
         }
     }
 
     /// How coarse the paper's tooth is under this tip: charcoal is used on
     /// rougher paper than pencil.
-    fileprivate var grainCoarseness: Double { self == .charcoal ? 1.8 : 1 }
+    fileprivate var grainCoarseness: Double {
+        switch self {
+        case .charcoal: return 1.8
+        case .crayon: return 1.4
+        default: return 1
+        }
+    }
 
     /// The angle a flat nib is held at when Apple Pencil's tilt is not used.
     static let nibAngle = Double.pi / 4
@@ -262,7 +275,7 @@ extension Stroke {
     /// `context`, then lets the paper show through as the tip's grain asks.
     func drawDabs(in context: CGContext, color: RGBAColor) {
         defer {
-            if let grain = PaperGrain.image(strength: settings.tip.grain) {
+            if let grain = PaperGrain.image(for: settings.tip) {
                 context.saveGState()
                 context.clip(to: bounds)
                 context.setBlendMode(.destinationIn)
@@ -365,6 +378,9 @@ enum BrushTipImage {
                     // through it where the charcoal skips.
                     let edge = 0.8 + 0.2 * rim(atan2(dy, dx))
                     alpha = falloff(reach / edge) * (cell > 0.2 ? 1 : 0.4)
+                case .crayon:
+                    // A worn wax point, round but not quite.
+                    alpha = falloff(reach / (0.92 + 0.08 * rim(atan2(dy, dx))))
                 }
                 guard alpha > 0 else { continue }
                 let value = UInt8(min(alpha, 1) * 255)
@@ -385,9 +401,16 @@ enum PaperGrain {
     private static let size = 128
     private static let cache = TipCache()
 
-    static func image(strength: Double) -> CGImage? {
+    /// The paper as `tip` meets it.
+    static func image(for tip: BrushTip) -> CGImage? {
+        image(strength: tip.grain, waxy: tip == .crayon)
+    }
+
+    /// `waxy` paper is all or nothing: wax sits on every peak and fills
+    /// none of the hollows.
+    static func image(strength: Double, waxy: Bool = false) -> CGImage? {
         guard strength > 0 else { return nil }
-        let key = "grain-\(Int((strength * 100).rounded()))"
+        let key = "grain-\(Int((strength * 100).rounded()))-\(waxy)"
         if let cached = cache.image(for: key) { return cached }
         var random = SeededRandom(seed: 9)
         // Noise smoothed a little, so the tooth has some body.
@@ -398,7 +421,9 @@ enum PaperGrain {
         for index in 0..<(size * size) {
             let height = (values[index] - low) / max(high - low, 0.0001)
             // Stronger grain cuts deeper into the hollows.
-            let tooth = min(max((Double(height) - strength * 0.5) / max(1 - strength * 0.5, 0.0001), 0), 1)
+            let tooth = waxy
+                ? min(max((Double(height) - 0.45) * 5 + 0.5, 0), 1)
+                : min(max((Double(height) - strength * 0.5) / max(1 - strength * 0.5, 0.0001), 0), 1)
             let alpha = 1 - strength + strength * tooth
             let value = UInt8(min(max(alpha, 0), 1) * 255)
             for channel in 0..<4 { bytes[index * 4 + channel] = value }

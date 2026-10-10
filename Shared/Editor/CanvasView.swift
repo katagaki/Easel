@@ -373,7 +373,7 @@ extension StrokePreview {
             let size = dab.diameter * scale
             stamp.draw(tip, in: CGRect(x: -size / 2, y: -size / 2, width: size, height: size))
         }
-        if let grain = PaperGrain.image(strength: stroke.settings.tip.grain) {
+        if let grain = PaperGrain.image(for: stroke.settings.tip) {
             // The paper, pinned to the canvas so the grain stays put.
             var paper = context
             paper.blendMode = .destinationIn
