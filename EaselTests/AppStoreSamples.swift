@@ -281,7 +281,9 @@ final class AppStoreSamples: XCTestCase {
 
     // MARK: - Poppy Study
 
-    /// Poppies painted loosely over a pencil sketch on warm paper.
+    /// Poppies painted loosely over a pencil sketch on warm paper: watercolour
+    /// petals, bristle leaves, dry-brushed stems, stippled centres and a
+    /// spatter of paint.
     static func poppies(_ words: Words) -> Composition {
         let size = size
         var random = SampleRandom(seed: 5)
@@ -317,7 +319,7 @@ final class AppStoreSamples: XCTestCase {
         let stems = Bitmap.render(size: size) { context in
             for flower in flowers {
                 paint(context, stem(from: flower.center, to: ground, radius: flower.radius),
-                      brush(size: 22, color: RGBAColor(red: 0.30, green: 0.52, blue: 0.28), opacity: 0.9, tip: .calligraphy), taper: true)
+                      brush(size: 30, color: RGBAColor(red: 0.30, green: 0.52, blue: 0.28), tip: .dryBrush))
             }
         }
 
@@ -332,14 +334,14 @@ final class AppStoreSamples: XCTestCase {
                 let length = 260 + random.next() * 360
                 let end = CGPoint(x: start.x + side * length * 0.8, y: start.y - length * (0.5 + random.next() * 0.5))
                 let middle = CGPoint(x: (start.x + end.x) / 2 + side * 60, y: (start.y + end.y) / 2 + 70)
-                paint(context, [start, middle, end], brush(size: 60 + random.next() * 30, color: greens[index % 3], opacity: 0.75, tip: .round), taper: true)
+                paint(context, [start, middle, end], brush(size: 60 + random.next() * 30, color: greens[index % 3], opacity: 0.85, tip: .bristle), taper: true)
             }
         }
 
         let petals = Bitmap.render(size: size) { context in
             for flower in flowers {
-                // Broad strokes from the middle out, layered so the paint
-                // builds up where they cross.
+                // Broad washes from the middle out, layered so they darken
+                // where they cross.
                 for layerIndex in 0..<3 {
                     for petal in 0..<9 {
                         let angle = Double(petal) / 9 * 2 * .pi + Double(layerIndex) * 0.35 + random.next() * 0.2
@@ -349,7 +351,7 @@ final class AppStoreSamples: XCTestCase {
                         let to = CGPoint(x: flower.center.x + cos(bend) * reach, y: flower.center.y + sin(bend) * reach)
                         let middle = CGPoint(x: (from.x + to.x) / 2 + (random.next() - 0.5) * 40, y: (from.y + to.y) / 2 + (random.next() - 0.5) * 40)
                         let shade = flower.hue.mixed(with: layerIndex == 2 ? RGBAColor(red: 1, green: 0.85, blue: 0.7) : .black, by: layerIndex == 1 ? 0.15 : 0.1 * Double(layerIndex))
-                        paint(context, [from, middle, to], brush(size: flower.radius * (0.55 - Double(layerIndex) * 0.12), color: shade, opacity: 0.5, tip: .round), taper: true)
+                        paint(context, [from, middle, to], brush(size: flower.radius * (0.55 - Double(layerIndex) * 0.12), color: shade, opacity: 0.6, softness: 0.3, tip: .watercolor))
                     }
                 }
             }
@@ -360,12 +362,9 @@ final class AppStoreSamples: XCTestCase {
                 let r = flower.radius * 0.2
                 context.setFillColor(RGBAColor(red: 0.13, green: 0.10, blue: 0.14).cgColor)
                 context.fillEllipse(in: CGRect(x: flower.center.x - r, y: flower.center.y - r, width: r * 2, height: r * 2))
-                for _ in 0..<26 {
-                    let angle = random.next() * 2 * .pi
-                    let distance = r * (1.1 + random.next() * 0.7)
-                    paint(context, [flower.center, CGPoint(x: flower.center.x + cos(angle) * distance, y: flower.center.y + sin(angle) * distance)],
-                          brush(size: 5, color: RGBAColor(red: 0.15, green: 0.10, blue: 0.15), opacity: 0.8, tip: .pencil), taper: true)
-                }
+                // A ring of stippled stamens round the middle.
+                paint(context, arc(center: flower.center, radius: r * 1.4, from: 0, to: 2 * .pi, wobble: 0, random: &random),
+                      brush(size: r * 0.7, color: RGBAColor(red: 0.15, green: 0.10, blue: 0.15), opacity: 0.9, tip: .stipple))
             }
         }
 
@@ -378,12 +377,11 @@ final class AppStoreSamples: XCTestCase {
 
         let splashes = Bitmap.render(size: size) { context in
             let colors = flowers.map(\.hue) + [RGBAColor(red: 0.36, green: 0.60, blue: 0.30)]
-            for _ in 0..<70 {
-                let center = CGPoint(x: 100 + random.next() * (size.width - 200), y: 150 + random.next() * (size.height - 300))
-                let radius = 3 + random.next() * 12
-                let color = colors[Int(random.next() * Double(colors.count)) % colors.count]
-                context.setFillColor(color.withAlpha(0.7).cgColor)
-                context.fillEllipse(in: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+            // Flicks of each colour across the page.
+            for color in colors + colors {
+                let start = CGPoint(x: 150 + random.next() * (size.width - 300), y: 200 + random.next() * (size.height - 400))
+                let end = CGPoint(x: start.x + (random.next() - 0.5) * 500, y: start.y + (random.next() - 0.5) * 300)
+                paint(context, [start, end], brush(size: 110, color: color, opacity: 0.75, tip: .spatter))
             }
         }
 
