@@ -229,6 +229,20 @@ struct BrushTipTests {
         #expect(haze.red >= TestImages.pixel(dark, x: 50, y: 31).red)
     }
 
+    @Test func aWatercolorWashPoolsDarkerAtItsEdges() {
+        let image = Painter.paint(stroke(.watercolor, size: 24), onto: canvas)
+        let column = (0..<40).map { TestImages.pixel(image, x: 50, y: $0).alpha }
+        let middle = Double(column[19...21].reduce(0, +)) / 3
+        let rim = Double(column.filter { $0 > 0 }.max() ?? 0)
+        // See-through in the middle, darkest toward its edges.
+        #expect(middle > 40 && middle < 200, "\(column)")
+        #expect(rim > middle * 1.3, "\(column)")
+        // Glazed over colour, it darkens it.
+        let yellow = Bitmap.solid(size: CGSize(width: 100, height: 40), color: RGBAColor(red: 1, green: 1, blue: 0))
+        let glazed = TestImages.pixel(Painter.paint(stroke(.watercolor, size: 24), onto: yellow), x: 50, y: 20)
+        #expect(glazed.green < 250 && glazed.red > 200)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha

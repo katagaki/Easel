@@ -328,6 +328,12 @@ private struct StrokePreview: View {
                     // put down at the brush's opacity and blend mode.
                     group.opacity = 1
                     group.blendMode = .normal
+                    if stroke.settings.tip == .watercolor && !stroke.isEraser {
+                        if let wash = stroke.wash(canvasSize: canvasSize) {
+                            group.draw(Image(decorative: wash.image, scale: 1), in: wash.rect.applying(transform))
+                        }
+                        return
+                    }
                     if stroke.usesDabs {
                         drawDabs(of: stroke, in: &group, transform: transform, scale: scale)
                         return

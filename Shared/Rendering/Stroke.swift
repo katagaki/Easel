@@ -279,6 +279,10 @@ struct Stroke: Equatable, Sendable {
         let color = isEraser ? RGBAColor.black.cgColor : settings.color.withAlpha(1).cgColor
         if settings.tip == .neon && !isEraser {
             drawGlow(in: context, canvasSize: canvasSize)
+        } else if settings.tip == .watercolor && !isEraser {
+            if let wash = wash(canvasSize: canvasSize) {
+                Bitmap.draw(wash.image, in: wash.rect, context: context)
+            }
         } else if usesDabs {
             // Stamped tips carry their own soft edge.
             drawDabs(in: context, color: isEraser ? .black : settings.color)
@@ -319,5 +323,56 @@ struct Stroke: Equatable, Sendable {
         context.restoreGState()
         drawShape(in: context, color: color, widthScale: 0.55)
         drawShape(in: context, color: glowCore.cgColor, widthScale: 0.3)
+    }
+
+    /// A watercolour stroke as the paper takes it, with where it goes on the
+    /// canvas: the dabs' shape, thin in the middle and pooled dark along its
+    /// edges, mottled where the pigment settles. Nil when it is off the
+    /// canvas.
+    func wash(canvasSize: CGSize) -> (image: CGImage, rect: CGRect)? {
+        let rect = bounds.integral.intersection(CGRect(origin: .zero, size: canvasSize))
+        guard !rect.isNull, rect.width >= 1, rect.height >= 1 else { return nil }
+        let shape = Bitmap.render(size: rect.size) { context in
+            context.translateBy(x: -rect.minX, y: -rect.minY)
+            drawDabs(in: context, color: .white)
+        }
+        guard let pixels = Bitmap.pixels(of: shape) else { return nil }
+        let width = pixels.width, height = pixels.height
+        let coverage = (0..<(width * height)).map { Float(pixels.bytes[$0 * 4 + 3]) / 255 }
+        // Paint runs to the edge as it dries: wherever the wash is fuller
+        // than its surroundings, it pools.
+        var surroundings = coverage
+        Healer.boxBlur(&surroundings, width: width, height: height, radius: max(1, Int(settings.size * 0.12)), passes: 2)
+        let paint = settings.color.cgColor.converted(to: Bitmap.colorSpace, intent: .defaultIntent, options: nil)?.components
+            ?? [settings.color.red, settings.color.green, settings.color.blue, 1]
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let left = Int(rect.minX), top = Int(rect.minY)
+        for y in 0..<height {
+            for x in 0..<width {
+                let index = y * width + x
+                let body = Double(coverage[index])
+                guard body > 0 else { continue }
+                let pooled = max(0, body - Double(surroundings[index]))
+                // Granulation, pinned to the canvas so it does not crawl as
+                // the stroke grows.
+                let settled = 0.85 + 0.15 * Self.speckle(x: x + left, y: y + top)
+                let alpha = min(1, body * (0.45 + 1.4 * pooled) * settled)
+                for channel in 0..<3 {
+                    bytes[index * 4 + channel] = UInt8(min(max(paint[channel], 0), 1) * alpha * 255)
+                }
+                bytes[index * 4 + 3] = UInt8(alpha * 255)
+            }
+        }
+        guard let image = PixelBuffer(width: width, height: height, bytes: bytes).makeImage() else { return nil }
+        return (image, rect)
+    }
+
+    /// A fixed noise value, 0..<1, for a canvas pixel.
+    private static func speckle(x: Int, y: Int) -> Double {
+        var hash = UInt64(bitPattern: Int64(x)) &* 0x9E37_79B9_7F4A_7C15 ^ UInt64(bitPattern: Int64(y)) &* 0xC2B2_AE3D_27D4_EB4F
+        hash ^= hash >> 31
+        hash &*= 0x94D0_49BB_1331_11EB
+        hash ^= hash >> 29
+        return Double(hash >> 11) / Double(UInt64(1) << 53)
     }
 }

@@ -45,6 +45,9 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// A glowing tube of light: a bright core in a haze of colour that
     /// adds to whatever is under it.
     case neon
+    /// A see-through wash that pools darker at its edges and settles into
+    /// the paper.
+    case watercolor
 
     var id: String { rawValue }
 
@@ -69,6 +72,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stars: return "Brush.Tip.Stars"
         case .confetti: return "Brush.Tip.Confetti"
         case .neon: return "Brush.Tip.Neon"
+        case .watercolor: return "Brush.Tip.Watercolor"
         }
     }
 
@@ -93,6 +97,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stars: return "star"
         case .confetti: return "party.popper"
         case .neon: return "lightbulb.max"
+        case .watercolor: return "drop.halffull"
         }
     }
 
@@ -115,6 +120,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stars: return 0.6
         case .confetti: return 0.4
         case .neon: return 0.12
+        case .watercolor: return 0.15
         }
     }
 
@@ -137,7 +143,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// crosses itself or other colour.
     var blendMode: CGBlendMode {
         switch self {
-        case .marker: return .multiply
+        // Washes are transparent glazes: one over another darkens.
+        case .marker, .watercolor: return .multiply
         // Light adds to what is under it.
         case .neon: return .plusLighter
         default: return .normal
@@ -150,7 +157,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// How much each dab lays down; low ones build up where they overlap.
     fileprivate var flow: Double {
         switch self {
-        case .round, .calligraphy, .marker, .neon: return 1
+        case .round, .calligraphy, .marker, .neon, .watercolor: return 1
         case .pencil: return 0.85
         case .airbrush: return 0.25
         case .chalk: return 0.75
@@ -168,6 +175,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .chalk: return 0.15
         case .charcoal: return 0.1
+        case .watercolor: return 0.06
         default: return 0
         }
     }
@@ -181,7 +189,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti, .neon: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti, .neon, .watercolor: return 0
         }
     }
 
@@ -234,6 +242,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stipple: return 0.5
         case .spatter: return 0.85
         case .sponge: return 0.3
+        case .watercolor: return 0.2
         case .foliage: return 0.5
         case .stars: return 0.6
         case .confetti: return 0.4
@@ -604,6 +613,9 @@ enum BrushTipImage {
                 case .confetti:
                     // A scrap of paper, twice as long as it is wide.
                     alpha = abs(dx) < 0.9 && abs(dy) < 0.45 ? 1 : 0
+                case .watercolor:
+                    // A soft blot with a wavering edge, like a wet bead.
+                    alpha = falloff(reach / (0.85 + 0.15 * rim(atan2(dy, dx))), hardest: 0.3)
                 case .crayon:
                     // A worn wax point, round but not quite.
                     alpha = falloff(reach / (0.92 + 0.08 * rim(atan2(dy, dx))))

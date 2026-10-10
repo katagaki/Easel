@@ -139,6 +139,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .neon
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Watercolor"), settings: {
+            var settings = BrushSettings(size: 60, opacity: 0.8, softness: 0.3)
+            settings.tip = .watercolor
+            return settings
+        }()),
     ]
 }
 
