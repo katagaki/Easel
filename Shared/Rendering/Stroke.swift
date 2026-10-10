@@ -14,11 +14,27 @@ struct BrushSettings: Codable, Equatable, Sendable {
     /// flat nib.
     var usesTilt = true
     var tip: BrushTip = .round
+    var dynamics = BrushDynamics()
 
     static let sizeRange: ClosedRange<Double> = 1...1500
 
     /// How far the edge feathers out, in canvas pixels.
     var featherRadius: Double { size * softness * 0.5 }
+}
+
+/// How a brush's marks vary along a stroke, beyond pressure and tilt.
+struct BrushDynamics: Codable, Hashable, Sendable {
+    /// How far the stroke thins toward both ends, 0 for not at all.
+    var taper = 0.0
+
+    init() {}
+
+    // Each value is read only if it is there, so brushes saved before a
+    // value existed still open.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        taper = try container.decodeIfPresent(Double.self, forKey: .taper) ?? 0
+    }
 }
 
 struct StrokePoint: Equatable, Sendable {
@@ -83,17 +99,44 @@ struct Stroke: Equatable, Sendable {
         return mask
     }
 
-    /// Pressure is ignored below this much variation, so a finger's steady
-    /// 1.0 gets the smooth single-path rendering.
-    private var usesVaryingWidth: Bool {
-        guard settings.usesPressure else { return false }
-        return points.contains { $0.pressure < 0.999 }
+    /// Whether the line's width changes along it; a finger's steady 1.0
+    /// with nothing else thinning it gets the smooth single-path rendering.
+    var usesVaryingWidth: Bool {
+        let size = settings.size
+        return widths.contains { abs($0 - size) > 0.001 }
     }
 
+    /// The width pressure alone gives a point.
     func width(at point: StrokePoint) -> Double {
         guard settings.usesPressure else { return settings.size }
         // Never thinner than a fifth, so a light touch still marks.
         return settings.size * (0.2 + 0.8 * min(max(point.pressure, 0), 1))
+    }
+
+    /// How wide the stroke is at each of its points: pressure's width,
+    /// narrowed toward tapered ends.
+    var widths: [Double] {
+        var result = points.map { width(at: $0) }
+        let taper = min(max(settings.dynamics.taper, 0), 1)
+        guard taper > 0, points.count > 1 else { return result }
+        var distances = [0.0]
+        for index in 1..<points.count {
+            let from = points[index - 1].location, to = points[index].location
+            distances.append(distances[index - 1] + hypot(to.x - from.x, to.y - from.y))
+        }
+        let total = distances[distances.count - 1]
+        // At most half the stroke each way, so a short one still meets in
+        // the middle at full width.
+        let reach = min(taper * settings.size * 8, total / 2)
+        guard reach > 0 else { return result }
+        for index in result.indices {
+            let along = min(distances[index], total - distances[index]) / reach
+            guard along < 1 else { continue }
+            // Eases out of the point, so the end is fine but not a hair.
+            let eased = 1 - (1 - along) * (1 - along)
+            result[index] *= 0.08 + 0.92 * eased
+        }
+        return result
     }
 
     /// The stroke as a single centre line through the midpoints of its
@@ -121,15 +164,14 @@ struct Stroke: Equatable, Sendable {
     }
 
     /// Short pieces, each with its own width, for strokes whose width follows
-    /// pressure.
+    /// pressure or tapers.
     var segments: [(from: CGPoint, to: CGPoint, width: Double)] {
+        let widths = widths
         guard points.count > 1 else {
-            return points.map { ($0.location, $0.location, width(at: $0)) }
+            return points.indices.map { (points[$0].location, points[$0].location, widths[$0]) }
         }
         return (1..<points.count).map { index in
-            let from = points[index - 1]
-            let to = points[index]
-            return (from.location, to.location, (width(at: from) + width(at: to)) / 2)
+            (points[index - 1].location, points[index].location, (widths[index - 1] + widths[index]) / 2)
         }
     }
 

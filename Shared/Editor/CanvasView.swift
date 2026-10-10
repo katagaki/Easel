@@ -321,7 +321,7 @@ private struct StrokePreview: View {
                         group.addFilter(.blur(radius: stroke.settings.featherRadius * scale * 0.5))
                     }
                     let color = stroke.isEraser ? Color.black : stroke.settings.color.withAlpha(1).color
-                    if stroke.points.contains(where: { $0.pressure < 0.999 }) && stroke.settings.usesPressure {
+                    if stroke.usesVaryingWidth {
                         for segment in stroke.segments {
                             var path = Path()
                             path.move(to: segment.from.applying(transform))

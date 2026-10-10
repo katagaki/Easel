@@ -429,6 +429,8 @@ S = {
 "Brush.Tip.Calligraphy": ("Calligraphy", "カリグラフィ", "캘리그라피", "书法", "書法"),
 "Brush.Tip.Airbrush": ("Airbrush", "エアブラシ", "에어브러시", "喷枪", "噴槍"),
 "Brush.Tip.Chalk": ("Chalk", "チョーク", "분필", "粉笔", "粉筆"),
+"Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
+"Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),
 "Tool.Brush": ("Brush", "ブラシ", "브러시", "画笔", "筆刷"),
 "Tool.Transform": ("Transform", "変形", "변형", "变换", "變形"),
 "Transform.Distort": ("Distort", "自由な形に", "왜곡", "扭曲", "扭曲"),

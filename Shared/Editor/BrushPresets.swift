@@ -12,6 +12,8 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
     var softness: Double
     var usesPressure: Bool
     var usesTilt: Bool
+    /// Missing from brushes saved before there were dynamics.
+    var dynamics: BrushDynamics?
 
     init(name: String, settings: BrushSettings) {
         self.name = name
@@ -21,6 +23,7 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
         softness = settings.softness
         usesPressure = settings.usesPressure
         usesTilt = settings.usesTilt
+        dynamics = settings.dynamics
     }
 
     /// `settings` taking this brush's shape, keeping their colour.
@@ -32,6 +35,7 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
         result.softness = softness
         result.usesPressure = usesPressure
         result.usesTilt = usesTilt
+        result.dynamics = dynamics ?? BrushDynamics()
         return result
     }
 

@@ -546,6 +546,14 @@ private struct BrushSettingsButton: View {
                         valueText: "\(Int((state.currentBrush.softness * 100).rounded()))%"
                     )
                 }
+                if state.tool == .brush || state.tool == .eraser {
+                    Section("Brush.Dynamics") {
+                        LabeledSlider(
+                            label: "Options.Taper", value: $state.currentBrush.dynamics.taper,
+                            valueText: "\(Int((state.currentBrush.dynamics.taper * 100).rounded()))%"
+                        )
+                    }
+                }
                 if state.tool != .smudge && state.tool != .liquify {
                     Section {
                         Toggle("Options.PencilPressure", isOn: $state.currentBrush.usesPressure)

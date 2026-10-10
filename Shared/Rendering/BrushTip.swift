@@ -95,8 +95,9 @@ extension Stroke {
         let tip = settings.tip
         guard let first = points.first else { return [] }
         var random = SeededRandom(seed: UInt64(points.count == 1 ? 1 : 7))
-        func dab(at point: StrokePoint) -> BrushDab {
-            var diameter = max(1, width(at: point))
+        let widths = widths
+        func dab(at point: StrokePoint, width: Double) -> BrushDab {
+            var diameter = max(1, width)
             var opacity = tip.flow
             // Laid on its side, a dry tip shades broad and light.
             if tip.grain > 0 {
@@ -115,7 +116,7 @@ extension Stroke {
                 center: center, diameter: diameter, angle: angle, roundness: tip.roundness, opacity: opacity
             )
         }
-        var result = [dab(at: first)]
+        var result = [dab(at: first, width: widths[0])]
         // Walks the stroke, dropping a dab every `spacing` of the brush's
         // width at the point reached.
         var carried = 0.0
@@ -123,12 +124,10 @@ extension Stroke {
             let from = points[index - 1], to = points[index]
             let length = hypot(to.location.x - from.location.x, to.location.y - from.location.y)
             guard length > 0 else { continue }
+            func width(at t: Double) -> Double { widths[index - 1] + (widths[index] - widths[index - 1]) * t }
             var travelled = 0.0
             while true {
-                let t = travelled / length
-                let pressure = from.pressure + (to.pressure - from.pressure) * t
-                let probe = StrokePoint(location: from.location, pressure: pressure, azimuth: to.azimuth, altitude: to.altitude)
-                let step = max(0.5, width(at: probe) * tip.spacing)
+                let step = max(0.5, width(at: travelled / length) * tip.spacing)
                 let needed = step - carried
                 guard travelled + needed <= length else {
                     carried += length - travelled
@@ -144,7 +143,7 @@ extension Stroke {
                     ),
                     pressure: from.pressure + (to.pressure - from.pressure) * at,
                     azimuth: to.azimuth, altitude: to.altitude
-                )))
+                ), width: width(at: at)))
             }
         }
         return result
