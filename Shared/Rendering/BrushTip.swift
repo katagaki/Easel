@@ -14,6 +14,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case airbrush
     /// Broken and dry, like chalk or pastel on a rough ground.
     case chalk
+    /// A felt chisel whose ink darkens where strokes cross.
+    case marker
 
     var id: String { rawValue }
 
@@ -24,6 +26,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .calligraphy: return "Brush.Tip.Calligraphy"
         case .airbrush: return "Brush.Tip.Airbrush"
         case .chalk: return "Brush.Tip.Chalk"
+        case .marker: return "Brush.Tip.Marker"
         }
     }
 
@@ -34,6 +37,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .calligraphy: return "pencil.and.scribble"
         case .airbrush: return "aqi.medium"
         case .chalk: return "scribble.variable"
+        case .marker: return "highlighter"
         }
     }
 
@@ -44,16 +48,31 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .calligraphy: return 0.04
         case .airbrush: return 0.08
         case .chalk: return 0.15
+        case .marker: return 0.05
         }
     }
 
     /// The nib's breadth across, for a flat tip, as a share of its width.
-    fileprivate var roundness: Double { self == .calligraphy ? 0.22 : 1 }
+    fileprivate var roundness: Double {
+        switch self {
+        case .calligraphy: return 0.22
+        case .marker: return 0.45
+        default: return 1
+        }
+    }
+
+    /// Tips held at an angle like a nib, turned by Apple Pencil's lean.
+    fileprivate var isNib: Bool { self == .calligraphy || self == .marker }
+
+    /// How the finished stroke goes down over what is already there. A
+    /// marker's ink is see-through: it multiplies, darkening where it
+    /// crosses itself or other colour.
+    var blendMode: CGBlendMode { self == .marker ? .multiply : .normal }
 
     /// How much each dab lays down; low ones build up where they overlap.
     fileprivate var flow: Double {
         switch self {
-        case .round, .calligraphy: return 1
+        case .round, .calligraphy, .marker: return 1
         case .pencil: return 0.85
         case .airbrush: return 0.25
         case .chalk: return 0.75
@@ -66,7 +85,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .pencil: return 0.4
         case .chalk: return 0.7
-        case .round, .calligraphy, .airbrush: return 0
+        case .round, .calligraphy, .airbrush, .marker: return 0
         }
     }
 
@@ -134,7 +153,7 @@ extension Stroke {
                 opacity *= 1 - lean * 0.45
             }
             var center = point.location
-            var angle = tip == .calligraphy ? nibAngle(at: point) : random.next() * 2 * .pi
+            var angle = tip.isNib ? nibAngle(at: point) : random.next() * 2 * .pi
             if follows { angle = heading + .pi / 2 }
             if tip == .chalk {
                 center.x += (random.next() - 0.5) * diameter * 0.15
@@ -294,10 +313,15 @@ enum BrushTipImage {
                 let dx = (Double(x) + 0.5 - center) / center
                 let dy = (Double(y) + 0.5 - center) / center
                 let reach = sqrt(dx * dx + dy * dy)
-                guard reach < 1 else { continue }
+                guard reach < 1 || tip == .marker else { continue }
                 var alpha: Double
                 if tip == .airbrush {
                     alpha = 1 - reach * reach
+                } else if tip == .marker {
+                    // A squared-off felt nib, its corners just rounded.
+                    let corner = pow(pow(abs(dx), 6) + pow(abs(dy), 6), 1.0 / 6)
+                    let core = 1 - max(softness, 0.06)
+                    alpha = corner <= core ? 1 : max(0, (1 - corner) / (1 - core))
                 } else {
                     // Solid to the softness's edge, fading to nothing at the rim.
                     let core = 1 - max(softness, 0.04)

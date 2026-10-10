@@ -196,7 +196,17 @@ private struct LayerView: View {
                 ZStack(alignment: .topLeading) {
                     content
                     if let retouch { RetouchPreview(retouch: retouch, canvasSize: canvasSize, viewport: viewport) }
-                    StrokePreview(strokes: paintStrokes, canvasSize: canvasSize, viewport: viewport)
+                    StrokePreview(
+                        strokes: paintStrokes.filter { $0.blendMode == .normal || $0.isEraser },
+                        canvasSize: canvasSize, viewport: viewport
+                    )
+                    // Strokes that blend with the layer under them can only
+                    // do so as views of their own.
+                    let multiplied = paintStrokes.filter { $0.blendMode == .multiply }
+                    if !multiplied.isEmpty {
+                        StrokePreview(strokes: multiplied, canvasSize: canvasSize, viewport: viewport)
+                            .blendMode(.multiply)
+                    }
                 }
                 // The strokes and the layer become one before the layer's
                 // opacity and blend mode apply, and the eraser cuts only

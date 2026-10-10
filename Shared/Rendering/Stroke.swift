@@ -105,6 +105,16 @@ struct Stroke: Equatable, Sendable {
 
     var isEraser: Bool { kind == .erase }
 
+    /// How the finished stroke goes down: cutting away for an eraser, as the
+    /// tip asks for paint.
+    var blendMode: CGBlendMode {
+        switch kind {
+        case .erase: return .destinationOut
+        case .paint: return settings.tip.blendMode
+        default: return .normal
+        }
+    }
+
     /// The same stroke, laying down solid white: the shape of a mask. For
     /// the retouching brushes, strength is how much they do, not how see-
     /// through the stroke is, so the mask is opaque. A clone keeps its
@@ -257,7 +267,7 @@ struct Stroke: Equatable, Sendable {
             clip.clip(context, canvasSize: canvasSize)
         }
         context.setAlpha(settings.opacity)
-        context.setBlendMode(isEraser ? .destinationOut : .normal)
+        context.setBlendMode(blendMode)
         // One transparency layer for the whole stroke, so where its pieces
         // overlap they do not build up past the brush's opacity.
         context.beginTransparencyLayer(auxiliaryInfo: nil)

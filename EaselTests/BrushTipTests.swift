@@ -79,6 +79,29 @@ struct BrushTipTests {
         #expect(edge < middle)
     }
 
+    @Test func aMarkerDarkensWhatItCrosses() {
+        // Yellow under a cyan marker comes out green, as felt ink does. (The
+        // layer is Display P3, where sRGB cyan has some red.)
+        let yellow = Bitmap.solid(size: CGSize(width: 100, height: 40), color: RGBAColor(red: 1, green: 1, blue: 0))
+        var marker = stroke(.marker, size: 16)
+        marker.settings.color = RGBAColor(red: 0, green: 1, blue: 1)
+        let crossed = TestImages.pixel(Painter.paint(marker, onto: yellow), x: 50, y: 20)
+        #expect(crossed.red < 130 && crossed.green > 200 && crossed.blue < 100, "\(crossed)")
+        // On an empty layer it is simply its own colour.
+        let alone = TestImages.pixel(Painter.paint(marker, onto: canvas), x: 50, y: 20)
+        #expect(alone.red < 130 && alone.green > 200 && alone.blue > 200 && alone.alpha > 250, "\(alone)")
+    }
+
+    @Test func aMarkerIsAChiselLikeACalligraphyNib() {
+        func inked(from: CGPoint, to: CGPoint) -> Int {
+            let image = Painter.paint(stroke(.marker, size: 20, from: from, to: to), onto: canvas)
+            var count = 0
+            for y in 0..<40 { for x in 0..<100 where TestImages.pixel(image, x: x, y: y).alpha > 128 { count += 1 } }
+            return count
+        }
+        #expect(inked(from: CGPoint(x: 50, y: 5), to: CGPoint(x: 20, y: 35)) > inked(from: CGPoint(x: 20, y: 5), to: CGPoint(x: 50, y: 35)) * 3 / 2)
+    }
+
     @Test func aStampedEraserCutsThrough() {
         var eraser = stroke(.pencil, size: 16)
         eraser.kind = .erase
