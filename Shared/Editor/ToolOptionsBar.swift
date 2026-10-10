@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// The settings of the tool in hand, in a glass bar over the canvas: above
@@ -478,7 +479,36 @@ private struct BrushSettingsButton: View {
     @State private var isPresented = false
     @State private var isNaming = false
     @State private var newName = ""
+    @State private var isPickingTipPhoto = false
+    @State private var tipPhoto: PhotosPickerItem?
+    @State private var isPickingTipFile = false
     private let library = BrushLibrary.shared
+    private let customTips = CustomBrushTipLibrary.shared
+
+    /// A built-in tip, or one of the imported ones.
+    private enum TipChoice: Hashable {
+        case builtIn(BrushTip)
+        case custom(UUID)
+    }
+
+    private var tipChoice: Binding<TipChoice> {
+        Binding(
+            get: {
+                let brush = state.currentBrush
+                guard brush.tip == .custom, let id = brush.customTip else { return .builtIn(brush.tip) }
+                return .custom(id)
+            },
+            set: { choice in
+                switch choice {
+                case .builtIn(let tip):
+                    state.currentBrush.tip = tip
+                case .custom(let id):
+                    state.currentBrush.tip = .custom
+                    state.currentBrush.customTip = id
+                }
+            }
+        )
+    }
 
     var body: some View {
         GlassIconButton(symbol: "slider.horizontal.3", label: "Options.BrushSettings", isOn: isPresented) {
@@ -488,12 +518,37 @@ private struct BrushSettingsButton: View {
             Form {
                 if state.tool == .brush || state.tool == .eraser {
                     Section {
-                        Picker("Brush.Tip", selection: $state.currentBrush.tip) {
-                            ForEach(BrushTip.allCases) { tip in
-                                Label(tip.label, systemImage: tip.symbolName).tag(tip)
+                        Picker("Brush.Tip", selection: tipChoice) {
+                            ForEach(BrushTip.builtIn) { tip in
+                                Label(tip.label, systemImage: tip.symbolName).tag(TipChoice.builtIn(tip))
+                            }
+                            if !customTips.tips.isEmpty {
+                                Section("Brush.CustomTips") {
+                                    ForEach(Array(customTips.tips.enumerated()), id: \.element) { index, id in
+                                        customTipLabel(id, number: index + 1).tag(TipChoice.custom(id))
+                                    }
+                                }
                             }
                         }
                         .accessibilityIdentifier("brushTip")
+                        Menu {
+                            // The pickers are presented from outside the menu,
+                            // which is gone by the time one inside it would show.
+                            Button("Brush.CustomTip.FromPhotos", systemImage: "photo.on.rectangle") { isPickingTipPhoto = true }
+                            Button("Brush.CustomTip.FromFiles", systemImage: "folder") { isPickingTipFile = true }
+                            if !customTips.tips.isEmpty {
+                                Menu("Brush.CustomTip.Delete", systemImage: "trash") {
+                                    ForEach(Array(customTips.tips.enumerated()), id: \.element) { index, id in
+                                        Button(role: .destructive) { deleteTip(id) } label: {
+                                            customTipLabel(id, number: index + 1)
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Brush.CustomTip.Import", systemImage: "photo.badge.plus")
+                        }
+                        .accessibilityIdentifier("importBrushTip")
                         Menu {
                             ForEach(BrushPreset.builtIn) { preset in
                                 presetButton(preset)
@@ -592,6 +647,45 @@ private struct BrushSettingsButton: View {
                 Button("Common.Cancel", role: .cancel) {}
                 Button("Brush.Save") { library.save(state.currentBrush, as: newName) }
             }
+            .photosPicker(isPresented: $isPickingTipPhoto, selection: $tipPhoto, matching: .images)
+            .onChange(of: tipPhoto) { _, item in
+                guard let item else { return }
+                tipPhoto = nil
+                Task { importTip(await ImageImport.load([item])) }
+            }
+            .fileImporter(isPresented: $isPickingTipFile, allowedContentTypes: [.image]) { result in
+                guard case .success(let url) = result else { return }
+                Task { importTip(await ImageImport.load([url])) }
+            }
+        }
+    }
+
+    private func customTipLabel(_ id: UUID, number: Int) -> some View {
+        Label {
+            Text(String(format: String(localized: "Brush.Tip.CustomNumbered"), number))
+        } icon: {
+            // Shown at about a symbol's size.
+            Image(uiImage: UIImage(
+                cgImage: BrushTipImage.tinted(.custom, softness: 0, color: .black, custom: id),
+                scale: Double(CustomBrushTips.size) / 22, orientation: .up
+            ))
+        }
+    }
+
+    /// Makes the picture picked a tip and paints with it.
+    private func importTip(_ loaded: (images: [ImageImport.Item], failed: Bool)) {
+        guard let picture = loaded.images.first?.image, let id = try? customTips.add(picture) else {
+            state.errorMessage = String(localized: "Error.TipImportFailed")
+            return
+        }
+        tipChoice.wrappedValue = .custom(id)
+    }
+
+    private func deleteTip(_ id: UUID) {
+        customTips.delete(id)
+        if state.currentBrush.customTip == id {
+            state.currentBrush.customTip = nil
+            if state.currentBrush.tip == .custom { state.currentBrush.tip = .round }
         }
     }
 

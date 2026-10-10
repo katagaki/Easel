@@ -406,9 +406,7 @@ extension StrokePreview {
         }
         if stroke.pickup != nil, !stroke.isEraser {
             // Mixed paint: the white tip, coloured dab by dab.
-            let tip = context.resolve(Image(decorative: BrushTipImage.tinted(
-                stroke.settings.tip, softness: stroke.settings.softness, color: .white
-            ), scale: 1))
+            let tip = context.resolve(Image(decorative: stroke.tipImage(in: .white), scale: 1))
             for dab in stroke.dabs {
                 var stamp = context
                 let center = dab.center.applying(transform)
@@ -425,9 +423,7 @@ extension StrokePreview {
         var tips: [RGBAColor: GraphicsContext.ResolvedImage] = [:]
         for dab in stroke.dabs {
             let paint = stroke.paint(of: dab, brush: color)
-            let tip = tips[paint] ?? context.resolve(Image(decorative: BrushTipImage.tinted(
-                stroke.settings.tip, softness: stroke.settings.softness, color: paint
-            ), scale: 1))
+            let tip = tips[paint] ?? context.resolve(Image(decorative: stroke.tipImage(in: paint), scale: 1))
             tips[paint] = tip
             var stamp = context
             let center = dab.center.applying(transform)

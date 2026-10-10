@@ -15,6 +15,8 @@ struct BrushSettings: Codable, Equatable, Sendable {
     /// flat nib.
     var usesTilt = true
     var tip: BrushTip = .round
+    /// The imported picture a custom tip stamps.
+    var customTip: UUID?
     var dynamics = BrushDynamics()
 
     static let sizeRange: ClosedRange<Double> = 1...1500

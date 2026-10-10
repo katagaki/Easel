@@ -14,6 +14,7 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
     var usesTilt: Bool
     /// Missing from brushes saved before there were dynamics.
     var dynamics: BrushDynamics?
+    var customTip: UUID?
 
     init(name: String, settings: BrushSettings) {
         self.name = name
@@ -24,6 +25,7 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
         usesPressure = settings.usesPressure
         usesTilt = settings.usesTilt
         dynamics = settings.dynamics
+        customTip = settings.customTip
     }
 
     /// `settings` taking this brush's shape, keeping their colour.
@@ -36,6 +38,7 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
         result.usesPressure = usesPressure
         result.usesTilt = usesTilt
         result.dynamics = dynamics ?? BrushDynamics()
+        result.customTip = customTip
         return result
     }
 

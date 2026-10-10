@@ -51,8 +51,14 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Thick paint that picks up the colours it is dragged through and
     /// mixes them into what it lays down.
     case oil
+    /// A picture someone imported, stamped along the stroke; which one is
+    /// the brush's `customTip`.
+    case custom
 
     var id: String { rawValue }
+
+    /// The tips that come with the app, for choosing among.
+    static let builtIn = allCases.filter { $0 != .custom }
 
     var label: LocalizedStringKey {
         switch self {
@@ -77,6 +83,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .neon: return "Brush.Tip.Neon"
         case .watercolor: return "Brush.Tip.Watercolor"
         case .oil: return "Brush.Tip.Oil"
+        case .custom: return "Brush.Tip.Custom"
         }
     }
 
@@ -103,6 +110,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .neon: return "lightbulb.max"
         case .watercolor: return "drop.halffull"
         case .oil: return "paintpalette"
+        case .custom: return "photo"
         }
     }
 
@@ -125,7 +133,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stars: return 0.6
         case .confetti: return 0.4
         case .neon: return 0.12
-        case .watercolor: return 0.15
+        case .watercolor, .custom: return 0.15
         }
     }
 
@@ -162,7 +170,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// How much each dab lays down; low ones build up where they overlap.
     fileprivate var flow: Double {
         switch self {
-        case .round, .calligraphy, .marker, .neon, .watercolor: return 1
+        case .round, .calligraphy, .marker, .neon, .watercolor, .custom: return 1
         case .pencil: return 0.85
         case .airbrush: return 0.25
         case .chalk: return 0.75
@@ -195,7 +203,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti, .neon, .watercolor, .oil: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti, .neon, .watercolor, .oil, .custom: return 0
         }
     }
 
@@ -468,6 +476,11 @@ extension Stroke {
     /// for small brushes, coarser for big ones, so it reads at any size.
     var grainScale: Double { max(1, settings.size / 20) * settings.tip.grainCoarseness }
 
+    /// The stamp for this brush's tip, in `color`.
+    func tipImage(in color: RGBAColor) -> CGImage {
+        BrushTipImage.tinted(settings.tip, softness: settings.softness, color: color, custom: settings.customTip)
+    }
+
     /// The colour a dab is stamped in: its own, or `color`, which is the
     /// brush's. An eraser's dabs only take away, so they keep `color`.
     func paint(of dab: BrushDab, brush color: RGBAColor) -> RGBAColor {
@@ -504,7 +517,7 @@ extension Stroke {
         if pickup != nil, !isEraser {
             // Every dab its own mixed colour: filled through the tip's shape
             // rather than tinting a stamp for each.
-            let mask = BrushTipImage.mask(settings.tip, softness: settings.softness)
+            let mask = BrushTipImage.mask(settings.tip, softness: settings.softness, custom: settings.customTip)
             for dab in dabs {
                 context.saveGState()
                 context.translateBy(x: dab.center.x, y: dab.center.y)
@@ -526,7 +539,7 @@ extension Stroke {
         var tips: [RGBAColor: CGImage] = [:]
         for dab in dabs {
             let paint = paint(of: dab, brush: color)
-            let tip = tips[paint] ?? BrushTipImage.tinted(settings.tip, softness: settings.softness, color: paint)
+            let tip = tips[paint] ?? tipImage(in: paint)
             tips[paint] = tip
             context.saveGState()
             context.translateBy(x: dab.center.x, y: dab.center.y)
@@ -548,13 +561,18 @@ enum BrushTipImage {
     private static let tintCache = TipCache()
     private static let maskCache = TipCache()
 
+    /// Lets go of everything made from an imported tip that is gone.
+    static func forget(_ id: UUID) {
+        for cache in [cache, tintCache, maskCache] { cache.removeAll() }
+    }
+
     /// The tip's shape as a grey mask, white where it paints, for filling
     /// in any colour without tinting a stamp.
-    static func mask(_ tip: BrushTip, softness: Double) -> CGImage {
+    static func mask(_ tip: BrushTip, softness: Double, custom: UUID? = nil) -> CGImage {
         let step = Int((min(max(softness, 0), 1) * 20).rounded())
-        let key = "\(tip.rawValue)-\(step)"
+        let key = "\(tip.rawValue)-\(custom?.uuidString ?? "")-\(step)"
         if let cached = maskCache.image(for: key) { return cached }
-        let shape = image(tip, softness: softness)
+        let shape = image(tip, softness: softness, custom: custom)
         var grey = [UInt8](repeating: 0, count: size * size)
         grey.withUnsafeMutableBytes { buffer in
             guard let context = CGContext(
@@ -575,11 +593,11 @@ enum BrushTipImage {
     }
 
     /// The tip's image in `color`, kept for the next stroke in that colour.
-    static func tinted(_ tip: BrushTip, softness: Double, color: RGBAColor) -> CGImage {
+    static func tinted(_ tip: BrushTip, softness: Double, color: RGBAColor, custom: UUID? = nil) -> CGImage {
         let step = Int((min(max(softness, 0), 1) * 20).rounded())
-        let key = "\(tip.rawValue)-\(step)-\(color.red)-\(color.green)-\(color.blue)"
+        let key = "\(tip.rawValue)-\(custom?.uuidString ?? "")-\(step)-\(color.red)-\(color.green)-\(color.blue)"
         if let cached = tintCache.image(for: key) { return cached }
-        let shape = image(tip, softness: softness)
+        let shape = image(tip, softness: softness, custom: custom)
         let rect = CGRect(x: 0, y: 0, width: size, height: size)
         let made = Bitmap.render(size: rect.size) { context in
             Bitmap.draw(shape, in: rect, context: context)
@@ -591,12 +609,15 @@ enum BrushTipImage {
         return made
     }
 
-    static func image(_ tip: BrushTip, softness: Double) -> CGImage {
+    /// The tip's shape; for an imported tip, the picture it was made from,
+    /// or a round tip if that has been deleted.
+    static func image(_ tip: BrushTip, softness: Double, custom: UUID? = nil) -> CGImage {
         // Softness in twentieths is fine enough to see no steps.
         let step = Int((min(max(softness, 0), 1) * 20).rounded())
-        let key = "\(tip.rawValue)-\(step)"
+        let key = "\(tip.rawValue)-\(custom?.uuidString ?? "")-\(step)"
         if let cached = cache.image(for: key) { return cached }
-        let made = make(tip, softness: Double(step) / 20)
+        let imported = tip == .custom ? custom.flatMap(CustomBrushTips.image) : nil
+        let made = imported ?? make(tip == .custom ? .round : tip, softness: Double(step) / 20)
         cache.store(made, for: key)
         return made
     }
@@ -644,8 +665,8 @@ enum BrushTipImage {
                 switch tip {
                 case .round, .pencil, .calligraphy, .stipple, .neon:
                     alpha = falloff(reach)
-                case .pixel:
-                    // Never stamped from an image; filled square.
+                case .pixel, .custom:
+                    // Never stamped from an image made here.
                     alpha = 1
                 case .bristle, .dryBrush, .flat, .oil:
                     // The heaviest hair over this spot.
@@ -764,6 +785,10 @@ private final class TipCache: @unchecked Sendable {
 
     func image(for key: String) -> CGImage? {
         lock.withLock { images[key] }
+    }
+
+    func removeAll() {
+        lock.withLock { images.removeAll() }
     }
 
     /// Keeps `image`, first letting go of everything once there are more
