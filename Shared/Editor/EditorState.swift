@@ -503,7 +503,9 @@ final class EditorState {
     // MARK: - Gestures
 
     /// A finger or pencil came down on the canvas.
-    func toolBegan(at point: CGPoint, pressure: Double, azimuth: Double? = nil, altitude: Double? = nil) {
+    func toolBegan(
+        at point: CGPoint, pressure: Double, azimuth: Double? = nil, altitude: Double? = nil, time: TimeInterval? = nil
+    ) {
         // Touching down ends a hover.
         hoverPoint = nil
         // An adjustment being tried stands in for the layer; painting under
@@ -526,14 +528,14 @@ final class EditorState {
                 var settings = currentBrush
                 settings.color = .white
                 activeStroke = Stroke(
-                    points: [StrokePoint(location: point, pressure: pressure, azimuth: azimuth, altitude: altitude)],
+                    points: [StrokePoint(location: point, pressure: pressure, azimuth: azimuth, altitude: altitude, time: time)],
                     settings: settings, kind: tool == .brush ? .erase : .paint, clip: selection
                 )
                 return
             }
             if tool == .blur || tool == .mosaic || tool == .clone { prepareRetouchEffect() }
             activeStroke = Stroke(
-                points: [StrokePoint(location: point, pressure: pressure, azimuth: azimuth, altitude: altitude)],
+                points: [StrokePoint(location: point, pressure: pressure, azimuth: azimuth, altitude: altitude, time: time)],
                 settings: currentBrush, kind: strokeKind, clip: selection
             )
         case .smudge, .liquify:

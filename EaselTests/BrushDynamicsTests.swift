@@ -45,6 +45,26 @@ struct BrushDynamicsTests {
         #expect(thickness(stamped, x: 13) < thickness(stamped, x: 100))
     }
 
+    @Test func aQuickStrokeThinsWhereItHurries() {
+        // Slow for the first half, ten pixels each 0.1 s; then ten pixels
+        // each millisecond.
+        var hurried = stroke { $0.speed = 1 }
+        var time = 0.0
+        hurried.points = hurried.points.enumerated().map { index, point in
+            var timed = point
+            time += index < 10 ? 0.1 : 0.001
+            timed.time = time
+            return timed
+        }
+        let widths = hurried.widths
+        #expect(widths[1] > 9)
+        #expect(widths[widths.count - 2] < 5)
+        // Untimed points, as from a ruler or a test, keep their width.
+        #expect(stroke { $0.speed = 1 }.widths.allSatisfy { $0 == 10 })
+        hurried.settings.dynamics.speed = 0
+        #expect(hurried.widths.allSatisfy { $0 == 10 })
+    }
+
     @Test func brushesSavedBeforeDynamicsStillOpen() throws {
         let old = #"{"id":"6E1A6C4C-0E5B-4C8B-9E83-2B0A0B0B0B0B","name":"Old","tip":"round","size":5,"opacity":1,"softness":0,"usesPressure":true,"usesTilt":true}"#
         let preset = try JSONDecoder().decode(BrushPreset.self, from: Data(old.utf8))

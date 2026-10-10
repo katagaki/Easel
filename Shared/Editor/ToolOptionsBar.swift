@@ -552,6 +552,10 @@ private struct BrushSettingsButton: View {
                             label: "Options.Taper", value: $state.currentBrush.dynamics.taper,
                             valueText: "\(Int((state.currentBrush.dynamics.taper * 100).rounded()))%"
                         )
+                        LabeledSlider(
+                            label: "Options.SpeedThinning", value: $state.currentBrush.dynamics.speed,
+                            valueText: "\(Int((state.currentBrush.dynamics.speed * 100).rounded()))%"
+                        )
                     }
                 }
                 if state.tool != .smudge && state.tool != .liquify {

@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// How a brush or eraser lays down paint.
 struct BrushSettings: Codable, Equatable, Sendable {
@@ -26,6 +27,9 @@ struct BrushSettings: Codable, Equatable, Sendable {
 struct BrushDynamics: Codable, Hashable, Sendable {
     /// How far the stroke thins toward both ends, 0 for not at all.
     var taper = 0.0
+    /// How much a quick stroke thins, as a dip pen's line does, 0 for not
+    /// at all.
+    var speed = 0.0
 
     init() {}
 
@@ -34,6 +38,7 @@ struct BrushDynamics: Codable, Hashable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         taper = try container.decodeIfPresent(Double.self, forKey: .taper) ?? 0
+        speed = try container.decodeIfPresent(Double.self, forKey: .speed) ?? 0
     }
 }
 
@@ -47,6 +52,8 @@ struct StrokePoint: Equatable, Sendable {
     /// How upright Apple Pencil is, from 0 lying flat to π/2 straight up,
     /// nil for a finger.
     var altitude: Double?
+    /// When the point was drawn, in seconds, nil if not known.
+    var time: TimeInterval?
 }
 
 /// One drag of a brush or eraser, kept as points until it is painted in, so
@@ -114,9 +121,16 @@ struct Stroke: Equatable, Sendable {
     }
 
     /// How wide the stroke is at each of its points: pressure's width,
-    /// narrowed toward tapered ends.
+    /// thinned where it was drawn quickly and toward tapered ends.
     var widths: [Double] {
         var result = points.map { width(at: $0) }
+        let speed = min(max(settings.dynamics.speed, 0), 1)
+        if speed > 0 {
+            for (index, pace) in paces.enumerated() {
+                // Thins smoothly with pace, to two fifths at a dash.
+                result[index] *= 1 - speed * 0.6 * (1 - exp(-pace / 1500))
+            }
+        }
         let taper = min(max(settings.dynamics.taper, 0), 1)
         guard taper > 0, points.count > 1 else { return result }
         var distances = [0.0]
@@ -137,6 +151,22 @@ struct Stroke: Equatable, Sendable {
             result[index] *= 0.08 + 0.92 * eased
         }
         return result
+    }
+
+    /// How fast the stroke was moving at each point, in canvas pixels a
+    /// second, taken over a few points either side so it does not flicker.
+    /// Zero where there are no times.
+    var paces: [Double] {
+        points.indices.map { index in
+            let first = max(index - 3, 0), last = min(index + 3, points.count - 1)
+            guard let start = points[first].time, let end = points[last].time, end > start else { return 0 }
+            var distance = 0.0
+            for step in stride(from: first + 1, through: last, by: 1) {
+                let from = points[step - 1].location, to = points[step].location
+                distance += hypot(to.x - from.x, to.y - from.y)
+            }
+            return distance / (end - start)
+        }
     }
 
     /// The stroke as a single centre line through the midpoints of its

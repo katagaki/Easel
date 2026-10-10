@@ -38,7 +38,7 @@ struct CanvasView: View {
                 began: { sample in
                     state.toolBegan(
                         at: state.viewport.canvasPoint(sample.location), pressure: sample.pressure,
-                        azimuth: sample.azimuth, altitude: sample.altitude
+                        azimuth: sample.azimuth, altitude: sample.altitude, time: sample.time
                     )
                 },
                 moved: { samples in
@@ -46,7 +46,7 @@ struct CanvasView: View {
                     state.toolMoved(to: samples.map {
                         StrokePoint(
                             location: viewport.canvasPoint($0.location), pressure: $0.pressure,
-                            azimuth: $0.azimuth, altitude: $0.altitude
+                            azimuth: $0.azimuth, altitude: $0.altitude, time: $0.time
                         )
                     })
                 },

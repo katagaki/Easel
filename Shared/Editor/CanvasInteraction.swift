@@ -237,6 +237,8 @@ final class StrokeGestureRecognizer: UIGestureRecognizer {
         /// Apple Pencil's lean and how upright it is; nil for a finger.
         var azimuth: Double?
         var altitude: Double?
+        /// When the touch was here, in seconds.
+        var time: TimeInterval
     }
 
     /// Samples not yet handed on.
@@ -306,7 +308,8 @@ final class StrokeGestureRecognizer: UIGestureRecognizer {
         return Sample(
             location: touch.location(in: view), pressure: pressure,
             azimuth: isPencil ? Double(touch.azimuthAngle(in: view)) : nil,
-            altitude: isPencil ? Double(touch.altitudeAngle) : nil
+            altitude: isPencil ? Double(touch.altitudeAngle) : nil,
+            time: touch.timestamp
         )
     }
 }
