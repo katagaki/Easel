@@ -196,4 +196,12 @@ struct PSDReaderTests {
         #expect(EaselDocument.readableContentTypes.contains { type.conforms(to: $0) })
         #expect(EaselDocument.writableContentTypes.contains { type.conforms(to: $0) })
     }
+
+    /// A `.psb` has to resolve to a type Easel opens; it is not written back.
+    @Test func psbFilesResolveToReadableTypes() throws {
+        let type = try #require(UTType(filenameExtension: "psb"))
+        #expect(type.identifier == "com.adobe.photoshop-large-image")
+        #expect(EaselDocument.readableContentTypes.contains { type.conforms(to: $0) })
+        #expect(!EaselDocument.writableContentTypes.contains { type.conforms(to: $0) })
+    }
 }
