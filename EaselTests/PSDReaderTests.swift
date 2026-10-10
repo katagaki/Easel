@@ -187,4 +187,13 @@ struct PSDReaderTests {
         let packed: [UInt8] = [2, 1, 2, 3, UInt8(bitPattern: -3), 9]
         #expect(PSDReader.unpackBits(packed, expected: 7) == [1, 2, 3, 9, 9, 9, 9])
     }
+
+    /// A `.psd` has to resolve to a type Easel both opens and saves.
+    @Test func psdFilesResolveToReadableTypes() throws {
+        let type = try #require(UTType(filenameExtension: "psd"))
+        #expect(type.identifier == "com.adobe.photoshop-image")
+        #expect(type.isDeclared)
+        #expect(EaselDocument.readableContentTypes.contains { type.conforms(to: $0) })
+        #expect(EaselDocument.writableContentTypes.contains { type.conforms(to: $0) })
+    }
 }
