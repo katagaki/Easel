@@ -36,6 +36,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case spatter
     /// A sea sponge dabbed along: porous blots, each turned its own way.
     case sponge
+    /// Leaves strewn along the stroke, each turned and shaded its own way.
+    case foliage
 
     var id: String { rawValue }
 
@@ -56,6 +58,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .flat: return "Brush.Tip.Flat"
         case .spatter: return "Brush.Tip.Spatter"
         case .sponge: return "Brush.Tip.Sponge"
+        case .foliage: return "Brush.Tip.Foliage"
         }
     }
 
@@ -76,6 +79,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .flat: return "rectangle.portrait"
         case .spatter: return "drop.degreesign"
         case .sponge: return "circle.hexagongrid.fill"
+        case .foliage: return "leaf"
         }
     }
 
@@ -94,6 +98,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bristle, .dryBrush, .flat: return 0.03
         case .spatter: return 0.35
         case .sponge: return 0.35
+        case .foliage: return 0.45
         }
     }
 
@@ -126,7 +131,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
         case .bristle, .dryBrush, .flat: return 0.9
-        case .spatter: return 1
+        case .spatter, .foliage: return 1
         case .sponge: return 0.7
         }
     }
@@ -150,7 +155,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage: return 0
         }
     }
 
@@ -183,6 +188,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stipple: return 0.45
         case .spatter: return 1.6
         case .sponge: return 0.25
+        case .foliage: return 0.8
         default: return 0
         }
     }
@@ -193,9 +199,13 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stipple: return 0.5
         case .spatter: return 0.85
         case .sponge: return 0.3
+        case .foliage: return 0.5
         default: return 0
         }
     }
+
+    /// How much the tip's own dabs vary in colour, before any Color Jitter.
+    fileprivate var colorJitter: Double { self == .foliage ? 0.35 : 0 }
 
     /// How coarse the paper's tooth is under this tip: charcoal is used on
     /// rougher paper than pencil.
@@ -239,7 +249,7 @@ extension Stroke {
 
     var sizeJitter: Double { max(min(max(settings.dynamics.sizeJitter, 0), 1), settings.tip.sizeJitter) }
 
-    var colorJitter: Double { min(max(settings.dynamics.colorJitter, 0), 1) }
+    var colorJitter: Double { max(min(max(settings.dynamics.colorJitter, 0), 1), settings.tip.colorJitter) }
 
     /// The handful of colours a jittered stroke's dabs are picked from: few
     /// enough that each is tinted once, enough that it reads as varied.
@@ -522,6 +532,11 @@ enum BrushTipImage {
                     // A lumpy blot, open wherever a pore is.
                     let open = pores.contains { hypot(dx - $0.x, dy - $0.y) < $0.radius }
                     alpha = open ? 0 : falloff(reach / (0.8 + 0.2 * rim(atan2(dy, dx))), hardest: 0.15)
+                case .foliage:
+                    // A pointed leaf along the tip's width, its midrib paler.
+                    let half = 0.42 * (1 - dx * dx)
+                    alpha = half > 0 ? falloff(max(abs(dx), abs(dy) / half), hardest: 0.1)
+                        * (abs(dy) < 0.035 && abs(dx) < 0.85 ? 0.55 : 1) : 0
                 case .crayon:
                     // A worn wax point, round but not quite.
                     alpha = falloff(reach / (0.92 + 0.08 * rim(atan2(dy, dx))))

@@ -112,6 +112,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .sponge
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Foliage"), settings: {
+            var settings = BrushSettings(size: 50, usesPressure: false)
+            settings.tip = .foliage
+            return settings
+        }()),
     ]
 }
 

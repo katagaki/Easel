@@ -179,6 +179,17 @@ struct BrushTipTests {
         #expect(Set(dabs.map(\.diameter)).count > 3)
     }
 
+    @Test func foliageStrewsLeavesInVariedShades() {
+        let tip = BrushTipImage.image(.foliage, softness: 0)
+        // Long along its width, narrow across, pointed at the ends.
+        #expect(TestImages.pixel(tip, x: 64, y: 64 + 20).alpha > 200)
+        #expect(TestImages.pixel(tip, x: 64, y: 64 + 40).alpha == 0)
+        #expect(TestImages.pixel(tip, x: 120, y: 64 + 10).alpha == 0)
+        let dabs = stroke(.foliage, size: 20).dabs
+        #expect(Set(dabs.compactMap(\.color)).count > 3)
+        #expect(Set(dabs.map(\.angle)).count == dabs.count)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
