@@ -434,6 +434,8 @@ S = {
 "Brush.Preset.Charcoal": ("Willow Charcoal", "木炭", "버드나무 목탄", "柳木炭笔", "柳木炭筆"),
 "Brush.Tip.Crayon": ("Crayon", "クレヨン", "크레용", "蜡笔", "蠟筆"),
 "Brush.Preset.Crayon": ("Wax Crayon", "クレヨン", "크레용", "蜡笔", "蠟筆"),
+"Brush.Tip.Stipple": ("Stipple", "点描", "점묘", "点画", "點畫"),
+"Brush.Preset.Stipple": ("Stippling Pen", "点描ペン", "점묘 펜", "点画笔", "點畫筆"),
 "Brush.Preset.Marker": ("Felt Marker", "フェルトマーカー", "펠트 마커", "毡头马克笔", "氈頭麥克筆"),
 "Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
 "Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),

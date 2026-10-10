@@ -77,6 +77,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .crayon
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Stipple"), settings: {
+            var settings = BrushSettings(size: 24)
+            settings.tip = .stipple
+            return settings
+        }()),
     ]
 }
 

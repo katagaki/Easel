@@ -20,6 +20,9 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case charcoal
     /// Wax that catches only the peaks of the paper, leaving its hollows.
     case crayon
+    /// Separate dots, as from a pen tapped along, shading by how close
+    /// they fall.
+    case stipple
 
     var id: String { rawValue }
 
@@ -33,6 +36,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .marker: return "Brush.Tip.Marker"
         case .charcoal: return "Brush.Tip.Charcoal"
         case .crayon: return "Brush.Tip.Crayon"
+        case .stipple: return "Brush.Tip.Stipple"
         }
     }
 
@@ -46,6 +50,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .marker: return "highlighter"
         case .charcoal: return "scribble"
         case .crayon: return "pencil.tip.crop.circle"
+        case .stipple: return "circle.dotted"
         }
     }
 
@@ -59,6 +64,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .marker: return 0.05
         case .charcoal: return 0.1
         case .crayon: return 0.1
+        case .stipple: return 0.3
         }
     }
 
@@ -88,7 +94,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .airbrush: return 0.25
         case .chalk: return 0.75
         case .charcoal: return 0.95
-        case .crayon: return 1
+        case .crayon, .stipple: return 1
         }
     }
 
@@ -110,9 +116,20 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.7
         case .charcoal: return 0.55
         case .crayon: return 0.8
-        case .round, .calligraphy, .airbrush, .marker: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple: return 0
         }
     }
+
+    /// How big each dab is beside the brush's width: under 1 for tips that
+    /// lay down many small marks across the stroke.
+    fileprivate var dabScale: Double { self == .stipple ? 0.4 : 1 }
+
+    /// How far the tip's own dabs stray from the line, before any Scatter
+    /// asked for.
+    fileprivate var scatter: Double { self == .stipple ? 0.45 : 0 }
+
+    /// How much the tip's own dabs vary in size, before any Size Jitter.
+    fileprivate var sizeJitter: Double { self == .stipple ? 0.5 : 0 }
 
     /// How coarse the paper's tooth is under this tip: charcoal is used on
     /// rougher paper than pencil.
@@ -147,9 +164,9 @@ extension Stroke {
     var usesDabs: Bool { settings.tip != .round || scatter > 0 || sizeJitter > 0 || colorJitter > 0 }
 
     /// How far dabs stray from the line, as a share of a brush's width.
-    var scatter: Double { min(max(settings.dynamics.scatter, 0), 1) }
+    var scatter: Double { max(min(max(settings.dynamics.scatter, 0), 1), settings.tip.scatter) }
 
-    var sizeJitter: Double { min(max(settings.dynamics.sizeJitter, 0), 1) }
+    var sizeJitter: Double { max(min(max(settings.dynamics.sizeJitter, 0), 1), settings.tip.sizeJitter) }
 
     var colorJitter: Double { min(max(settings.dynamics.colorJitter, 0), 1) }
 
@@ -178,7 +195,7 @@ extension Stroke {
         let scatter = scatter, sizeJitter = sizeJitter
         let colors = jitteredColors
         func dab(at point: StrokePoint, width: Double, heading: Double) -> BrushDab {
-            var diameter = max(1, width)
+            var diameter = max(1, width * tip.dabScale)
             if sizeJitter > 0 { diameter = max(1, diameter * (1 - sizeJitter * random.next())) }
             var opacity = tip.flow
             // Laid on its side, a dry tip shades broad and light.
@@ -363,7 +380,7 @@ enum BrushTipImage {
                 let cell = grain[(y / 2) * cells + x / 2]
                 let alpha: Double
                 switch tip {
-                case .round, .pencil, .calligraphy:
+                case .round, .pencil, .calligraphy, .stipple:
                     alpha = falloff(reach)
                 case .airbrush:
                     alpha = reach < 1 ? 1 - reach * reach : 0

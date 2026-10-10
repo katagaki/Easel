@@ -93,6 +93,19 @@ struct BrushTipTests {
         #expect(stroke(.crayon).grainScale > stroke(.pencil).grainScale)
     }
 
+    @Test func stipplingLeavesSeparateDots() {
+        let dabs = stroke(.stipple, size: 20).dabs
+        // Small dots, varied, spread across the stroke's width.
+        #expect(dabs.allSatisfy { $0.diameter <= 8 })
+        #expect(Set(dabs.map(\.diameter)).count > 5)
+        #expect(dabs.contains { abs($0.center.y - 20) > 3 })
+        // Painted, the line breaks between them.
+        let image = Painter.paint(stroke(.stipple, size: 20), onto: canvas)
+        let row = (15..<85).map { TestImages.pixel(image, x: $0, y: 20).alpha }
+        #expect(row.contains { $0 > 200 })
+        #expect(row.filter { $0 == 0 }.count > 10)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
