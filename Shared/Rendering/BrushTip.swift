@@ -23,6 +23,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Separate dots, as from a pen tapped along, shading by how close
     /// they fall.
     case stipple
+    /// Hard square pixels on the canvas's own grid, for pixel art.
+    case pixel
 
     var id: String { rawValue }
 
@@ -37,6 +39,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return "Brush.Tip.Charcoal"
         case .crayon: return "Brush.Tip.Crayon"
         case .stipple: return "Brush.Tip.Stipple"
+        case .pixel: return "Brush.Tip.Pixel"
         }
     }
 
@@ -51,6 +54,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return "scribble"
         case .crayon: return "pencil.tip.crop.circle"
         case .stipple: return "circle.dotted"
+        case .pixel: return "square.grid.3x3.square"
         }
     }
 
@@ -65,6 +69,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.1
         case .crayon: return 0.1
         case .stipple: return 0.3
+        case .pixel: return 0.25
         }
     }
 
@@ -94,7 +99,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .airbrush: return 0.25
         case .chalk: return 0.75
         case .charcoal: return 0.95
-        case .crayon, .stipple: return 1
+        case .crayon, .stipple, .pixel: return 1
         }
     }
 
@@ -116,7 +121,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.7
         case .charcoal: return 0.55
         case .crayon: return 0.8
-        case .round, .calligraphy, .airbrush, .marker, .stipple: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel: return 0
         }
     }
 
@@ -156,6 +161,11 @@ struct BrushDab: Equatable, Sendable {
     var opacity: Double
     /// Its own colour, nil for the brush's.
     var color: RGBAColor?
+
+    /// The square it covers, unturned.
+    var square: CGRect {
+        CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter)
+    }
 }
 
 extension Stroke {
@@ -217,7 +227,13 @@ extension Stroke {
                 center.x += cos(toward) * away
                 center.y += sin(toward) * away
             }
-            if tip == .round { angle = 0 }
+            if tip == .round || tip == .pixel { angle = 0 }
+            if tip == .pixel {
+                // Whole pixels, lined up with the canvas's.
+                diameter = max(1, diameter.rounded())
+                center.x = (center.x - diameter / 2).rounded() + diameter / 2
+                center.y = (center.y - diameter / 2).rounded() + diameter / 2
+            }
             let color = colors.isEmpty ? nil : colors[min(Int(random.next() * Double(colors.count)), colors.count - 1)]
             return BrushDab(
                 center: center, diameter: diameter, angle: angle, roundness: tip.roundness, opacity: opacity,
@@ -302,6 +318,19 @@ extension Stroke {
                 context.restoreGState()
             }
         }
+        if settings.tip == .pixel {
+            // Squares filled without smoothing, so every pixel is all or
+            // nothing.
+            context.saveGState()
+            context.setShouldAntialias(false)
+            for dab in dabs {
+                context.setFillColor(paint(of: dab, brush: color).withAlpha(1).cgColor)
+                context.setAlpha(dab.opacity)
+                context.fill(dab.square)
+            }
+            context.restoreGState()
+            return
+        }
         var tips: [RGBAColor: CGImage] = [:]
         for dab in dabs {
             let paint = paint(of: dab, brush: color)
@@ -382,6 +411,9 @@ enum BrushTipImage {
                 switch tip {
                 case .round, .pencil, .calligraphy, .stipple:
                     alpha = falloff(reach)
+                case .pixel:
+                    // Never stamped from an image; filled square.
+                    alpha = 1
                 case .airbrush:
                     alpha = reach < 1 ? 1 - reach * reach : 0
                 case .chalk:

@@ -357,6 +357,17 @@ extension StrokePreview {
     /// A stamped stroke's dabs, placed as `Stroke.drawDabs` places them.
     fileprivate func drawDabs(of stroke: Stroke, in context: inout GraphicsContext, transform: CGAffineTransform, scale: Double) {
         let color = stroke.isEraser ? RGBAColor.black : stroke.settings.color
+        if stroke.settings.tip == .pixel {
+            for dab in stroke.dabs {
+                var square = context
+                square.opacity = dab.opacity
+                square.fill(
+                    Path(dab.square.applying(transform)),
+                    with: .color(stroke.paint(of: dab, brush: color).withAlpha(1).color)
+                )
+            }
+            return
+        }
         var tips: [RGBAColor: GraphicsContext.ResolvedImage] = [:]
         for dab in stroke.dabs {
             let paint = stroke.paint(of: dab, brush: color)

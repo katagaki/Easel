@@ -82,6 +82,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .stipple
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Pixel"), settings: {
+            var settings = BrushSettings(size: 1, usesPressure: false)
+            settings.tip = .pixel
+            return settings
+        }()),
     ]
 }
 

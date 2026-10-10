@@ -106,6 +106,21 @@ struct BrushTipTests {
         #expect(row.filter { $0 == 0 }.count > 10)
     }
 
+    @Test func aPixelBrushPaintsWholePixelsOnly() {
+        let image = Painter.paint(stroke(.pixel, size: 3, from: CGPoint(x: 10.3, y: 20.4), to: CGPoint(x: 60.8, y: 31.7)), onto: canvas)
+        var inked = 0
+        for y in 0..<40 {
+            for x in 0..<100 {
+                let alpha = TestImages.pixel(image, x: x, y: y).alpha
+                // No smoothing: every pixel is all paint or none.
+                #expect(alpha == 0 || alpha == 255)
+                if alpha == 255 { inked += 1 }
+            }
+        }
+        #expect(inked > 150)
+        #expect(stroke(.pixel, size: 2.6).dabs.allSatisfy { $0.diameter == 3 && $0.square == $0.square.integral })
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
