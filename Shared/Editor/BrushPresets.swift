@@ -117,6 +117,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .foliage
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Stars"), settings: {
+            var settings = BrushSettings(size: 36, usesPressure: false)
+            settings.tip = .stars
+            return settings
+        }()),
     ]
 }
 

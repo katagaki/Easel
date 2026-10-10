@@ -38,6 +38,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case sponge
     /// Leaves strewn along the stroke, each turned and shaded its own way.
     case foliage
+    /// Five-pointed stars scattered along the stroke.
+    case stars
 
     var id: String { rawValue }
 
@@ -59,6 +61,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .spatter: return "Brush.Tip.Spatter"
         case .sponge: return "Brush.Tip.Sponge"
         case .foliage: return "Brush.Tip.Foliage"
+        case .stars: return "Brush.Tip.Stars"
         }
     }
 
@@ -80,6 +83,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .spatter: return "drop.degreesign"
         case .sponge: return "circle.hexagongrid.fill"
         case .foliage: return "leaf"
+        case .stars: return "star"
         }
     }
 
@@ -99,6 +103,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .spatter: return 0.35
         case .sponge: return 0.35
         case .foliage: return 0.45
+        case .stars: return 0.6
         }
     }
 
@@ -131,7 +136,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
         case .bristle, .dryBrush, .flat: return 0.9
-        case .spatter, .foliage: return 1
+        case .spatter, .foliage, .stars: return 1
         case .sponge: return 0.7
         }
     }
@@ -155,7 +160,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars: return 0
         }
     }
 
@@ -189,6 +194,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .spatter: return 1.6
         case .sponge: return 0.25
         case .foliage: return 0.8
+        case .stars: return 0.7
         default: return 0
         }
     }
@@ -200,6 +206,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .spatter: return 0.85
         case .sponge: return 0.3
         case .foliage: return 0.5
+        case .stars: return 0.6
         default: return 0
         }
     }
@@ -537,6 +544,20 @@ enum BrushTipImage {
                     let half = 0.42 * (1 - dx * dx)
                     alpha = half > 0 ? falloff(max(abs(dx), abs(dy) / half), hardest: 0.1)
                         * (abs(dy) < 0.035 && abs(dx) < 0.85 ? 0.55 : 1) : 0
+                case .stars:
+                    // Five points joined by straight edges to an inner
+                    // corner two fifths out between each.
+                    var angle = atan2(dy, dx)
+                    if angle < 0 { angle += 2 * .pi }
+                    let sector = Double.pi / 5
+                    let corner = (angle / sector).rounded(.down)
+                    let outer = corner.truncatingRemainder(dividingBy: 2) == 0
+                    let start = (cos(corner * sector) * (outer ? 1 : 0.4), sin(corner * sector) * (outer ? 1 : 0.4))
+                    let end = (cos((corner + 1) * sector) * (outer ? 0.4 : 1), sin((corner + 1) * sector) * (outer ? 0.4 : 1))
+                    // Where the ray out through this spot crosses that edge.
+                    let edge = (end.0 - start.0, end.1 - start.1)
+                    let boundary = (start.0 * edge.1 - start.1 * edge.0) / (cos(angle) * edge.1 - sin(angle) * edge.0)
+                    alpha = falloff(reach / boundary, hardest: 0.06)
                 case .crayon:
                     // A worn wax point, round but not quite.
                     alpha = falloff(reach / (0.92 + 0.08 * rim(atan2(dy, dx))))

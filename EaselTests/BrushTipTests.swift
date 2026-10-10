@@ -190,6 +190,21 @@ struct BrushTipTests {
         #expect(Set(dabs.map(\.angle)).count == dabs.count)
     }
 
+    @Test func aStarHasFivePoints() {
+        let tip = BrushTipImage.image(.stars, softness: 0)
+        // Round a circle most of the way out, it is solid five times over.
+        var runs = 0, wasInside = false
+        for step in 0..<360 {
+            let angle = Double(step) / 360 * 2 * .pi
+            let x = Int(64 + cos(angle) * 50), y = Int(64 + sin(angle) * 50)
+            let inside = TestImages.pixel(tip, x: x, y: y).alpha > 128
+            if inside && !wasInside { runs += 1 }
+            wasInside = inside
+        }
+        #expect(runs == 5 || runs == 6)
+        #expect(TestImages.pixel(tip, x: 64, y: 64).alpha == 255)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
