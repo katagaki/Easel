@@ -434,6 +434,7 @@ S = {
 "Options.FollowsStroke": ("Turn with Stroke", "ストロークに沿って回転", "획을 따라 회전", "随笔画旋转", "隨筆畫旋轉"),
 "Options.Scatter": ("Scatter", "散布", "흩뿌리기", "散布", "散佈"),
 "Options.SizeJitter": ("Size Jitter", "サイズのゆらぎ", "크기 변화", "大小抖动", "大小抖動"),
+"Options.ColorJitter": ("Color Jitter", "色のゆらぎ", "색상 변화", "颜色抖动", "顏色抖動"),
 "Options.SpeedThinning": ("Thin When Fast", "速さで細く", "빠르면 가늘게", "快速时变细", "快速時變細"),
 "Tool.Brush": ("Brush", "ブラシ", "브러시", "画笔", "筆刷"),
 "Tool.Transform": ("Transform", "変形", "변형", "变换", "變形"),

@@ -38,6 +38,8 @@ struct BrushDynamics: Codable, Hashable, Sendable {
     /// How much each dab's size varies, shrinking at random down to nothing
     /// at 1.
     var sizeJitter = 0.0
+    /// How far each dab's colour strays in hue, saturation and brightness.
+    var colorJitter = 0.0
 
     init() {}
 
@@ -50,6 +52,7 @@ struct BrushDynamics: Codable, Hashable, Sendable {
         followsStroke = try container.decodeIfPresent(Bool.self, forKey: .followsStroke) ?? false
         scatter = try container.decodeIfPresent(Double.self, forKey: .scatter) ?? 0
         sizeJitter = try container.decodeIfPresent(Double.self, forKey: .sizeJitter) ?? 0
+        colorJitter = try container.decodeIfPresent(Double.self, forKey: .colorJitter) ?? 0
     }
 }
 

@@ -83,17 +83,35 @@ struct BrushDab: Equatable, Sendable {
     /// Height over width; below 1 for a flat nib.
     var roundness: Double
     var opacity: Double
+    /// Its own colour, nil for the brush's.
+    var color: RGBAColor?
 }
 
 extension Stroke {
     /// Whether the stroke is stamped dab by dab rather than drawn as a line:
     /// any tip but round, and round too once its dabs stray or vary.
-    var usesDabs: Bool { settings.tip != .round || scatter > 0 || sizeJitter > 0 }
+    var usesDabs: Bool { settings.tip != .round || scatter > 0 || sizeJitter > 0 || colorJitter > 0 }
 
     /// How far dabs stray from the line, as a share of a brush's width.
     var scatter: Double { min(max(settings.dynamics.scatter, 0), 1) }
 
     var sizeJitter: Double { min(max(settings.dynamics.sizeJitter, 0), 1) }
+
+    var colorJitter: Double { min(max(settings.dynamics.colorJitter, 0), 1) }
+
+    /// The handful of colours a jittered stroke's dabs are picked from: few
+    /// enough that each is tinted once, enough that it reads as varied.
+    var jitteredColors: [RGBAColor] {
+        guard colorJitter > 0 else { return [] }
+        var random = SeededRandom(seed: 99)
+        return (0..<12).map { _ in
+            settings.color.jittered(
+                hue: (random.next() - 0.5) * colorJitter * 0.25,
+                saturation: (random.next() - 0.5) * colorJitter * 0.6,
+                brightness: (random.next() - 0.5) * colorJitter * 0.6
+            )
+        }
+    }
 
     /// Where each dab of a stamped stroke goes, the same each time it is
     /// worked out, so the preview and the painted result match.
@@ -104,6 +122,7 @@ extension Stroke {
         let widths = widths
         let follows = settings.dynamics.followsStroke
         let scatter = scatter, sizeJitter = sizeJitter
+        let colors = jitteredColors
         func dab(at point: StrokePoint, width: Double, heading: Double) -> BrushDab {
             var diameter = max(1, width)
             if sizeJitter > 0 { diameter = max(1, diameter * (1 - sizeJitter * random.next())) }
@@ -128,8 +147,10 @@ extension Stroke {
                 center.y += sin(toward) * away
             }
             if tip == .round { angle = 0 }
+            let color = colors.isEmpty ? nil : colors[min(Int(random.next() * Double(colors.count)), colors.count - 1)]
             return BrushDab(
-                center: center, diameter: diameter, angle: angle, roundness: tip.roundness, opacity: opacity
+                center: center, diameter: diameter, angle: angle, roundness: tip.roundness, opacity: opacity,
+                color: color
             )
         }
         // The first dab faces the way the stroke sets off.
@@ -190,8 +211,14 @@ extension Stroke {
     /// for small brushes, coarser for big ones, so it reads at any size.
     var grainScale: Double { max(1, settings.size / 20) }
 
-    /// Stamps the dabs in solid `color` into `context`, then lets the paper
-    /// show through as the tip's grain asks.
+    /// The colour a dab is stamped in: its own, or `color`, which is the
+    /// brush's. An eraser's dabs only take away, so they keep `color`.
+    func paint(of dab: BrushDab, brush color: RGBAColor) -> RGBAColor {
+        isEraser ? color : dab.color ?? color
+    }
+
+    /// Stamps the dabs in solid `color`, or each in its own, into
+    /// `context`, then lets the paper show through as the tip's grain asks.
     func drawDabs(in context: CGContext, color: RGBAColor) {
         defer {
             if let grain = PaperGrain.image(strength: settings.tip.grain) {
@@ -204,8 +231,11 @@ extension Stroke {
                 context.restoreGState()
             }
         }
-        let tip = BrushTipImage.tinted(settings.tip, softness: settings.softness, color: color)
+        var tips: [RGBAColor: CGImage] = [:]
         for dab in dabs {
+            let paint = paint(of: dab, brush: color)
+            let tip = tips[paint] ?? BrushTipImage.tinted(settings.tip, softness: settings.softness, color: paint)
+            tips[paint] = tip
             context.saveGState()
             context.translateBy(x: dab.center.x, y: dab.center.y)
             context.rotate(by: dab.angle)
@@ -223,17 +253,23 @@ extension Stroke {
 enum BrushTipImage {
     private static let size = 128
     private static let cache = TipCache()
+    private static let tintCache = TipCache()
 
-    /// The tip's image in `color`.
+    /// The tip's image in `color`, kept for the next stroke in that colour.
     static func tinted(_ tip: BrushTip, softness: Double, color: RGBAColor) -> CGImage {
+        let step = Int((min(max(softness, 0), 1) * 20).rounded())
+        let key = "\(tip.rawValue)-\(step)-\(color.red)-\(color.green)-\(color.blue)"
+        if let cached = tintCache.image(for: key) { return cached }
         let shape = image(tip, softness: softness)
         let rect = CGRect(x: 0, y: 0, width: size, height: size)
-        return Bitmap.render(size: rect.size) { context in
+        let made = Bitmap.render(size: rect.size) { context in
             Bitmap.draw(shape, in: rect, context: context)
             context.setBlendMode(.sourceIn)
             context.setFillColor(color.withAlpha(1).cgColor)
             context.fill(rect)
         }
+        tintCache.store(made, for: key, limit: 256)
+        return made
     }
 
     static func image(_ tip: BrushTip, softness: Double) -> CGImage {
@@ -323,8 +359,43 @@ private final class TipCache: @unchecked Sendable {
         lock.withLock { images[key] }
     }
 
-    func store(_ image: CGImage, for key: String) {
-        lock.withLock { images[key] = image }
+    /// Keeps `image`, first letting go of everything once there are more
+    /// than `limit`, for caches that could otherwise grow without end.
+    func store(_ image: CGImage, for key: String, limit: Int = .max) {
+        lock.withLock {
+            if images.count >= limit { images.removeAll() }
+            images[key] = image
+        }
+    }
+}
+
+extension RGBAColor {
+    /// The colour moved round the colour wheel by `hue` of a turn, and its
+    /// saturation and brightness moved by the amounts given, each 0...1.
+    func jittered(hue: Double, saturation: Double, brightness: Double) -> RGBAColor {
+        let red = min(max(self.red, 0), 1), green = min(max(self.green, 0), 1), blue = min(max(self.blue, 0), 1)
+        let high = max(red, green, blue), low = min(red, green, blue), range = high - low
+        var h = 0.0
+        if range > 0 {
+            if high == red {
+                h = (green - blue) / range
+            } else if high == green {
+                h = 2 + (blue - red) / range
+            } else {
+                h = 4 + (red - green) / range
+            }
+            h /= 6
+        }
+        h = (h + hue).truncatingRemainder(dividingBy: 1)
+        if h < 0 { h += 1 }
+        let s = min(max((high > 0 ? range / high : 0) + saturation, 0), 1)
+        let v = min(max(high + brightness, 0), 1)
+        // Back from hue, saturation and value.
+        func channel(_ n: Double) -> Double {
+            let k = (n + h * 6).truncatingRemainder(dividingBy: 6)
+            return v - v * s * max(0, min(k, 4 - k, 1))
+        }
+        return RGBAColor(red: channel(5), green: channel(3), blue: channel(1), alpha: alpha)
     }
 }
 

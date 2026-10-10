@@ -96,6 +96,33 @@ struct BrushDynamicsTests {
         #expect(sizes.contains { $0 < 5 })
     }
 
+    @Test func jitteredDabsPaintInColoursNearTheBrushs() {
+        let jittered = stroke(size: 16) { $0.colorJitter = 1 }
+        let colors = Set(jittered.dabs.compactMap(\.color))
+        #expect(colors.count > 4)
+        #expect(stroke { _ in }.dabs.allSatisfy { $0.color == nil })
+        // Painted, the line is no longer all one red.
+        let image = Painter.paint(jittered, onto: canvas)
+        let painted = Set((20..<180).map { x -> Int in
+            let pixel = TestImages.pixel(image, x: x, y: 20)
+            return Int(pixel.red) / 8 * 10_000 + Int(pixel.green) / 8 * 100 + Int(pixel.blue) / 8
+        })
+        #expect(painted.count > 3)
+        // An eraser only takes away, whatever the jitter.
+        var eraser = jittered
+        eraser.kind = .erase
+        #expect(eraser.dabs.allSatisfy { eraser.paint(of: $0, brush: .black) == .black })
+    }
+
+    @Test func aJitteredColourStaysAColour() {
+        let red = RGBAColor(red: 1, green: 0, blue: 0)
+        #expect(red.jittered(hue: 0, saturation: 0, brightness: 0) == red)
+        let turned = red.jittered(hue: 1.0 / 3, saturation: 0, brightness: 0)
+        #expect(abs(turned.green - 1) < 0.0001 && turned.red < 0.0001)
+        let darker = red.jittered(hue: 0, saturation: 0, brightness: -0.5)
+        #expect(abs(darker.red - 0.5) < 0.0001)
+    }
+
     @Test func brushesSavedBeforeDynamicsStillOpen() throws {
         let old = #"{"id":"6E1A6C4C-0E5B-4C8B-9E83-2B0A0B0B0B0B","name":"Old","tip":"round","size":5,"opacity":1,"softness":0,"usesPressure":true,"usesTilt":true}"#
         let preset = try JSONDecoder().decode(BrushPreset.self, from: Data(old.utf8))

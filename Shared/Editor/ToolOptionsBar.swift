@@ -564,6 +564,12 @@ private struct BrushSettingsButton: View {
                             label: "Options.SizeJitter", value: $state.currentBrush.dynamics.sizeJitter,
                             valueText: "\(Int((state.currentBrush.dynamics.sizeJitter * 100).rounded()))%"
                         )
+                        if state.tool == .brush {
+                            LabeledSlider(
+                                label: "Options.ColorJitter", value: $state.currentBrush.dynamics.colorJitter,
+                                valueText: "\(Int((state.currentBrush.dynamics.colorJitter * 100).rounded()))%"
+                            )
+                        }
                         if state.currentBrush.tip != .round {
                             Toggle("Options.FollowsStroke", isOn: $state.currentBrush.dynamics.followsStroke)
                         }
