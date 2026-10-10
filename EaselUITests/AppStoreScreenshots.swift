@@ -12,7 +12,7 @@ final class AppStoreScreenshots: XCTestCase {
         /// Just the canvas, with the brush in hand.
         case canvas
         case layers
-        /// The brush settings popover, with the chalk tip picked.
+        /// The brush settings popover, with its list of tips open.
         case brushSettings
         /// The filters on the named layer, keyed by language.
         case filters(layer: [String: String])
@@ -139,9 +139,8 @@ final class AppStoreScreenshots: XCTestCase {
             let tip = app.descendants(matching: .any).matching(identifier: "brushTip").firstMatch
             XCTAssertTrue(tip.waitForExistence(timeout: 5), "missing the tip picker")
             tip.tap()
-            let chalk = app.buttons[language == "ja" ? "チョーク" : "Chalk"].firstMatch
-            XCTAssertTrue(chalk.waitForExistence(timeout: 5), "missing the chalk tip")
-            chalk.tap()
+            let marker = app.buttons[language == "ja" ? "マーカー" : "Marker"].firstMatch
+            XCTAssertTrue(marker.waitForExistence(timeout: 5), "missing the list of tips")
         case .filters(let layer):
             if !isPad { tap("panel.layers") }
             tapInList("layer.\(try XCTUnwrap(layer[language]))")
