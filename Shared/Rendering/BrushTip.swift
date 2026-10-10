@@ -86,8 +86,14 @@ struct BrushDab: Equatable, Sendable {
 }
 
 extension Stroke {
-    /// Whether the stroke is stamped dab by dab rather than drawn as a line.
-    var usesDabs: Bool { settings.tip != .round }
+    /// Whether the stroke is stamped dab by dab rather than drawn as a line:
+    /// any tip but round, and round too once its dabs stray or vary.
+    var usesDabs: Bool { settings.tip != .round || scatter > 0 || sizeJitter > 0 }
+
+    /// How far dabs stray from the line, as a share of a brush's width.
+    var scatter: Double { min(max(settings.dynamics.scatter, 0), 1) }
+
+    var sizeJitter: Double { min(max(settings.dynamics.sizeJitter, 0), 1) }
 
     /// Where each dab of a stamped stroke goes, the same each time it is
     /// worked out, so the preview and the painted result match.
@@ -97,8 +103,10 @@ extension Stroke {
         var random = SeededRandom(seed: UInt64(points.count == 1 ? 1 : 7))
         let widths = widths
         let follows = settings.dynamics.followsStroke
+        let scatter = scatter, sizeJitter = sizeJitter
         func dab(at point: StrokePoint, width: Double, heading: Double) -> BrushDab {
             var diameter = max(1, width)
+            if sizeJitter > 0 { diameter = max(1, diameter * (1 - sizeJitter * random.next())) }
             var opacity = tip.flow
             // Laid on its side, a dry tip shades broad and light.
             if tip.grain > 0 {
@@ -112,6 +120,12 @@ extension Stroke {
             if tip == .chalk {
                 center.x += (random.next() - 0.5) * diameter * 0.15
                 center.y += (random.next() - 0.5) * diameter * 0.15
+            }
+            if scatter > 0 {
+                // Anywhere in a disc around the line, evenly over its area.
+                let toward = random.next() * 2 * .pi, away = sqrt(random.next()) * scatter * width
+                center.x += cos(toward) * away
+                center.y += sin(toward) * away
             }
             if tip == .round { angle = 0 }
             return BrushDab(

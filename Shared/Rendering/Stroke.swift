@@ -33,6 +33,11 @@ struct BrushDynamics: Codable, Hashable, Sendable {
     /// Whether a stamped tip turns to lie across the way the stroke is
     /// going, as a flat brush does when dragged.
     var followsStroke = false
+    /// How far dabs stray from the line, up to a brush's width away.
+    var scatter = 0.0
+    /// How much each dab's size varies, shrinking at random down to nothing
+    /// at 1.
+    var sizeJitter = 0.0
 
     init() {}
 
@@ -43,6 +48,8 @@ struct BrushDynamics: Codable, Hashable, Sendable {
         taper = try container.decodeIfPresent(Double.self, forKey: .taper) ?? 0
         speed = try container.decodeIfPresent(Double.self, forKey: .speed) ?? 0
         followsStroke = try container.decodeIfPresent(Bool.self, forKey: .followsStroke) ?? false
+        scatter = try container.decodeIfPresent(Double.self, forKey: .scatter) ?? 0
+        sizeJitter = try container.decodeIfPresent(Double.self, forKey: .sizeJitter) ?? 0
     }
 }
 
@@ -211,9 +218,11 @@ struct Stroke: Equatable, Sendable {
 
     /// The canvas area the stroke can touch.
     var bounds: CGRect {
-        // Chalk scatters its dabs a little past the line, and a tilted
-        // pencil shades up to two and a half times as wide.
-        let reach = settings.size / 2 + settings.featherRadius * 2 + (usesDabs ? settings.size * 0.85 : 0) + 2
+        // Chalk scatters its dabs a little past the line, a tilted pencil
+        // shades up to two and a half times as wide, and scattered dabs
+        // stray up to a width further.
+        let stray = usesDabs ? settings.size * (0.85 + scatter * 2.5) : 0
+        let reach = settings.size / 2 + settings.featherRadius * 2 + stray + 2
         return smoothedPath.boundingBoxOfPath.insetBy(dx: -reach, dy: -reach)
     }
 

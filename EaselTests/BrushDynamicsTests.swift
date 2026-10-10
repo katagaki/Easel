@@ -76,6 +76,26 @@ struct BrushDynamicsTests {
         #expect(thickness(image, x: 100) >= 18)
     }
 
+    @Test func scatteredDabsStrayFromTheLineButNoFurtherThanAWidth() {
+        let scattered = stroke { $0.scatter = 1 }
+        #expect(scattered.usesDabs)
+        let offsets = scattered.dabs.map { abs($0.center.y - 20) }
+        #expect(offsets.contains { $0 > 3 })
+        #expect(offsets.allSatisfy { $0 <= 10 })
+        // They land the same each time, and inside what the stroke can touch.
+        #expect(scattered.dabs == stroke { $0.scatter = 1 }.dabs)
+        let bounds = scattered.bounds
+        #expect(scattered.dabs.allSatisfy { bounds.insetBy(dx: 5, dy: 5).contains($0.center) })
+        #expect(!stroke { _ in }.usesDabs)
+    }
+
+    @Test func jitteredDabsComeInManySizes() {
+        let sizes = Set(stroke { $0.sizeJitter = 1 }.dabs.map(\.diameter))
+        #expect(sizes.count > 20)
+        #expect(sizes.allSatisfy { $0 >= 1 && $0 <= 10 })
+        #expect(sizes.contains { $0 < 5 })
+    }
+
     @Test func brushesSavedBeforeDynamicsStillOpen() throws {
         let old = #"{"id":"6E1A6C4C-0E5B-4C8B-9E83-2B0A0B0B0B0B","name":"Old","tip":"round","size":5,"opacity":1,"softness":0,"usesPressure":true,"usesTilt":true}"#
         let preset = try JSONDecoder().decode(BrushPreset.self, from: Data(old.utf8))
