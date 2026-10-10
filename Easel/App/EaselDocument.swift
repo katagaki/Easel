@@ -57,6 +57,12 @@ struct EaselDocument: FileDocument {
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        // Saving still comes through for files Easel cannot write; they are
+        // left exactly as they were.
+        if Self.isReadOnly(configuration.contentType) {
+            guard let existing = configuration.existingFile else { throw CocoaError(.fileWriteNoPermission) }
+            return existing
+        }
         if configuration.contentType.conforms(to: .photoshopImage) {
             return FileWrapper(regularFileWithContents: try PSDWriter.data(for: composition))
         }
@@ -67,6 +73,11 @@ struct EaselDocument: FileDocument {
         }
         let image = CompositionRenderer.render(composition)
         return FileWrapper(regularFileWithContents: try ImageCodec.encode(image, as: type))
+    }
+
+    /// Types Easel opens but cannot write back.
+    static func isReadOnly(_ contentType: UTType) -> Bool {
+        [UTType.photoshopLargeImage, .pixelmatorProImage, .pixelmatorProPackage].contains { contentType.conforms(to: $0) }
     }
 
     private static func pictureType(for contentType: UTType) -> UTType? {

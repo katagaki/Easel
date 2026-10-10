@@ -235,4 +235,16 @@ struct PXDReaderTests {
             #expect(EaselDocument.readableContentTypes.contains { type.conforms(to: $0) })
         }
     }
+
+    /// Pixelmator and large Photoshop files open but are never written over.
+    @Test func onlyUnwritableTypesAreReadOnly() throws {
+        let pxd = try #require(UTType(filenameExtension: "pxd", conformingTo: .data))
+        let psb = try #require(UTType(filenameExtension: "psb"))
+        #expect(EaselDocument.isReadOnly(pxd))
+        #expect(EaselDocument.isReadOnly(psb))
+        #expect(EaselDocument.isReadOnly(.pixelmatorProPackage))
+        for type in EaselDocument.writableContentTypes {
+            #expect(!EaselDocument.isReadOnly(type))
+        }
+    }
 }
