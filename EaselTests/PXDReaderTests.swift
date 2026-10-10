@@ -166,35 +166,44 @@ struct PXDReaderTests {
         #expect(TestImages.isRed(composition.layers[0].image.cgImage, x: 5, y: 5))
     }
 
-    @Test func groupsPassDownVisibilityAndRotation() throws {
+    /// Layers keep their place and angle on the canvas: a turned group
+    /// carries the same angle on each of its layers already.
+    @Test func groupsKeepTheirLayersWhereTheyAre() throws {
         let group = UUID().uuidString
         let wrapper = try PXDBuilder(canvas: (20, 20), layers: [
             .init(identifier: group, index: 0, type: 4, name: "Group", position: CGPoint(x: 10, y: 10),
                   size: CGSize(width: 20, height: 20), angle: 90),
             .init(parent: group, index: 0, type: 1, name: "Child", position: CGPoint(x: 15, y: 10),
-                  size: CGSize(width: 2, height: 2), pixels: bgra(0, 0, 255, width: 2, height: 2)),
+                  size: CGSize(width: 2, height: 2), angle: 90, pixels: bgra(0, 0, 255, width: 2, height: 2)),
             .init(index: 1, type: 1, name: "Hidden", position: CGPoint(x: 10, y: 10), size: CGSize(width: 2, height: 2),
                   visible: false, pixels: bgra(0, 255, 0, width: 2, height: 2)),
         ]).build()
         let layers = try PXDReader.composition(from: wrapper).layers
         let child = try #require(layers.first { $0.name == "Child" })
-        // Turned a quarter anticlockwise about the group's centre: from the
-        // right of centre to above it.
-        #expect(abs(child.transform.position.x - 10) < 0.001)
-        #expect(abs(child.transform.position.y - 5) < 0.001)
+        #expect(child.transform.position == CGPoint(x: 15, y: 10))
+        #expect(abs(child.transform.rotation + .pi / 2) < 0.001)
         #expect(layers.first { $0.name == "Hidden" }?.isVisible == false)
     }
 
     /// Retina documents keep places and sizes in points, two pixels each.
     @Test func backingScaleTurnsPointsIntoPixels() throws {
+        let group = UUID().uuidString
         let wrapper = try PXDBuilder(canvas: (40, 20), layers: [
             .init(index: 0, type: 1, name: "Photo", position: CGPoint(x: 10, y: 5), size: CGSize(width: 20, height: 10),
                   backingScale: 2, pixels: bgra(0, 0, 255, width: 40, height: 20)),
+            .init(identifier: group, index: 1, type: 4, name: "Group", position: CGPoint(x: 5, y: 5),
+                  size: CGSize(width: 4, height: 4), backingScale: 2),
+            .init(parent: group, index: 0, type: 1, name: "Sticker", position: CGPoint(x: 6, y: 5),
+                  size: CGSize(width: 2, height: 2), backingScale: 2, pixels: bgra(0, 255, 0, width: 4, height: 4)),
         ]).build()
-        let photo = try #require(PXDReader.composition(from: wrapper).layers.first)
+        let layers = try PXDReader.composition(from: wrapper).layers
+        let photo = try #require(layers.first { $0.name == "Photo" })
         #expect(photo.transform.position == CGPoint(x: 20, y: 10))
         #expect(photo.transform.scaleX == 1)
         #expect(photo.transform.scaleY == 1)
+        let sticker = try #require(layers.first { $0.name == "Sticker" })
+        #expect(sticker.transform.position == CGPoint(x: 12, y: 10))
+        #expect(sticker.transform.scaleX == 1)
     }
 
     @Test func textLayersBringThePreviewAlong() throws {

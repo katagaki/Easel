@@ -9,11 +9,11 @@ import zlib
 /// The layer tree lives in an SQLite database, `metadata.info`, and each
 /// pixel layer's contents in `data/`: painted layers as a deflated buffer of
 /// pixels, placed pictures as the original image file. Pixel layers come in
-/// with their place, size, rotation, opacity, blend mode and visibility;
-/// groups are flattened into the stack, passing their visibility, opacity
-/// and rotation down. Text, shapes and Pixelmator's effects have no pixels
-/// saved for them, so when a document has any, its own preview comes in as
-/// a hidden top layer to compare against.
+/// with their place, size, rotation, opacity, blend mode and visibility,
+/// all of them kept on the canvas rather than relative to a group. Text,
+/// shapes and Pixelmator's effects have no pixels saved for them, so when a
+/// document has any, its own preview comes in as a hidden top layer to
+/// compare against.
 enum PXDReader {
     enum Failure: LocalizedError {
         case notPixelmator
@@ -47,22 +47,14 @@ enum PXDReader {
                 // layer's own settings are taken here.
                 var own = Inherited(
                     isVisible: flags & 1 != 0,
-                    opacity: info["opacity"].map { Double(Blob.bigShort($0)) / 100 } ?? 1,
-                    pivot: inherited.pivot, rotation: inherited.rotation
+                    opacity: info["opacity"].map { Double(Blob.bigShort($0)) / 100 } ?? 1
                 )
                 own.groupID = inherited.groupID
                 switch row.type {
                 case 4:
-                    // A group: its rotation turns its layers about its centre.
-                    let backing = backingScale(info)
-                    let center = info["position"].map { Blob.point($0) }
-                        .map { CGPoint(x: $0.x * backing, y: canvas.height - $0.y * backing) }
-                    let angle = -(info["angle"].map { Blob.bigDouble($0) } ?? 0) * .pi / 180
+                    // A group: its own place and angle only frame its layers,
+                    // which keep theirs on the canvas already.
                     var group = own
-                    if angle != 0, let center {
-                        group.pivot = group.pivot ?? center
-                        group.rotation += angle
-                    }
                     let folder = LayerGroup(
                         name: info["name"].map { Blob.string($0) } ?? String(localized: "Layer.DefaultName.Group"),
                         parentID: inherited.groupID, isVisible: own.isVisible, opacity: own.opacity
@@ -106,9 +98,6 @@ enum PXDReader {
     private struct Inherited {
         var isVisible = true
         var opacity = 1.0
-        /// The centre groups turn their layers about, and by how much.
-        var pivot: CGPoint?
-        var rotation = 0.0
         var groupID: UUID?
     }
 
@@ -133,16 +122,8 @@ enum PXDReader {
             ?? CGPoint(x: canvas.width / 2, y: canvas.height / 2)
         // Pixelmator measures from the bottom left with angles turning
         // anticlockwise; the canvas runs from the top left, clockwise.
-        var center = CGPoint(x: position.x, y: canvas.height - position.y)
-        var rotation = -(info["angle"].map { Blob.bigDouble($0) } ?? 0) * .pi / 180
-        if let pivot = inherited.pivot, inherited.rotation != 0 {
-            let offset = CGPoint(x: center.x - pivot.x, y: center.y - pivot.y)
-            center = CGPoint(
-                x: pivot.x + offset.x * cos(inherited.rotation) - offset.y * sin(inherited.rotation),
-                y: pivot.y + offset.x * sin(inherited.rotation) + offset.y * cos(inherited.rotation)
-            )
-            rotation += inherited.rotation
-        }
+        let center = CGPoint(x: position.x, y: canvas.height - position.y)
+        let rotation = -(info["angle"].map { Blob.bigDouble($0) } ?? 0) * .pi / 180
         return Layer(
             name: info["name"].map { Blob.string($0) } ?? String(localized: "Layer.DefaultName.Layer"),
             image: LayerImage(image),
