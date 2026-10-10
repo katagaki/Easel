@@ -142,6 +142,56 @@ struct EditorStateTests {
         #expect(abs(back.x - point.x) < 0.0001 && abs(back.y - point.y) < 0.0001)
         #expect(viewport.scale == 4)
     }
+
+    @Test func aTurnedViewportMapsCanvasPointsBothWays() {
+        let viewport = CanvasViewport(
+            canvasSize: CGSize(width: 200, height: 100), viewportSize: CGSize(width: 432, height: 332),
+            insets: .init(top: 8, leading: 72, bottom: 64, trailing: 0), zoom: 2, pan: CGSize(width: 10, height: -5),
+            rotation: 0.7
+        )
+        let point = CGPoint(x: 37, y: 81)
+        let back = viewport.canvasPoint(viewport.screenPoint(point))
+        #expect(abs(back.x - point.x) < 0.0001 && abs(back.y - point.y) < 0.0001)
+        // Drawn level and turned about the view's middle, the canvas lands
+        // where the turned viewport puts it.
+        let level = viewport.level
+        let offset = CGPoint(
+            x: (level.viewportSize.width - viewport.viewportSize.width) / 2,
+            y: (level.viewportSize.height - viewport.viewportSize.height) / 2
+        )
+        let drawn = level.screenPoint(point)
+        let turned = CGPoint(x: drawn.x - offset.x - viewport.center.x, y: drawn.y - offset.y - viewport.center.y)
+            .applying(CGAffineTransform(rotationAngle: viewport.rotation))
+        let expected = viewport.screenPoint(point)
+        #expect(abs(turned.x + viewport.center.x - expected.x) < 0.0001)
+        #expect(abs(turned.y + viewport.center.y - expected.y) < 0.0001)
+    }
+
+    @Test func turningKeepsThePointUnderTheFingers() {
+        let host = Host(.blank(size: CGSize(width: 200, height: 100)))
+        host.state.viewportSize = CGSize(width: 400, height: 300)
+        let anchor = CGPoint(x: 120, y: 90)
+        let under = host.state.viewport.canvasPoint(anchor)
+        host.state.rotate(by: 0.5, around: anchor)
+        host.state.zoom(by: 1.5, around: anchor)
+        host.state.pan(by: CGSize(width: 20, height: -10))
+        let moved = CGPoint(x: anchor.x + 20, y: anchor.y - 10)
+        let now = host.state.viewport.screenPoint(under)
+        #expect(abs(now.x - moved.x) < 0.0001 && abs(now.y - moved.y) < 0.0001)
+    }
+
+    @Test func aTurnEndingNearAQuarterTurnSettlesOnIt() {
+        let host = Host(.blank(size: CGSize(width: 200, height: 100)))
+        host.state.viewportSize = CGSize(width: 400, height: 300)
+        host.state.rotate(by: .pi / 2 + 0.05, around: CGPoint(x: 50, y: 50))
+        host.state.settleRotation()
+        #expect(abs(host.state.rotation - .pi / 2) < 0.0001)
+        host.state.rotate(by: 0.5, around: CGPoint(x: 50, y: 50))
+        host.state.settleRotation()
+        #expect(abs(host.state.rotation - (.pi / 2 + 0.5)) < 0.0001)
+        host.state.fitCanvas()
+        #expect(host.state.rotation == 0)
+    }
 }
 
 @Suite("Undo")

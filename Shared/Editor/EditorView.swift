@@ -169,7 +169,7 @@ struct EditorView<Actions: View>: View {
     /// The zoom level, and a spinner while edits are being worked on.
     private var statusBar: some View {
         HStack(spacing: 8) {
-            if state.zoom != 1 || state.pan != .zero {
+            if state.zoom != 1 || state.pan != .zero || state.rotation != 0 {
                 Button {
                     withAnimation(.snappy) { state.fitCanvas() }
                 } label: {
@@ -301,6 +301,13 @@ struct EditorView<Actions: View>: View {
                 Button("Canvas.ActualSize", systemImage: "1.magnifyingglass") {
                     withAnimation(.snappy) { state.zoomToActualSize(displayScale: displayScale) }
                 }
+                Toggle(
+                    "Canvas.RotateWithGestures", systemImage: "arrow.trianglehead.2.clockwise.rotate.90",
+                    isOn: Binding(
+                        get: { state.rotatesWithGestures },
+                        set: { isOn in withAnimation(.snappy) { state.rotatesWithGestures = isOn } }
+                    )
+                )
             }
             Section {
                 Toggle("Canvas.ShowRulers", systemImage: "ruler", isOn: $state.showsRulers)

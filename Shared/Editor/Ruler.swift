@@ -120,7 +120,7 @@ extension EditorState {
         let scale = max(viewport.scale, 0.0001)
         let width = (size.width - insets.leading - insets.trailing) * 0.8
         ruler = Ruler(
-            center: viewport.canvasPoint(middle), angle: 0,
+            center: viewport.canvasPoint(middle), angle: Ruler.snapped(-viewport.rotation),
             length: min(max(width, Ruler.lengthRange.lowerBound), Ruler.lengthRange.upperBound) / scale
         )
     }
@@ -134,9 +134,12 @@ extension EditorState {
 
     /// Slides the ruler by a distance on screen.
     func moveRuler(by translation: CGSize) {
+        let viewport = viewport
         let scale = max(viewport.scale, 0.0001)
-        ruler?.center.x += translation.width / scale
-        ruler?.center.y += translation.height / scale
+        let level = CGPoint(x: translation.width, y: translation.height)
+            .applying(CGAffineTransform(rotationAngle: -viewport.rotation))
+        ruler?.center.x += level.x / scale
+        ruler?.center.y += level.y / scale
     }
 
     /// Fingers came down to turn the ruler.

@@ -131,6 +131,17 @@ final class EditorState {
     /// 1 shows the whole canvas fitted to the screen.
     var zoom: Double = 1
     var pan: CGSize = .zero
+    /// How far the view is turned, in radians clockwise, about its middle.
+    var rotation: Double = 0
+    /// Whether two fingers turning on the canvas turn the view.
+    var rotatesWithGestures = UserDefaults.standard.object(forKey: EditorState.rotatesWithGesturesKey) as? Bool
+        ?? true {
+        didSet {
+            UserDefaults.standard.set(rotatesWithGestures, forKey: Self.rotatesWithGesturesKey)
+            if !rotatesWithGestures { rotate(by: -rotation, around: viewport.center) }
+        }
+    }
+    private static let rotatesWithGesturesKey = "RotatesCanvasWithGestures"
     static let zoomRange: ClosedRange<Double> = 0.25...32
     /// The size of the area the canvas is drawn in.
     var viewportSize: CGSize = .zero
@@ -355,7 +366,8 @@ final class EditorState {
     /// Where the canvas sits on screen.
     var viewport: CanvasViewport {
         CanvasViewport(
-            canvasSize: read().size, viewportSize: viewportSize, insets: canvasInsets, zoom: zoom, pan: pan
+            canvasSize: read().size, viewportSize: viewportSize, insets: canvasInsets, zoom: zoom, pan: pan,
+            rotation: rotation
         )
     }
 
@@ -364,20 +376,43 @@ final class EditorState {
         let canvasPoint = before.canvasPoint(anchor)
         zoom = min(max(zoom * factor, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
         // Keep the canvas point under the fingers where it was.
-        let after = viewport
-        let drifted = after.screenPoint(canvasPoint)
-        pan.width += anchor.x - drifted.x
-        pan.height += anchor.y - drifted.y
+        let drifted = viewport.screenPoint(canvasPoint)
+        pan(by: CGSize(width: anchor.x - drifted.x, height: anchor.y - drifted.y))
     }
 
     func pan(by translation: CGSize) {
-        pan.width += translation.width
-        pan.height += translation.height
+        // The pan is taken before the turn, so a drag on screen is turned back.
+        let level = CGPoint(x: translation.width, y: translation.height)
+            .applying(CGAffineTransform(rotationAngle: -rotation))
+        pan.width += level.x
+        pan.height += level.y
     }
+
+    /// Turns the view `angle` radians clockwise, keeping the canvas point
+    /// under `anchor` where it was.
+    func rotate(by angle: Double, around anchor: CGPoint) {
+        let canvasPoint = viewport.canvasPoint(anchor)
+        rotation = remainder(rotation + angle, 2 * .pi)
+        if abs(rotation) < 0.0001 { rotation = 0 }
+        let drifted = viewport.screenPoint(canvasPoint)
+        pan(by: CGSize(width: anchor.x - drifted.x, height: anchor.y - drifted.y))
+    }
+
+    /// Settles a turn that ended near upright, or on its side, square.
+    func settleRotation() {
+        let quarter = Double.pi / 2
+        let nearest = (rotation / quarter).rounded() * quarter
+        guard rotation != nearest, abs(rotation - nearest) < Self.rotationSnap else { return }
+        rotate(by: nearest - rotation, around: viewport.center)
+    }
+
+    /// How close to a quarter turn a turn has to end to settle on it.
+    static let rotationSnap = 8 * Double.pi / 180
 
     func fitCanvas() {
         zoom = 1
         pan = .zero
+        rotation = 0
     }
 
     /// Zooms to `newZoom` times the fitted size with `canvasPoint` in the
@@ -1098,6 +1133,8 @@ struct CanvasViewport: Equatable {
     var insets: EdgeInsets
     var zoom: Double
     var pan: CGSize
+    /// Radians clockwise, about the middle of the view.
+    var rotation: Double = 0
 
     /// The scale at which the canvas just fits the clear area.
     var fitScale: Double {
@@ -1118,6 +1155,7 @@ struct CanvasViewport: Equatable {
         )
     }
 
+    /// Where the canvas sits before the view is turned.
     var canvasFrame: CGRect {
         let size = CGSize(width: canvasSize.width * scale, height: canvasSize.height * scale)
         return CGRect(
@@ -1127,10 +1165,40 @@ struct CanvasViewport: Equatable {
         )
     }
 
+    /// The middle of the view, which the view turns about.
+    var center: CGPoint {
+        CGPoint(x: viewportSize.width / 2, y: viewportSize.height / 2)
+    }
+
     /// Canvas pixels to view points.
     var transform: CGAffineTransform {
         let frame = canvasFrame
-        return CGAffineTransform(translationX: frame.minX, y: frame.minY).scaledBy(x: scale, y: scale)
+        let level = CGAffineTransform(translationX: frame.minX, y: frame.minY).scaledBy(x: scale, y: scale)
+        guard rotation != 0 else { return level }
+        let center = center
+        return level
+            .concatenating(CGAffineTransform(translationX: -center.x, y: -center.y))
+            .concatenating(CGAffineTransform(rotationAngle: rotation))
+            .concatenating(CGAffineTransform(translationX: center.x, y: center.y))
+    }
+
+    /// The view before it is turned, on a square wide enough that, turned
+    /// about the view's middle, it still covers every corner of the view.
+    /// Centred on the view and turned by `rotation`, it shows what this
+    /// viewport does.
+    var level: CanvasViewport {
+        guard rotation != 0 else { return self }
+        let side = hypot(viewportSize.width, viewportSize.height).rounded(.up)
+        let marginX = (side - viewportSize.width) / 2
+        let marginY = (side - viewportSize.height) / 2
+        var level = self
+        level.rotation = 0
+        level.viewportSize = CGSize(width: side, height: side)
+        level.insets = EdgeInsets(
+            top: insets.top + marginY, leading: insets.leading + marginX,
+            bottom: insets.bottom + marginY, trailing: insets.trailing + marginX
+        )
+        return level
     }
 
     func screenPoint(_ canvasPoint: CGPoint) -> CGPoint {

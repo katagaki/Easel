@@ -17,21 +17,9 @@ struct CanvasView: View {
         ZStack(alignment: .topLeading) {
             Color(.secondarySystemBackground)
 
-            // Only the part on screen is drawn: zoomed in, the whole canvas
-            // would be many screens of squares.
-            let visible = viewport.canvasFrame.intersection(CGRect(origin: .zero, size: state.viewportSize))
-            if !visible.isNull {
-                Checkerboard(phase: CGSize(
-                    width: visible.minX - viewport.canvasFrame.minX, height: visible.minY - viewport.canvasFrame.minY
-                ))
-                .frame(width: visible.width, height: visible.height)
-                .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
-                .offset(x: visible.minX, y: visible.minY)
-            }
-
-            layerStack(viewport)
-
-            CanvasOverlay(composition: composition, state: state, viewport: viewport)
+            picture(viewport.level)
+                .rotationEffect(.radians(viewport.rotation))
+                .frame(width: state.viewportSize.width, height: state.viewportSize.height)
                 .allowsHitTesting(false)
 
             CanvasInteraction(
@@ -57,6 +45,9 @@ struct CanvasView: View {
                 hovered: { point in state.hoverPoint = point.map { state.viewport.canvasPoint($0) } },
                 zoomed: { factor, anchor in state.zoom(by: factor, around: anchor) },
                 panned: { state.pan(by: $0) },
+                rotates: state.rotatesWithGestures,
+                turned: { angle, anchor in state.rotate(by: angle, around: anchor) },
+                turnEnded: { withAnimation(.snappy) { state.settleRotation() } },
                 undo: { history.undo() },
                 redo: { history.redo() },
                 rulerContains: { state.rulerContains($0) },
@@ -67,18 +58,41 @@ struct CanvasView: View {
             )
             .accessibilityIdentifier("canvas")
 
-            if state.showsRuler, let ruler = state.ruler {
-                RulerView(ruler: ruler, viewport: viewport, dockedSide: state.dockedEdge?.side)
-                    .allowsHitTesting(false)
-            }
-
-            if state.showsRulers {
+            // The scales run along the view's edges, which only line up
+            // with the canvas while it is upright.
+            if state.showsRulers, viewport.rotation == 0 {
                 Rulers(state: state, viewport: viewport)
             }
         }
         .coordinateSpace(.named(Rulers.coordinateSpace))
         .clipped()
         .onGeometryChange(for: CGSize.self) { $0.size } action: { state.viewportSize = $0 }
+    }
+
+    /// Everything drawn on the canvas, laid out level on `viewport`.
+    private func picture(_ viewport: CanvasViewport) -> some View {
+        ZStack(alignment: .topLeading) {
+            // Only the part on screen is drawn: zoomed in, the whole canvas
+            // would be many screens of squares.
+            let visible = viewport.canvasFrame.intersection(CGRect(origin: .zero, size: viewport.viewportSize))
+            if !visible.isNull {
+                Checkerboard(phase: CGSize(
+                    width: visible.minX - viewport.canvasFrame.minX, height: visible.minY - viewport.canvasFrame.minY
+                ))
+                .frame(width: visible.width, height: visible.height)
+                .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+                .offset(x: visible.minX, y: visible.minY)
+            }
+
+            layerStack(viewport)
+
+            CanvasOverlay(composition: composition, state: state, viewport: viewport)
+
+            if state.showsRuler, let ruler = state.ruler {
+                RulerView(ruler: ruler, viewport: viewport, dockedSide: state.dockedEdge?.side)
+            }
+        }
+        .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height, alignment: .topLeading)
     }
 
     private func layerStack(_ viewport: CanvasViewport) -> some View {
@@ -107,7 +121,7 @@ struct CanvasView: View {
                 }
             }
         }
-        .frame(width: state.viewportSize.width, height: state.viewportSize.height, alignment: .topLeading)
+        .frame(width: viewport.viewportSize.width, height: viewport.viewportSize.height, alignment: .topLeading)
         // Blend modes mix with the layers beneath, not with the checkerboard.
         .compositingGroup()
         .mask(alignment: .topLeading) {

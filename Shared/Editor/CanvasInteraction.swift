@@ -3,8 +3,8 @@ import UIKit
 
 /// Turns touches on the canvas into tool strokes and navigation.
 ///
-/// One finger (or Apple Pencil) works the tool in hand; two fingers pinch
-/// and pan the view. A second finger landing mid-stroke abandons the stroke,
+/// One finger (or Apple Pencil) works the tool in hand; two fingers pinch,
+/// pan and, when `rotates`, turn the view. A second finger landing mid-stroke abandons the stroke,
 /// since it was the start of a pinch. Tapping with two fingers undoes and
 /// with three redoes, as in other drawing apps.
 ///
@@ -20,6 +20,12 @@ struct CanvasInteraction: UIViewRepresentable {
     var hovered: (CGPoint?) -> Void = { _ in /* Optional. */ }
     var zoomed: (Double, CGPoint) -> Void
     var panned: (CGSize) -> Void
+    /// Whether two fingers turning turn the view.
+    var rotates = false
+    /// How far the fingers have turned since last time, and the point
+    /// between them.
+    var turned: (Double, CGPoint) -> Void = { _, _ in /* Optional. */ }
+    var turnEnded: () -> Void = { /* Optional. */ }
     var undo: () -> Void
     var redo: () -> Void
     /// Whether a finger at a point lands on the ruler.
@@ -44,12 +50,13 @@ struct CanvasInteraction: UIViewRepresentable {
         let pan = UIPanGestureRecognizer(target: coordinator, action: #selector(Coordinator.pan(_:)))
         pan.minimumNumberOfTouches = 2
         pan.allowedScrollTypesMask = .continuous
+        let rotation = UIRotationGestureRecognizer(target: coordinator, action: #selector(Coordinator.rotate(_:)))
         let undo = UITapGestureRecognizer(target: coordinator, action: #selector(Coordinator.undo(_:)))
         undo.numberOfTouchesRequired = 2
         let redo = UITapGestureRecognizer(target: coordinator, action: #selector(Coordinator.redo(_:)))
         redo.numberOfTouchesRequired = 3
         let hover = UIHoverGestureRecognizer(target: coordinator, action: #selector(Coordinator.hover(_:)))
-        for recognizer in [stroke, pinch, pan, undo, redo, hover] as [UIGestureRecognizer] {
+        for recognizer in [stroke, pinch, pan, rotation, undo, redo, hover] as [UIGestureRecognizer] {
             recognizer.delegate = coordinator
             view.addGestureRecognizer(recognizer)
         }
@@ -77,6 +84,10 @@ struct CanvasInteraction: UIViewRepresentable {
         var parent: CanvasInteraction
         private var lastPinchScale: CGFloat = 1
         private var lastPanTranslation: CGPoint = .zero
+        /// Where the turn was last passed on; nil until the fingers have
+        /// turned far enough to mean it, so a pinch doesn't wobble the view.
+        private var lastRotation: CGFloat?
+        private static let rotationThreshold: CGFloat = .pi / 18
         var rulerRecognizers: [UIGestureRecognizer] = []
         private var lastRulerTranslation: CGPoint = .zero
         private var lastRulerScale: CGFloat = 1
@@ -136,6 +147,24 @@ struct CanvasInteraction: UIViewRepresentable {
                 lastPanTranslation = translation
             default:
                 break
+            }
+        }
+
+        @objc func rotate(_ recognizer: UIRotationGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                lastRotation = nil
+            case .changed:
+                guard parent.rotates else { return }
+                guard let last = lastRotation else {
+                    if abs(recognizer.rotation) >= Self.rotationThreshold { lastRotation = recognizer.rotation }
+                    return
+                }
+                parent.turned(recognizer.rotation - last, recognizer.location(in: recognizer.view))
+                lastRotation = recognizer.rotation
+            default:
+                if lastRotation != nil { parent.turnEnded() }
+                lastRotation = nil
             }
         }
 

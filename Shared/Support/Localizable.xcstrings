@@ -3431,6 +3431,41 @@
         }
       }
     },
+    "Canvas.RotateWithGestures": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rotate with Gestures"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ジェスチャで回転"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "제스처로 회전"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用手势旋转"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用手勢旋轉"
+          }
+        }
+      }
+    },
     "Canvas.ShowRulers": {
       "extractionState": "manual",
       "localizations": {
