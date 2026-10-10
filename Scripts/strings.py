@@ -440,6 +440,8 @@ S = {
 "Brush.Preset.Pixel": ("Pixel Pencil", "ピクセルペン", "픽셀 연필", "像素铅笔", "像素鉛筆"),
 "Brush.Tip.Bristle": ("Bristle", "毛筆", "강모", "鬃毛", "鬃毛"),
 "Brush.Preset.Bristle": ("Bristle Brush", "毛のブラシ", "강모 브러시", "鬃毛刷", "鬃毛刷"),
+"Brush.Tip.DryBrush": ("Dry Brush", "ドライブラシ", "드라이 브러시", "干笔", "乾筆"),
+"Brush.Preset.DryBrush": ("Dry Brush", "ドライブラシ", "드라이 브러시", "干笔", "乾筆"),
 "Brush.Preset.Marker": ("Felt Marker", "フェルトマーカー", "펠트 마커", "毡头马克笔", "氈頭麥克筆"),
 "Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
 "Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),

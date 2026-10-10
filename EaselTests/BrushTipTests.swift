@@ -134,6 +134,16 @@ struct BrushTipTests {
         #expect(stroke(.bristle).dabs.allSatisfy { abs($0.angle - .pi / 2) < 0.0001 })
     }
 
+    @Test func aDryBrushRunsOutOfPaint() {
+        let long = stroke(.dryBrush, size: 4, from: CGPoint(x: 0, y: 20), to: CGPoint(x: 200, y: 20))
+        let dabs = long.dabs
+        #expect(dabs.first!.opacity > dabs.last!.opacity * 3)
+        #expect(dabs.allSatisfy { $0.opacity > 0 })
+        // A bristle brush keeps its paint.
+        let loaded = stroke(.bristle, size: 4, from: CGPoint(x: 0, y: 20), to: CGPoint(x: 200, y: 20)).dabs
+        #expect(loaded.first!.opacity == loaded.last!.opacity)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha

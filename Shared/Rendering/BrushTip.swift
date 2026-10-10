@@ -27,6 +27,9 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case pixel
     /// A round brush of separate hairs, each dragging its own streak.
     case bristle
+    /// A brush with little paint left: broken streaks over the paper's
+    /// tooth, fading as it runs dry.
+    case dryBrush
 
     var id: String { rawValue }
 
@@ -43,6 +46,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stipple: return "Brush.Tip.Stipple"
         case .pixel: return "Brush.Tip.Pixel"
         case .bristle: return "Brush.Tip.Bristle"
+        case .dryBrush: return "Brush.Tip.DryBrush"
         }
     }
 
@@ -59,6 +63,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stipple: return "circle.dotted"
         case .pixel: return "square.grid.3x3.square"
         case .bristle: return "paintbrush"
+        case .dryBrush: return "paintbrush.pointed"
         }
     }
 
@@ -74,7 +79,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crayon: return 0.1
         case .stipple: return 0.3
         case .pixel: return 0.25
-        case .bristle: return 0.03
+        case .bristle, .dryBrush: return 0.03
         }
     }
 
@@ -105,7 +110,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.75
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
-        case .bristle: return 0.9
+        case .bristle, .dryBrush: return 0.9
         }
     }
 
@@ -127,13 +132,18 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.7
         case .charcoal: return 0.55
         case .crayon: return 0.8
+        case .dryBrush: return 0.4
         case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle: return 0
         }
     }
 
     /// Tips that always lie the same way to the stroke: a brush's hairs
     /// trail behind it, so each keeps to its own streak.
-    var followsStroke: Bool { self == .bristle }
+    var followsStroke: Bool { self == .bristle || self == .dryBrush }
+
+    /// How far a brush goes before it has run dry, in brush widths; nil
+    /// for tips that never run out.
+    fileprivate var reachBeforeDry: Double? { self == .dryBrush ? 30 : nil }
 
     /// How big each dab is beside the brush's width: under 1 for tips that
     /// lay down many small marks across the stroke.
@@ -214,10 +224,14 @@ extension Stroke {
         let follows = settings.dynamics.followsStroke
         let scatter = scatter, sizeJitter = sizeJitter
         let colors = jitteredColors
-        func dab(at point: StrokePoint, width: Double, heading: Double) -> BrushDab {
+        func dab(at point: StrokePoint, width: Double, heading: Double, along: Double) -> BrushDab {
             var diameter = max(1, width * tip.dabScale)
             if sizeJitter > 0 { diameter = max(1, diameter * (1 - sizeJitter * random.next())) }
             var opacity = tip.flow
+            if let reach = tip.reachBeforeDry {
+                // Fades out over its reach, never quite to nothing.
+                opacity *= max(0.15, 1 - along / (settings.size * reach))
+            }
             // Laid on its side, a dry tip shades broad and light.
             if tip.grain > 0 {
                 let lean = tilt(at: point)
@@ -254,11 +268,11 @@ extension Stroke {
         let start = points.first { $0.location != first.location }?.location ?? first.location
         var result = [dab(
             at: first, width: widths[0],
-            heading: atan2(start.y - first.location.y, start.x - first.location.x)
+            heading: atan2(start.y - first.location.y, start.x - first.location.x), along: 0
         )]
         // Walks the stroke, dropping a dab every `spacing` of the brush's
         // width at the point reached.
-        var carried = 0.0
+        var carried = 0.0, covered = 0.0
         for index in 1..<max(points.count, 1) {
             let from = points[index - 1], to = points[index]
             let length = hypot(to.location.x - from.location.x, to.location.y - from.location.y)
@@ -283,8 +297,9 @@ extension Stroke {
                     ),
                     pressure: from.pressure + (to.pressure - from.pressure) * at,
                     azimuth: to.azimuth, altitude: to.altitude
-                ), width: width(at: at), heading: heading))
+                ), width: width(at: at), heading: heading, along: covered + travelled))
             }
+            covered += length
         }
         return result
     }
@@ -399,7 +414,7 @@ enum BrushTipImage {
         let grain = (0..<(cells * cells)).map { _ in random.next() }
         // Where each hair of a bristle brush lies, and how thick and how
         // loaded with paint it is.
-        let hairs = (0..<45).map { _ in
+        let hairs = (0..<(tip == .dryBrush ? 26 : 45)).map { _ in
             let angle = random.next() * 2 * .pi, distance = sqrt(random.next()) * 0.9
             return (x: cos(angle) * distance, y: sin(angle) * distance,
                     radius: 0.04 + random.next() * 0.06, load: 0.35 + random.next() * 0.65)
@@ -431,7 +446,7 @@ enum BrushTipImage {
                 case .pixel:
                     // Never stamped from an image; filled square.
                     alpha = 1
-                case .bristle:
+                case .bristle, .dryBrush:
                     // The heaviest hair over this spot.
                     alpha = reach < 1 ? hairs.reduce(0) { most, hair in
                         let apart = hypot(dx - hair.x, dy - hair.y) / hair.radius
