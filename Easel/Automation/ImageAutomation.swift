@@ -17,7 +17,7 @@ enum ImageAutomation {
 
     /// The picture in a file: an image, or a Photoshop document flattened.
     static func image(from data: Data, filename: String) throws -> CGImage {
-        if (filename as NSString).pathExtension.lowercased() == "psd" {
+        if ["psd", "psb"].contains((filename as NSString).pathExtension.lowercased()) {
             return CompositionRenderer.render(try PSDReader.composition(from: data))
         }
         return try ImageCodec.decode(data)
