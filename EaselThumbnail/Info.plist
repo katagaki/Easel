@@ -11,7 +11,8 @@
 			<key>QLSupportedContentTypes</key>
 			<array>
 				<string>com.tsubuzaki.Easel.image</string>
-				<string>com.pixelmatorteam.pixelmator.document.pro</string>
+				<string>com.pixelmatorteam.pixelmator.document.binary</string>
+				<string>com.pixelmatorteam.pixelmator.document.package</string>
 			</array>
 			<key>QLThumbnailMinimumDimension</key>
 			<integer>0</integer>

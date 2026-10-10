@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import SQLite3
 import Testing
+import UniformTypeIdentifiers
 import zlib
 @testable import Easel
 
@@ -195,6 +196,18 @@ struct PXDReaderTests {
     @Test func otherFoldersAreRefused() {
         #expect(throws: (any Error).self) {
             try PXDReader.composition(from: FileWrapper(directoryWithFileWrappers: [:]))
+        }
+    }
+
+    /// Pixelmator Pro tags its files with these identifiers; a `.pxd` in
+    /// either form has to resolve to a type Easel opens.
+    @Test func pxdFilesResolveToReadableTypes() throws {
+        let file = try #require(UTType(filenameExtension: "pxd", conformingTo: .data))
+        let package = try #require(UTType(filenameExtension: "pxd", conformingTo: .package))
+        #expect(file.identifier == "com.pixelmatorteam.pixelmator.document.binary")
+        #expect(package.identifier == "com.pixelmatorteam.pixelmator.document.package")
+        for type in [file, package] {
+            #expect(EaselDocument.readableContentTypes.contains { type.conforms(to: $0) })
         }
     }
 }

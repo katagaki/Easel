@@ -79,18 +79,37 @@
 			</dict>
 		</dict>
 	</array>
-	<!-- Pixelmator Pro documents, saved as a package or as a single ZIP file. -->
+	<!-- Pixelmator Pro documents, saved as a package or as a single ZIP file,
+	     under the identifiers Pixelmator Pro itself exports. -->
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>com.pixelmatorteam.pixelmator.document.pro</string>
+			<string>com.pixelmatorteam.pixelmator.document.binary</string>
+			<key>UTTypeDescription</key>
+			<string>Pixelmator Pro Image</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>pxd</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.pixelmatorteam.pixelmator.document.package</string>
 			<key>UTTypeDescription</key>
 			<string>Pixelmator Pro Image</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>com.apple.package</string>
-				<string>public.composite-content</string>
+				<string>public.content</string>
 			</array>
 			<key>UTTypeTagSpecification</key>
 			<dict>
@@ -152,7 +171,8 @@
 			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.pixelmatorteam.pixelmator.document.pro</string>
+				<string>com.pixelmatorteam.pixelmator.document.binary</string>
+				<string>com.pixelmatorteam.pixelmator.document.package</string>
 			</array>
 		</dict>
 	</array>

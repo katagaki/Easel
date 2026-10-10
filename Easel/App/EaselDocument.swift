@@ -6,8 +6,10 @@ extension UTType {
     static let easelImage = UTType(exportedAs: "com.tsubuzaki.Easel.image", conformingTo: .package)
     /// Photoshop documents, declared by the system.
     static let photoshopImage = UTType("com.adobe.photoshop-image") ?? UTType(importedAs: "com.adobe.photoshop-image")
-    /// Pixelmator Pro documents, declared in Info.plist.
-    static let pixelmatorProImage = UTType(importedAs: "com.pixelmatorteam.pixelmator.document.pro")
+    /// Pixelmator Pro documents saved as a single ZIP file, declared in Info.plist.
+    static let pixelmatorProImage = UTType(importedAs: "com.pixelmatorteam.pixelmator.document.binary")
+    /// Pixelmator Pro documents saved as a package folder, declared in Info.plist.
+    static let pixelmatorProPackage = UTType(importedAs: "com.pixelmatorteam.pixelmator.document.package")
 }
 
 /// The app's document: a layered composition, kept as an `.easel` package,
@@ -17,7 +19,7 @@ struct EaselDocument: FileDocument {
     /// Photoshop files are written back with their layers. Pixelmator Pro
     /// files open but are not written back: Keep Layers turns them into an
     /// Easel image.
-    static let readableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic, .photoshopImage, .pixelmatorProImage]
+    static let readableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic, .photoshopImage, .pixelmatorProImage, .pixelmatorProPackage]
     static let writableContentTypes: [UTType] = [.easelImage, .png, .jpeg, .heic, .photoshopImage]
 
     var composition: Composition
@@ -31,7 +33,8 @@ struct EaselDocument: FileDocument {
     }
 
     init(configuration: ReadConfiguration) throws {
-        if configuration.contentType.conforms(to: .pixelmatorProImage) {
+        if configuration.contentType.conforms(to: .pixelmatorProImage)
+            || configuration.contentType.conforms(to: .pixelmatorProPackage) {
             composition = try PXDReader.composition(from: configuration.file)
         } else if configuration.file.isDirectory {
             composition = try CompositionArchive.composition(from: configuration.file)
