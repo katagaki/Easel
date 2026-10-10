@@ -73,8 +73,8 @@ let screenshots = [
     Screenshot(
         name: "03-brushes",
         copy: [
-            "en": Copy(header: "A brush for every mood", caption: "Pencil, chalk, airbrush, and calligraphy"),
-            "ja": Copy(header: "気分に合わせたブラシ", caption: "鉛筆・チョーク・エアブラシ・カリグラフィ"),
+            "en": Copy(header: "A brush for every mood", caption: "Watercolor, oil, bristle, neon, and more"),
+            "ja": Copy(header: "気分に合わせたブラシ", caption: "水彩・油彩・毛筆・ネオンなど多彩に"),
         ]
     ),
     Screenshot(
