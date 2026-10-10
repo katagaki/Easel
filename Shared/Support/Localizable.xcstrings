@@ -1436,6 +1436,41 @@
         }
       }
     },
+    "Brush.Preset.DipPen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dip Pen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "つけペン"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "딥 펜"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "蘸水笔"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沾水筆"
+          }
+        }
+      }
+    },
     "Brush.Preset.DryBrush": {
       "extractionState": "manual",
       "localizations": {

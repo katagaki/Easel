@@ -42,6 +42,13 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
     /// The brushes that come with the app.
     static let builtIn: [BrushPreset] = [
         BrushPreset(name: String(localized: "Brush.Preset.Ink"), settings: BrushSettings(size: 8)),
+        // Inking line work: fine at both ends, thinning on quick strokes.
+        BrushPreset(name: String(localized: "Brush.Preset.DipPen"), settings: {
+            var settings = BrushSettings(size: 10)
+            settings.dynamics.taper = 0.5
+            settings.dynamics.speed = 0.6
+            return settings
+        }()),
         BrushPreset(name: String(localized: "Brush.Preset.Sketch"), settings: {
             var settings = BrushSettings(size: 6, opacity: 0.9)
             settings.tip = .pencil

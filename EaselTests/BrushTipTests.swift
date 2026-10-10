@@ -270,7 +270,15 @@ struct BrushPresetTests {
     }
 
     @Test func theBuiltInBrushesAreEachDifferent() {
-        #expect(Set(BrushPreset.builtIn.map(\.tip)).count == BrushPreset.builtIn.count)
+        #expect(Set(BrushPreset.builtIn.map { "\($0.tip)-\(String(describing: $0.dynamics))" }).count == BrushPreset.builtIn.count)
+        #expect(Set(BrushPreset.builtIn.map(\.name)).count == BrushPreset.builtIn.count)
+    }
+
+    @Test func theDipPenTapersAndThinsWhenQuick() throws {
+        let pen = try #require(BrushPreset.builtIn.first { $0.name == String(localized: "Brush.Preset.DipPen") })
+        let settings = pen.applied(to: BrushSettings(size: 1))
+        #expect(settings.tip == .round)
+        #expect(settings.dynamics.taper > 0 && settings.dynamics.speed > 0)
     }
 
     @Test func savedBrushesAreKeptBetweenLaunches() throws {
