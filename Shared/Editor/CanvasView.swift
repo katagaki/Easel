@@ -207,6 +207,11 @@ private struct LayerView: View {
                         StrokePreview(strokes: multiplied, canvasSize: canvasSize, viewport: viewport)
                             .blendMode(.multiply)
                     }
+                    let lit = paintStrokes.filter { $0.blendMode == .plusLighter }
+                    if !lit.isEmpty {
+                        StrokePreview(strokes: lit, canvasSize: canvasSize, viewport: viewport)
+                            .blendMode(.plusLighter)
+                    }
                 }
                 // The strokes and the layer become one before the layer's
                 // opacity and blend mode apply, and the eraser cuts only
@@ -327,25 +332,15 @@ private struct StrokePreview: View {
                         drawDabs(of: stroke, in: &group, transform: transform, scale: scale)
                         return
                     }
+                    if stroke.settings.tip == .neon && !stroke.isEraser {
+                        drawGlow(of: stroke, in: &group, transform: transform, scale: scale)
+                        return
+                    }
                     if stroke.settings.featherRadius > 0.5 {
                         group.addFilter(.blur(radius: stroke.settings.featherRadius * scale * 0.5))
                     }
                     let color = stroke.isEraser ? Color.black : stroke.settings.color.withAlpha(1).color
-                    if stroke.usesVaryingWidth {
-                        for segment in stroke.segments {
-                            var path = Path()
-                            path.move(to: segment.from.applying(transform))
-                            path.addLine(to: segment.to.applying(transform))
-                            group.stroke(path, with: .color(color), style: StrokeStyle(
-                                lineWidth: segment.width * scale, lineCap: .round, lineJoin: .round
-                            ))
-                        }
-                    } else {
-                        group.stroke(
-                            Path(stroke.smoothedPath).applying(transform), with: .color(color),
-                            style: StrokeStyle(lineWidth: stroke.settings.size * scale, lineCap: .round, lineJoin: .round)
-                        )
-                    }
+                    drawLine(of: stroke, in: &group, color: color, transform: transform, scale: scale)
                 }
             }
         }
@@ -354,6 +349,41 @@ private struct StrokePreview: View {
 }
 
 extension StrokePreview {
+    /// The stroke's line as `Stroke.drawShape` draws it, `widthScale` as wide.
+    fileprivate func drawLine(
+        of stroke: Stroke, in context: inout GraphicsContext, color: Color, transform: CGAffineTransform,
+        scale: Double, widthScale: Double = 1
+    ) {
+        if stroke.usesVaryingWidth {
+            for segment in stroke.segments {
+                var path = Path()
+                path.move(to: segment.from.applying(transform))
+                path.addLine(to: segment.to.applying(transform))
+                context.stroke(path, with: .color(color), style: StrokeStyle(
+                    lineWidth: segment.width * scale * widthScale, lineCap: .round, lineJoin: .round
+                ))
+            }
+        } else {
+            context.stroke(
+                Path(stroke.smoothedPath).applying(transform), with: .color(color),
+                style: StrokeStyle(lineWidth: stroke.settings.size * scale * widthScale, lineCap: .round, lineJoin: .round)
+            )
+        }
+    }
+
+    /// A neon stroke's haze and core, as `Stroke` paints them.
+    fileprivate func drawGlow(of stroke: Stroke, in context: inout GraphicsContext, transform: CGAffineTransform, scale: Double) {
+        let color = stroke.settings.color.withAlpha(1).color
+        context.drawLayer { haze in
+            // A shadow's blur reaches about twice as far as this blur's radius.
+            haze.addFilter(.blur(radius: stroke.settings.size * 0.6 * scale))
+            drawLine(of: stroke, in: &haze, color: color, transform: transform, scale: scale, widthScale: 0.9)
+            drawLine(of: stroke, in: &haze, color: color, transform: transform, scale: scale, widthScale: 0.5)
+        }
+        drawLine(of: stroke, in: &context, color: color, transform: transform, scale: scale, widthScale: 0.55)
+        drawLine(of: stroke, in: &context, color: stroke.glowCore.color, transform: transform, scale: scale, widthScale: 0.3)
+    }
+
     /// A stamped stroke's dabs, placed as `Stroke.drawDabs` places them.
     fileprivate func drawDabs(of stroke: Stroke, in context: inout GraphicsContext, transform: CGAffineTransform, scale: Double) {
         let color = stroke.isEraser ? RGBAColor.black : stroke.settings.color

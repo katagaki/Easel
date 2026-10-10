@@ -234,26 +234,27 @@ struct Stroke: Equatable, Sendable {
         // Chalk scatters its dabs a little past the line, a tilted pencil
         // shades up to two and a half times as wide, and scattered dabs
         // stray up to a width further.
-        let stray = usesDabs ? settings.size * (0.85 + scatter * 2.5) : 0
+        // A neon tube's haze spreads a width and a half out.
+        let stray = usesDabs ? settings.size * (0.85 + scatter * 2.5) : settings.tip == .neon ? settings.size * 1.5 : 0
         let reach = settings.size / 2 + settings.featherRadius * 2 + stray + 2
         return smoothedPath.boundingBoxOfPath.insetBy(dx: -reach, dy: -reach)
     }
 
     /// Lays the stroke's shape down in solid `color`, untouched by opacity
     /// or feathering; callers wrap it in those.
-    func drawShape(in context: CGContext, color: CGColor) {
+    func drawShape(in context: CGContext, color: CGColor, widthScale: Double = 1) {
         context.setLineCap(.round)
         context.setLineJoin(.round)
         context.setStrokeColor(color)
         if usesVaryingWidth {
             for segment in segments {
-                context.setLineWidth(segment.width)
+                context.setLineWidth(segment.width * widthScale)
                 context.move(to: segment.from)
                 context.addLine(to: segment.to)
                 context.strokePath()
             }
         } else {
-            context.setLineWidth(settings.size)
+            context.setLineWidth(settings.size * widthScale)
             context.addPath(smoothedPath)
             context.strokePath()
         }
@@ -276,7 +277,9 @@ struct Stroke: Equatable, Sendable {
         context.setAlpha(1)
         context.setBlendMode(.normal)
         let color = isEraser ? RGBAColor.black.cgColor : settings.color.withAlpha(1).cgColor
-        if usesDabs {
+        if settings.tip == .neon && !isEraser {
+            drawGlow(in: context, canvasSize: canvasSize)
+        } else if usesDabs {
             // Stamped tips carry their own soft edge.
             drawDabs(in: context, color: isEraser ? .black : settings.color)
         } else if settings.featherRadius > 0.5 {
@@ -292,5 +295,29 @@ struct Stroke: Equatable, Sendable {
         }
         context.endTransparencyLayer()
         context.restoreGState()
+    }
+
+    /// The colour of a neon tube's core: the brush's, washed nearly white.
+    var glowCore: RGBAColor {
+        let color = settings.color
+        func toward(_ value: Double) -> Double { value + (1 - value) * 0.7 }
+        return RGBAColor(red: toward(color.red), green: toward(color.green), blue: toward(color.blue))
+    }
+
+    /// A neon tube: the line blurred wide in the brush's colour, then a
+    /// thin, nearly white core down its middle.
+    private func drawGlow(in context: CGContext, canvasSize: CGSize) {
+        let color = settings.color.withAlpha(1).cgColor
+        context.saveGState()
+        // Cast as a shadow from a canvas away, as feathering is.
+        let away = canvasSize.width + bounds.width + settings.size * 4
+        context.setShadow(offset: CGSize(width: away, height: 0), blur: settings.size * 1.2, color: color)
+        context.translateBy(x: -away, y: 0)
+        drawShape(in: context, color: color, widthScale: 0.9)
+        // Twice, so the haze is bright close in.
+        drawShape(in: context, color: color, widthScale: 0.5)
+        context.restoreGState()
+        drawShape(in: context, color: color, widthScale: 0.55)
+        drawShape(in: context, color: glowCore.cgColor, widthScale: 0.3)
     }
 }

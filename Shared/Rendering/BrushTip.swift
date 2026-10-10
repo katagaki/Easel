@@ -42,6 +42,9 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case stars
     /// Scraps of paper in every colour, tossed along the stroke.
     case confetti
+    /// A glowing tube of light: a bright core in a haze of colour that
+    /// adds to whatever is under it.
+    case neon
 
     var id: String { rawValue }
 
@@ -65,6 +68,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .foliage: return "Brush.Tip.Foliage"
         case .stars: return "Brush.Tip.Stars"
         case .confetti: return "Brush.Tip.Confetti"
+        case .neon: return "Brush.Tip.Neon"
         }
     }
 
@@ -88,6 +92,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .foliage: return "leaf"
         case .stars: return "star"
         case .confetti: return "party.popper"
+        case .neon: return "lightbulb.max"
         }
     }
 
@@ -109,6 +114,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .foliage: return 0.45
         case .stars: return 0.6
         case .confetti: return 0.4
+        case .neon: return 0.12
         }
     }
 
@@ -129,12 +135,22 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// How the finished stroke goes down over what is already there. A
     /// marker's ink is see-through: it multiplies, darkening where it
     /// crosses itself or other colour.
-    var blendMode: CGBlendMode { self == .marker ? .multiply : .normal }
+    var blendMode: CGBlendMode {
+        switch self {
+        case .marker: return .multiply
+        // Light adds to what is under it.
+        case .neon: return .plusLighter
+        default: return .normal
+        }
+    }
+
+    /// Tips stamped dab by dab; the others are drawn as a line.
+    var isStamped: Bool { self != .round && self != .neon }
 
     /// How much each dab lays down; low ones build up where they overlap.
     fileprivate var flow: Double {
         switch self {
-        case .round, .calligraphy, .marker: return 1
+        case .round, .calligraphy, .marker, .neon: return 1
         case .pencil: return 0.85
         case .airbrush: return 0.25
         case .chalk: return 0.75
@@ -165,7 +181,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti, .neon: return 0
         }
     }
 
@@ -273,7 +289,10 @@ struct BrushDab: Equatable, Sendable {
 extension Stroke {
     /// Whether the stroke is stamped dab by dab rather than drawn as a line:
     /// any tip but round, and round too once its dabs stray or vary.
-    var usesDabs: Bool { settings.tip != .round || scatter > 0 || sizeJitter > 0 || colorJitter > 0 }
+    var usesDabs: Bool {
+        if settings.tip == .neon { return false }
+        return settings.tip.isStamped || scatter > 0 || sizeJitter > 0 || colorJitter > 0
+    }
 
     /// How far dabs stray from the line, as a share of a brush's width.
     var scatter: Double { max(min(max(settings.dynamics.scatter, 0), 1), settings.tip.scatter) }
@@ -530,7 +549,7 @@ enum BrushTipImage {
                 let cell = grain[(y / 2) * cells + x / 2]
                 let alpha: Double
                 switch tip {
-                case .round, .pencil, .calligraphy, .stipple:
+                case .round, .pencil, .calligraphy, .stipple, .neon:
                     alpha = falloff(reach)
                 case .pixel:
                     // Never stamped from an image; filled square.

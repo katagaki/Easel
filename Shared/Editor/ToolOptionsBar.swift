@@ -570,7 +570,7 @@ private struct BrushSettingsButton: View {
                                 valueText: "\(Int((state.currentBrush.dynamics.colorJitter * 100).rounded()))%"
                             )
                         }
-                        if state.currentBrush.tip != .round && !state.currentBrush.tip.followsStroke {
+                        if state.currentBrush.tip.isStamped && !state.currentBrush.tip.followsStroke {
                             Toggle("Options.FollowsStroke", isOn: $state.currentBrush.dynamics.followsStroke)
                         }
                     }
@@ -578,7 +578,7 @@ private struct BrushSettingsButton: View {
                 if state.tool != .smudge && state.tool != .liquify {
                     Section {
                         Toggle("Options.PencilPressure", isOn: $state.currentBrush.usesPressure)
-                        if state.currentBrush.tip != .round {
+                        if state.currentBrush.tip.isStamped {
                             Toggle("Options.PencilTilt", isOn: $state.currentBrush.usesTilt)
                         }
                     }

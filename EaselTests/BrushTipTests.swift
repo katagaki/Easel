@@ -214,6 +214,21 @@ struct BrushTipTests {
         #expect(stroke(.foliage, size: 20).jitteredColors.allSatisfy { $0.red >= $0.green && $0.red >= $0.blue })
     }
 
+    @Test func neonGlowsWithAPaleCoreAndAddsLight() {
+        var neon = stroke(.neon, size: 12)
+        neon.settings.color = RGBAColor(red: 0, green: 0, blue: 1)
+        #expect(!neon.usesDabs)
+        let dark = Bitmap.solid(size: CGSize(width: 100, height: 40), color: RGBAColor(red: 0.3, green: 0, blue: 0))
+        let image = Painter.paint(neon, onto: dark)
+        let core = TestImages.pixel(image, x: 50, y: 20)
+        // The core is nearly white, the light added to the red under it.
+        #expect(core.red > 200 && core.green > 150 && core.blue > 200, "\(core)")
+        // A haze reaches past the line, fading.
+        let haze = TestImages.pixel(image, x: 50, y: 31)
+        #expect(haze.blue > 40 && haze.blue < core.blue, "\(haze)")
+        #expect(haze.red >= TestImages.pixel(dark, x: 50, y: 31).red)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
