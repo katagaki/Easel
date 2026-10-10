@@ -40,6 +40,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case foliage
     /// Five-pointed stars scattered along the stroke.
     case stars
+    /// Scraps of paper in every colour, tossed along the stroke.
+    case confetti
 
     var id: String { rawValue }
 
@@ -62,6 +64,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .sponge: return "Brush.Tip.Sponge"
         case .foliage: return "Brush.Tip.Foliage"
         case .stars: return "Brush.Tip.Stars"
+        case .confetti: return "Brush.Tip.Confetti"
         }
     }
 
@@ -84,6 +87,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .sponge: return "circle.hexagongrid.fill"
         case .foliage: return "leaf"
         case .stars: return "star"
+        case .confetti: return "party.popper"
         }
     }
 
@@ -104,6 +108,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .sponge: return 0.35
         case .foliage: return 0.45
         case .stars: return 0.6
+        case .confetti: return 0.4
         }
     }
 
@@ -136,7 +141,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
         case .bristle, .dryBrush, .flat: return 0.9
-        case .spatter, .foliage, .stars: return 1
+        case .spatter, .foliage, .stars, .confetti: return 1
         case .sponge: return 0.7
         }
     }
@@ -160,7 +165,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti: return 0
         }
     }
 
@@ -178,13 +183,20 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .stipple: return 0.4
         case .spatter: return 0.22
+        case .confetti: return 0.45
         default: return 1
         }
     }
 
     /// How many dabs go down at each step, for tips that throw out several
     /// marks at once.
-    fileprivate var dabsPerStep: Int { self == .spatter ? 4 : 1 }
+    fileprivate var dabsPerStep: Int {
+        switch self {
+        case .spatter: return 4
+        case .confetti: return 2
+        default: return 1
+        }
+    }
 
     /// How far the tip's own dabs stray from the line, before any Scatter
     /// asked for; past 1 they land beyond the brush's own width.
@@ -195,6 +207,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .sponge: return 0.25
         case .foliage: return 0.8
         case .stars: return 0.7
+        case .confetti: return 1.2
         default: return 0
         }
     }
@@ -207,12 +220,23 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .sponge: return 0.3
         case .foliage: return 0.5
         case .stars: return 0.6
+        case .confetti: return 0.4
         default: return 0
         }
     }
 
     /// How much the tip's own dabs vary in colour, before any Color Jitter.
-    fileprivate var colorJitter: Double { self == .foliage ? 0.35 : 0 }
+    fileprivate var colorJitter: Double {
+        switch self {
+        case .foliage: return 0.35
+        case .confetti: return 1
+        default: return 0
+        }
+    }
+
+    /// How far round the colour wheel jitter can turn a colour, as a share
+    /// of a turn: a little for most, any colour at all for confetti.
+    fileprivate var hueSpread: Double { self == .confetti ? 1 : 0.25 }
 
     /// How coarse the paper's tooth is under this tip: charcoal is used on
     /// rougher paper than pencil.
@@ -265,7 +289,7 @@ extension Stroke {
         var random = SeededRandom(seed: 99)
         return (0..<12).map { _ in
             settings.color.jittered(
-                hue: (random.next() - 0.5) * colorJitter * 0.25,
+                hue: (random.next() - 0.5) * colorJitter * settings.tip.hueSpread,
                 saturation: (random.next() - 0.5) * colorJitter * 0.6,
                 brightness: (random.next() - 0.5) * colorJitter * 0.6
             )
@@ -558,6 +582,9 @@ enum BrushTipImage {
                     let edge = (end.0 - start.0, end.1 - start.1)
                     let boundary = (start.0 * edge.1 - start.1 * edge.0) / (cos(angle) * edge.1 - sin(angle) * edge.0)
                     alpha = falloff(reach / boundary, hardest: 0.06)
+                case .confetti:
+                    // A scrap of paper, twice as long as it is wide.
+                    alpha = abs(dx) < 0.9 && abs(dy) < 0.45 ? 1 : 0
                 case .crayon:
                     // A worn wax point, round but not quite.
                     alpha = falloff(reach / (0.92 + 0.08 * rim(atan2(dy, dx))))

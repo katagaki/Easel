@@ -122,6 +122,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .stars
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Confetti"), settings: {
+            var settings = BrushSettings(size: 40, usesPressure: false)
+            settings.tip = .confetti
+            return settings
+        }()),
     ]
 }
 

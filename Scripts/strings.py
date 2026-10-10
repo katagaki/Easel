@@ -452,6 +452,8 @@ S = {
 "Brush.Preset.Foliage": ("Foliage", "葉っぱ", "나뭇잎", "树叶", "樹葉"),
 "Brush.Tip.Stars": ("Stars", "星", "별", "星星", "星星"),
 "Brush.Preset.Stars": ("Starry Sky", "星空", "별빛", "星空", "星空"),
+"Brush.Tip.Confetti": ("Confetti", "紙吹雪", "색종이 조각", "彩纸", "彩紙"),
+"Brush.Preset.Confetti": ("Confetti", "紙吹雪", "색종이 조각", "彩纸", "彩紙"),
 "Brush.Preset.Marker": ("Felt Marker", "フェルトマーカー", "펠트 마커", "毡头马克笔", "氈頭麥克筆"),
 "Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
 "Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),

@@ -205,6 +205,15 @@ struct BrushTipTests {
         #expect(TestImages.pixel(tip, x: 64, y: 64).alpha == 255)
     }
 
+    @Test func confettiComesInColoursFromRoundTheWheel() {
+        let colors = stroke(.confetti, size: 20).jitteredColors
+        // Red turned anywhere from cyan one way to cyan the other.
+        #expect(colors.contains { $0.green > 0.5 })
+        #expect(colors.contains { $0.blue > 0.5 })
+        // A foliage brush strays only a little from its colour.
+        #expect(stroke(.foliage, size: 20).jitteredColors.allSatisfy { $0.red >= $0.green && $0.red >= $0.blue })
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
