@@ -96,7 +96,8 @@ extension Stroke {
         guard let first = points.first else { return [] }
         var random = SeededRandom(seed: UInt64(points.count == 1 ? 1 : 7))
         let widths = widths
-        func dab(at point: StrokePoint, width: Double) -> BrushDab {
+        let follows = settings.dynamics.followsStroke
+        func dab(at point: StrokePoint, width: Double, heading: Double) -> BrushDab {
             var diameter = max(1, width)
             var opacity = tip.flow
             // Laid on its side, a dry tip shades broad and light.
@@ -107,6 +108,7 @@ extension Stroke {
             }
             var center = point.location
             var angle = tip == .calligraphy ? nibAngle(at: point) : random.next() * 2 * .pi
+            if follows { angle = heading + .pi / 2 }
             if tip == .chalk {
                 center.x += (random.next() - 0.5) * diameter * 0.15
                 center.y += (random.next() - 0.5) * diameter * 0.15
@@ -116,7 +118,12 @@ extension Stroke {
                 center: center, diameter: diameter, angle: angle, roundness: tip.roundness, opacity: opacity
             )
         }
-        var result = [dab(at: first, width: widths[0])]
+        // The first dab faces the way the stroke sets off.
+        let start = points.first { $0.location != first.location }?.location ?? first.location
+        var result = [dab(
+            at: first, width: widths[0],
+            heading: atan2(start.y - first.location.y, start.x - first.location.x)
+        )]
         // Walks the stroke, dropping a dab every `spacing` of the brush's
         // width at the point reached.
         var carried = 0.0
@@ -125,6 +132,7 @@ extension Stroke {
             let length = hypot(to.location.x - from.location.x, to.location.y - from.location.y)
             guard length > 0 else { continue }
             func width(at t: Double) -> Double { widths[index - 1] + (widths[index] - widths[index - 1]) * t }
+            let heading = atan2(to.location.y - from.location.y, to.location.x - from.location.x)
             var travelled = 0.0
             while true {
                 let step = max(0.5, width(at: travelled / length) * tip.spacing)
@@ -143,7 +151,7 @@ extension Stroke {
                     ),
                     pressure: from.pressure + (to.pressure - from.pressure) * at,
                     azimuth: to.azimuth, altitude: to.altitude
-                ), width: width(at: at)))
+                ), width: width(at: at), heading: heading))
             }
         }
         return result

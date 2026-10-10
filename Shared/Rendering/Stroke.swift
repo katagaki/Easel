@@ -30,6 +30,9 @@ struct BrushDynamics: Codable, Hashable, Sendable {
     /// How much a quick stroke thins, as a dip pen's line does, 0 for not
     /// at all.
     var speed = 0.0
+    /// Whether a stamped tip turns to lie across the way the stroke is
+    /// going, as a flat brush does when dragged.
+    var followsStroke = false
 
     init() {}
 
@@ -39,6 +42,7 @@ struct BrushDynamics: Codable, Hashable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         taper = try container.decodeIfPresent(Double.self, forKey: .taper) ?? 0
         speed = try container.decodeIfPresent(Double.self, forKey: .speed) ?? 0
+        followsStroke = try container.decodeIfPresent(Bool.self, forKey: .followsStroke) ?? false
     }
 }
 

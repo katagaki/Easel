@@ -556,6 +556,9 @@ private struct BrushSettingsButton: View {
                             label: "Options.SpeedThinning", value: $state.currentBrush.dynamics.speed,
                             valueText: "\(Int((state.currentBrush.dynamics.speed * 100).rounded()))%"
                         )
+                        if state.currentBrush.tip != .round {
+                            Toggle("Options.FollowsStroke", isOn: $state.currentBrush.dynamics.followsStroke)
+                        }
                     }
                 }
                 if state.tool != .smudge && state.tool != .liquify {

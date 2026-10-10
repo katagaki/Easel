@@ -65,6 +65,17 @@ struct BrushDynamicsTests {
         #expect(hurried.widths.allSatisfy { $0 == 10 })
     }
 
+    @Test func aTipThatFollowsTheStrokeLiesAcrossIt() {
+        var turning = stroke(.calligraphy) { $0.followsStroke = true }
+        #expect(turning.dabs.allSatisfy { abs($0.angle - .pi / 2) < 0.0001 })
+        // Going down the canvas instead, it lies across that way.
+        turning.points = stride(from: 10.0, through: 30, by: 10).map { StrokePoint(location: CGPoint(x: 20, y: $0)) }
+        #expect(turning.dabs.allSatisfy { abs($0.angle - .pi) < 0.0001 })
+        // A flat nib dragged across its own breadth paints a broad ribbon.
+        let image = Painter.paint(stroke(.calligraphy, size: 20) { $0.followsStroke = true }, onto: canvas)
+        #expect(thickness(image, x: 100) >= 18)
+    }
+
     @Test func brushesSavedBeforeDynamicsStillOpen() throws {
         let old = #"{"id":"6E1A6C4C-0E5B-4C8B-9E83-2B0A0B0B0B0B","name":"Old","tip":"round","size":5,"opacity":1,"softness":0,"usesPressure":true,"usesTilt":true}"#
         let preset = try JSONDecoder().decode(BrushPreset.self, from: Data(old.utf8))

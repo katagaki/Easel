@@ -431,6 +431,7 @@ S = {
 "Brush.Tip.Chalk": ("Chalk", "チョーク", "분필", "粉笔", "粉筆"),
 "Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
 "Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),
+"Options.FollowsStroke": ("Turn with Stroke", "ストロークに沿って回転", "획을 따라 회전", "随笔画旋转", "隨筆畫旋轉"),
 "Options.SpeedThinning": ("Thin When Fast", "速さで細く", "빠르면 가늘게", "快速时变细", "快速時變細"),
 "Tool.Brush": ("Brush", "ブラシ", "브러시", "画笔", "筆刷"),
 "Tool.Transform": ("Transform", "変形", "변형", "变换", "變形"),

@@ -11061,6 +11061,41 @@
         }
       }
     },
+    "Options.FollowsStroke": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn with Stroke"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ストロークに沿って回転"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "획을 따라 회전"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "随笔画旋转"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隨筆畫旋轉"
+          }
+        }
+      }
+    },
     "Options.LineWidth": {
       "extractionState": "manual",
       "localizations": {
