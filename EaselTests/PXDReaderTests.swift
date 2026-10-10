@@ -17,6 +17,7 @@ private struct PXDBuilder {
         var position: CGPoint
         var size: CGSize
         var angle = 0.0
+        var backingScale: Double?
         var opacity = 100
         var visible = true
         var blend = "norm"
@@ -107,7 +108,7 @@ private struct PXDBuilder {
             let id = number + 1
             insert("insert into document_layers values (?, ?, ?, ?, ?)", [id, layer.identifier, layer.parent, layer.index, layer.type])
             let name = Array(layer.name.utf8)
-            let info: [(String, Data)] = [
+            var info: [(String, Data)] = [
                 ("name", Self.blob("Strn", Self.littleInt(name.count, bytes: 4) + name)),
                 ("position", Self.blob("PTPt", Self.bigDouble(layer.position.x) + Self.bigDouble(layer.position.y))),
                 ("size", Self.blob("PTSz", Self.bigDouble(layer.size.width) + Self.bigDouble(layer.size.height))),
@@ -117,6 +118,9 @@ private struct PXDBuilder {
                 ("flags", Self.blob("UI64", Self.littleInt((layer.visible ? 1 : 0) | 0x40, bytes: 8))),
                 ("blendMode", Self.blob("Blnd", Array(layer.blend.utf8.reversed()))),
             ]
+            if let backingScale = layer.backingScale {
+                info.append(("backingScale", Self.blob("PTFl", Self.bigDouble(backingScale))))
+            }
             for (key, value) in info { insert("insert into layer_info values (?, ?, ?)", [id, key, value]) }
             if let pixels = layer.pixels {
                 files[layer.identifier] = FileWrapper(regularFileWithContents: Self.bitmapBuffer(pixels))
@@ -179,6 +183,18 @@ struct PXDReaderTests {
         #expect(abs(child.transform.position.x - 10) < 0.001)
         #expect(abs(child.transform.position.y - 5) < 0.001)
         #expect(layers.first { $0.name == "Hidden" }?.isVisible == false)
+    }
+
+    /// Retina documents keep places and sizes in points, two pixels each.
+    @Test func backingScaleTurnsPointsIntoPixels() throws {
+        let wrapper = try PXDBuilder(canvas: (40, 20), layers: [
+            .init(index: 0, type: 1, name: "Photo", position: CGPoint(x: 10, y: 5), size: CGSize(width: 20, height: 10),
+                  backingScale: 2, pixels: bgra(0, 0, 255, width: 40, height: 20)),
+        ]).build()
+        let photo = try #require(PXDReader.composition(from: wrapper).layers.first)
+        #expect(photo.transform.position == CGPoint(x: 20, y: 10))
+        #expect(photo.transform.scaleX == 1)
+        #expect(photo.transform.scaleY == 1)
     }
 
     @Test func textLayersBringThePreviewAlong() throws {

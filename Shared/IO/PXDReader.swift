@@ -54,7 +54,9 @@ enum PXDReader {
                 switch row.type {
                 case 4:
                     // A group: its rotation turns its layers about its centre.
-                    let center = info["position"].map { Blob.point($0) }.map { CGPoint(x: $0.x, y: canvas.height - $0.y) }
+                    let backing = backingScale(info)
+                    let center = info["position"].map { Blob.point($0) }
+                        .map { CGPoint(x: $0.x * backing, y: canvas.height - $0.y * backing) }
                     let angle = -(info["angle"].map { Blob.bigDouble($0) } ?? 0) * .pi / 180
                     var group = own
                     if angle != 0, let center {
@@ -123,9 +125,12 @@ enum PXDReader {
         }
         guard let image, image.width > 0, image.height > 0 else { return nil }
 
-        let size = info["size"].map { Blob.point($0) } ?? CGPoint(x: image.width, y: image.height)
+        let backing = backingScale(info)
+        let size = info["size"].map { Blob.point($0) }.map { CGPoint(x: $0.x * backing, y: $0.y * backing) }
+            ?? CGPoint(x: image.width, y: image.height)
         let scale = info["scale"].map { Blob.point($0) } ?? CGPoint(x: 1, y: 1)
-        let position = info["position"].map { Blob.point($0) } ?? CGPoint(x: canvas.width / 2, y: canvas.height / 2)
+        let position = info["position"].map { Blob.point($0) }.map { CGPoint(x: $0.x * backing, y: $0.y * backing) }
+            ?? CGPoint(x: canvas.width / 2, y: canvas.height / 2)
         // Pixelmator measures from the bottom left with angles turning
         // anticlockwise; the canvas runs from the top left, clockwise.
         var center = CGPoint(x: position.x, y: canvas.height - position.y)
@@ -151,6 +156,13 @@ enum PXDReader {
             isVisible: inherited.isVisible,
             groupID: inherited.groupID
         )
+    }
+
+    /// Pixels per point: a layer's place and size are kept in points,
+    /// which documents made on a Retina screen count at two pixels each.
+    private static func backingScale(_ info: [String: [UInt8]]) -> Double {
+        let scale = info["backingScale"].map { Blob.bigDouble($0) } ?? 1
+        return scale.isFinite && scale > 0 ? scale : 1
     }
 
     // MARK: - Files
