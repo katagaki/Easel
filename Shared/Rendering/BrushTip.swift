@@ -16,6 +16,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case chalk
     /// A felt chisel whose ink darkens where strokes cross.
     case marker
+    /// A crumbly stick: dark, broken and toothy, shading broad on its side.
+    case charcoal
 
     var id: String { rawValue }
 
@@ -27,6 +29,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .airbrush: return "Brush.Tip.Airbrush"
         case .chalk: return "Brush.Tip.Chalk"
         case .marker: return "Brush.Tip.Marker"
+        case .charcoal: return "Brush.Tip.Charcoal"
         }
     }
 
@@ -38,6 +41,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .airbrush: return "aqi.medium"
         case .chalk: return "scribble.variable"
         case .marker: return "highlighter"
+        case .charcoal: return "scribble"
         }
     }
 
@@ -49,6 +53,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .airbrush: return 0.08
         case .chalk: return 0.15
         case .marker: return 0.05
+        case .charcoal: return 0.1
         }
     }
 
@@ -57,6 +62,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .calligraphy: return 0.22
         case .marker: return 0.45
+        case .charcoal: return 0.6
         default: return 1
         }
     }
@@ -76,6 +82,17 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .pencil: return 0.85
         case .airbrush: return 0.25
         case .chalk: return 0.75
+        case .charcoal: return 0.95
+        }
+    }
+
+    /// How far dabs wander off the line, as a share of their size: a
+    /// crumbling tip never quite follows the hand.
+    fileprivate var wobble: Double {
+        switch self {
+        case .chalk: return 0.15
+        case .charcoal: return 0.1
+        default: return 0
         }
     }
 
@@ -85,9 +102,14 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .pencil: return 0.4
         case .chalk: return 0.7
+        case .charcoal: return 0.55
         case .round, .calligraphy, .airbrush, .marker: return 0
         }
     }
+
+    /// How coarse the paper's tooth is under this tip: charcoal is used on
+    /// rougher paper than pencil.
+    fileprivate var grainCoarseness: Double { self == .charcoal ? 1.8 : 1 }
 
     /// The angle a flat nib is held at when Apple Pencil's tilt is not used.
     static let nibAngle = Double.pi / 4
@@ -155,9 +177,9 @@ extension Stroke {
             var center = point.location
             var angle = tip.isNib ? nibAngle(at: point) : random.next() * 2 * .pi
             if follows { angle = heading + .pi / 2 }
-            if tip == .chalk {
-                center.x += (random.next() - 0.5) * diameter * 0.15
-                center.y += (random.next() - 0.5) * diameter * 0.15
+            if tip.wobble > 0 {
+                center.x += (random.next() - 0.5) * diameter * tip.wobble
+                center.y += (random.next() - 0.5) * diameter * tip.wobble
             }
             if scatter > 0 {
                 // Anywhere in a disc around the line, evenly over its area.
@@ -228,7 +250,7 @@ extension Stroke {
 
     /// How large the paper's grain is on the canvas, for this brush: finer
     /// for small brushes, coarser for big ones, so it reads at any size.
-    var grainScale: Double { max(1, settings.size / 20) }
+    var grainScale: Double { max(1, settings.size / 20) * settings.tip.grainCoarseness }
 
     /// The colour a dab is stamped in: its own, or `color`, which is the
     /// brush's. An eraser's dabs only take away, so they keep `color`.
@@ -306,6 +328,18 @@ enum BrushTipImage {
         // Grain in cells two pixels across, for the dry tips.
         let cells = size / 2
         let grain = (0..<(cells * cells)).map { _ in random.next() }
+        // A few waves round the rim, for tips with a broken outline.
+        let ripples = (0..<4).map { _ in random.next() * 2 * .pi }
+        func rim(_ angle: Double) -> Double {
+            ripples.enumerated().reduce(0) { sum, wave in
+                sum + sin(angle * Double(wave.offset * 2 + 3) + wave.element) / Double(wave.offset + 1)
+            } / 2
+        }
+        /// Solid out to the softness's edge, fading to nothing at 1.
+        func falloff(_ distance: Double, hardest: Double = 0.04) -> Double {
+            let core = 1 - max(softness, hardest)
+            return distance <= core ? 1 : max(0, (1 - distance) / (1 - core))
+        }
         var bytes = [UInt8](repeating: 0, count: size * size * 4)
         let center = Double(size) / 2
         for y in 0..<size {
@@ -313,25 +347,27 @@ enum BrushTipImage {
                 let dx = (Double(x) + 0.5 - center) / center
                 let dy = (Double(y) + 0.5 - center) / center
                 let reach = sqrt(dx * dx + dy * dy)
-                guard reach < 1 || tip == .marker else { continue }
-                var alpha: Double
-                if tip == .airbrush {
-                    alpha = 1 - reach * reach
-                } else if tip == .marker {
+                let cell = grain[(y / 2) * cells + x / 2]
+                let alpha: Double
+                switch tip {
+                case .round, .pencil, .calligraphy:
+                    alpha = falloff(reach)
+                case .airbrush:
+                    alpha = reach < 1 ? 1 - reach * reach : 0
+                case .chalk:
+                    // A ragged edge; the paper gives the rest its grain.
+                    alpha = falloff(reach) * (reach > 0.7 && cell <= 0.4 ? 0.1 : 1)
+                case .marker:
                     // A squared-off felt nib, its corners just rounded.
-                    let corner = pow(pow(abs(dx), 6) + pow(abs(dy), 6), 1.0 / 6)
-                    let core = 1 - max(softness, 0.06)
-                    alpha = corner <= core ? 1 : max(0, (1 - corner) / (1 - core))
-                } else {
-                    // Solid to the softness's edge, fading to nothing at the rim.
-                    let core = 1 - max(softness, 0.04)
-                    alpha = reach <= core ? 1 : max(0, (1 - reach) / (1 - core))
+                    alpha = falloff(pow(pow(abs(dx), 6) + pow(abs(dy), 6), 1.0 / 6), hardest: 0.06)
+                case .charcoal:
+                    // A crumbling stick end: an uneven outline, and gaps
+                    // through it where the charcoal skips.
+                    let edge = 0.8 + 0.2 * rim(atan2(dy, dx))
+                    alpha = falloff(reach / edge) * (cell > 0.2 ? 1 : 0.4)
                 }
-                // Chalk's edge is ragged; the paper gives the rest its grain.
-                if tip == .chalk, reach > 0.7 {
-                    alpha *= grain[(y / 2) * cells + x / 2] > 0.4 ? 1 : 0.1
-                }
-                let value = UInt8(min(max(alpha, 0), 1) * 255)
+                guard alpha > 0 else { continue }
+                let value = UInt8(min(alpha, 1) * 255)
                 let index = (y * size + x) * 4
                 bytes[index] = value
                 bytes[index + 1] = value

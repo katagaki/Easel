@@ -71,6 +71,18 @@ struct BrushTipTests {
         #expect(coverage(.chalk) < coverage(.pencil))
     }
 
+    @Test func charcoalIsBrokenAndShadesOnItsSide() {
+        let image = Painter.paint(stroke(.charcoal, size: 16), onto: canvas)
+        let samples = (20..<80).map { TestImages.pixel(image, x: $0, y: 20).alpha }
+        #expect(samples.contains { $0 > 200 })
+        #expect(samples.contains { $0 < 150 })
+        // Its dabs wander a little off the line.
+        #expect(stroke(.charcoal).dabs.contains { abs($0.center.y - 20) > 0.2 })
+        var tilted = stroke(.charcoal)
+        tilted.points = tilted.points.map { var point = $0; point.altitude = 0.2; point.azimuth = 0; return point }
+        #expect(tilted.dabs[0].diameter > stroke(.charcoal).dabs[0].diameter * 1.8)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha

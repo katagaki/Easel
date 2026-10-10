@@ -67,6 +67,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .marker
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Charcoal"), settings: {
+            var settings = BrushSettings(size: 26)
+            settings.tip = .charcoal
+            return settings
+        }()),
     ]
 }
 

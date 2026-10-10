@@ -430,6 +430,8 @@ S = {
 "Brush.Tip.Airbrush": ("Airbrush", "エアブラシ", "에어브러시", "喷枪", "噴槍"),
 "Brush.Tip.Chalk": ("Chalk", "チョーク", "분필", "粉笔", "粉筆"),
 "Brush.Tip.Marker": ("Marker", "マーカー", "마커", "马克笔", "麥克筆"),
+"Brush.Tip.Charcoal": ("Charcoal", "木炭", "목탄", "炭笔", "炭筆"),
+"Brush.Preset.Charcoal": ("Willow Charcoal", "木炭", "버드나무 목탄", "柳木炭笔", "柳木炭筆"),
 "Brush.Preset.Marker": ("Felt Marker", "フェルトマーカー", "펠트 마커", "毡头马克笔", "氈頭麥克筆"),
 "Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
 "Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),
