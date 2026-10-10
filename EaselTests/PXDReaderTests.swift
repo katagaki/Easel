@@ -247,4 +247,13 @@ struct PXDReaderTests {
             #expect(!EaselDocument.isReadOnly(type))
         }
     }
+
+    /// Earlier builds wrote Easel packages over Pixelmator files; those
+    /// still open, as what was painted in them.
+    @Test func easelPackagesSavedUnderPixelmatorNamesOpen() throws {
+        let saved = Composition.blank(size: CGSize(width: 12, height: 8))
+        let package = try CompositionArchive.fileWrapper(for: saved)
+        let opened = try EaselDocument.composition(from: package, contentType: .pixelmatorProPackage)
+        #expect(opened.size == saved.size)
+    }
 }

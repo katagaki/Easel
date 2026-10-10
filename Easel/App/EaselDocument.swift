@@ -39,20 +39,23 @@ struct EaselDocument: FileDocument {
     }
 
     init(configuration: ReadConfiguration) throws {
-        if configuration.contentType.conforms(to: .pixelmatorProImage)
-            || configuration.contentType.conforms(to: .pixelmatorProPackage) {
-            composition = try PXDReader.composition(from: configuration.file)
-        } else if configuration.file.isDirectory {
-            composition = try CompositionArchive.composition(from: configuration.file)
-        } else if configuration.contentType.conforms(to: .photoshopImage)
-            || configuration.contentType.conforms(to: .photoshopLargeImage) {
-            guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
-            composition = try PSDReader.composition(from: data)
+        composition = try Self.composition(from: configuration.file, contentType: configuration.contentType)
+    }
+
+    static func composition(from file: FileWrapper, contentType: UTType) throws -> Composition {
+        // Earlier builds saved Easel packages over Pixelmator files, keeping
+        // their names; those open as the Easel images they now are.
+        let isPixelmator = contentType.conforms(to: .pixelmatorProImage) || contentType.conforms(to: .pixelmatorProPackage)
+        if isPixelmator, !(file.isDirectory && file.fileWrappers?["metadata.info"] == nil) {
+            return try PXDReader.composition(from: file)
+        } else if file.isDirectory {
+            return try CompositionArchive.composition(from: file)
+        } else if contentType.conforms(to: .photoshopImage) || contentType.conforms(to: .photoshopLargeImage) {
+            guard let data = file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+            return try PSDReader.composition(from: data)
         } else {
-            guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
-            composition = Composition(
-                image: try ImageCodec.decode(data), name: String(localized: "Layer.DefaultName.Background")
-            )
+            guard let data = file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+            return Composition(image: try ImageCodec.decode(data), name: String(localized: "Layer.DefaultName.Background"))
         }
     }
 
