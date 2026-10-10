@@ -32,6 +32,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case dryBrush
     /// A flat brush dragged broadside: a wide band of hair streaks.
     case flat
+    /// Droplets flicked off a loaded brush, flung wide of the line.
+    case spatter
 
     var id: String { rawValue }
 
@@ -50,6 +52,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bristle: return "Brush.Tip.Bristle"
         case .dryBrush: return "Brush.Tip.DryBrush"
         case .flat: return "Brush.Tip.Flat"
+        case .spatter: return "Brush.Tip.Spatter"
         }
     }
 
@@ -68,6 +71,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .bristle: return "paintbrush"
         case .dryBrush: return "paintbrush.pointed"
         case .flat: return "rectangle.portrait"
+        case .spatter: return "drop.degreesign"
         }
     }
 
@@ -84,6 +88,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stipple: return 0.3
         case .pixel: return 0.25
         case .bristle, .dryBrush, .flat: return 0.03
+        case .spatter: return 0.35
         }
     }
 
@@ -116,6 +121,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
         case .bristle, .dryBrush, .flat: return 0.9
+        case .spatter: return 1
         }
     }
 
@@ -138,7 +144,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter: return 0
         }
     }
 
@@ -152,14 +158,36 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
 
     /// How big each dab is beside the brush's width: under 1 for tips that
     /// lay down many small marks across the stroke.
-    fileprivate var dabScale: Double { self == .stipple ? 0.4 : 1 }
+    fileprivate var dabScale: Double {
+        switch self {
+        case .stipple: return 0.4
+        case .spatter: return 0.22
+        default: return 1
+        }
+    }
+
+    /// How many dabs go down at each step, for tips that throw out several
+    /// marks at once.
+    fileprivate var dabsPerStep: Int { self == .spatter ? 4 : 1 }
 
     /// How far the tip's own dabs stray from the line, before any Scatter
-    /// asked for.
-    fileprivate var scatter: Double { self == .stipple ? 0.45 : 0 }
+    /// asked for; past 1 they land beyond the brush's own width.
+    fileprivate var scatter: Double {
+        switch self {
+        case .stipple: return 0.45
+        case .spatter: return 1.6
+        default: return 0
+        }
+    }
 
     /// How much the tip's own dabs vary in size, before any Size Jitter.
-    fileprivate var sizeJitter: Double { self == .stipple ? 0.5 : 0 }
+    fileprivate var sizeJitter: Double {
+        switch self {
+        case .stipple: return 0.5
+        case .spatter: return 0.85
+        default: return 0
+        }
+    }
 
     /// How coarse the paper's tooth is under this tip: charcoal is used on
     /// rougher paper than pencil.
@@ -271,10 +299,8 @@ extension Stroke {
         }
         // The first dab faces the way the stroke sets off.
         let start = points.first { $0.location != first.location }?.location ?? first.location
-        var result = [dab(
-            at: first, width: widths[0],
-            heading: atan2(start.y - first.location.y, start.x - first.location.x), along: 0
-        )]
+        let heading = atan2(start.y - first.location.y, start.x - first.location.x)
+        var result = (0..<tip.dabsPerStep).map { _ in dab(at: first, width: widths[0], heading: heading, along: 0) }
         // Walks the stroke, dropping a dab every `spacing` of the brush's
         // width at the point reached.
         var carried = 0.0, covered = 0.0
@@ -295,14 +321,17 @@ extension Stroke {
                 travelled += needed
                 carried = 0
                 let at = travelled / length
-                result.append(dab(at: StrokePoint(
+                let point = StrokePoint(
                     location: CGPoint(
                         x: from.location.x + (to.location.x - from.location.x) * at,
                         y: from.location.y + (to.location.y - from.location.y) * at
                     ),
                     pressure: from.pressure + (to.pressure - from.pressure) * at,
                     azimuth: to.azimuth, altitude: to.altitude
-                ), width: width(at: at), heading: heading, along: covered + travelled))
+                )
+                for _ in 0..<tip.dabsPerStep {
+                    result.append(dab(at: point, width: width(at: at), heading: heading, along: covered + travelled))
+                }
             }
             covered += length
         }
@@ -474,6 +503,9 @@ enum BrushTipImage {
                     // through it where the charcoal skips.
                     let edge = 0.8 + 0.2 * rim(atan2(dy, dx))
                     alpha = falloff(reach / edge) * (cell > 0.2 ? 1 : 0.4)
+                case .spatter:
+                    // A droplet, not quite round where it landed.
+                    alpha = falloff(reach / (0.85 + 0.15 * rim(atan2(dy, dx))), hardest: 0.08)
                 case .crayon:
                     // A worn wax point, round but not quite.
                     alpha = falloff(reach / (0.92 + 0.08 * rim(atan2(dy, dx))))

@@ -157,6 +157,17 @@ struct BrushTipTests {
         #expect(abs(across - down) < 6)
     }
 
+    @Test func spatterFlingsDropletsWideOfTheLine() {
+        let spatter = stroke(.spatter, size: 10)
+        let dabs = spatter.dabs
+        // Several droplets a step, small, some landing past the brush's width.
+        #expect(dabs.count > 40)
+        #expect(dabs.allSatisfy { $0.diameter <= 3 })
+        #expect(dabs.contains { abs($0.center.y - 20) > 10 })
+        let bounds = spatter.bounds
+        #expect(dabs.allSatisfy { bounds.contains($0.center) })
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha
