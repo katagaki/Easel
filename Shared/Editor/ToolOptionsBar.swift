@@ -570,7 +570,7 @@ private struct BrushSettingsButton: View {
                                 valueText: "\(Int((state.currentBrush.dynamics.colorJitter * 100).rounded()))%"
                             )
                         }
-                        if state.currentBrush.tip != .round {
+                        if state.currentBrush.tip != .round && !state.currentBrush.tip.followsStroke {
                             Toggle("Options.FollowsStroke", isOn: $state.currentBrush.dynamics.followsStroke)
                         }
                     }

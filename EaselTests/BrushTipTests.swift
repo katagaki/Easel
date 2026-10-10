@@ -121,6 +121,19 @@ struct BrushTipTests {
         #expect(stroke(.pixel, size: 2.6).dabs.allSatisfy { $0.diameter == 3 && $0.square == $0.square.integral })
     }
 
+    @Test func bristlesDragStreaksAlongTheStroke() throws {
+        let image = Painter.paint(stroke(.bristle, size: 30), onto: canvas)
+        // Down a column across the stroke, hairs and gaps alternate…
+        let across = (6..<34).map { TestImages.pixel(image, x: 50, y: $0).alpha }
+        #expect(across.contains { $0 > 200 })
+        #expect(across.contains { $0 < 60 })
+        // …while each hair's streak runs on unbroken along it.
+        let streak = try #require(across.indices.max { across[$0] < across[$1] }) + 6
+        let along = (30..<70).map { TestImages.pixel(image, x: $0, y: streak).alpha }
+        #expect(along.allSatisfy { $0 > 150 })
+        #expect(stroke(.bristle).dabs.allSatisfy { abs($0.angle - .pi / 2) < 0.0001 })
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha

@@ -25,6 +25,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     case stipple
     /// Hard square pixels on the canvas's own grid, for pixel art.
     case pixel
+    /// A round brush of separate hairs, each dragging its own streak.
+    case bristle
 
     var id: String { rawValue }
 
@@ -40,6 +42,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crayon: return "Brush.Tip.Crayon"
         case .stipple: return "Brush.Tip.Stipple"
         case .pixel: return "Brush.Tip.Pixel"
+        case .bristle: return "Brush.Tip.Bristle"
         }
     }
 
@@ -55,6 +58,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crayon: return "pencil.tip.crop.circle"
         case .stipple: return "circle.dotted"
         case .pixel: return "square.grid.3x3.square"
+        case .bristle: return "paintbrush"
         }
     }
 
@@ -70,6 +74,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crayon: return 0.1
         case .stipple: return 0.3
         case .pixel: return 0.25
+        case .bristle: return 0.03
         }
     }
 
@@ -100,6 +105,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.75
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
+        case .bristle: return 0.9
         }
     }
 
@@ -121,9 +127,13 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.7
         case .charcoal: return 0.55
         case .crayon: return 0.8
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle: return 0
         }
     }
+
+    /// Tips that always lie the same way to the stroke: a brush's hairs
+    /// trail behind it, so each keeps to its own streak.
+    var followsStroke: Bool { self == .bristle }
 
     /// How big each dab is beside the brush's width: under 1 for tips that
     /// lay down many small marks across the stroke.
@@ -216,7 +226,7 @@ extension Stroke {
             }
             var center = point.location
             var angle = tip.isNib ? nibAngle(at: point) : random.next() * 2 * .pi
-            if follows { angle = heading + .pi / 2 }
+            if follows || tip.followsStroke { angle = heading + .pi / 2 }
             if tip.wobble > 0 {
                 center.x += (random.next() - 0.5) * diameter * tip.wobble
                 center.y += (random.next() - 0.5) * diameter * tip.wobble
@@ -387,6 +397,13 @@ enum BrushTipImage {
         // Grain in cells two pixels across, for the dry tips.
         let cells = size / 2
         let grain = (0..<(cells * cells)).map { _ in random.next() }
+        // Where each hair of a bristle brush lies, and how thick and how
+        // loaded with paint it is.
+        let hairs = (0..<45).map { _ in
+            let angle = random.next() * 2 * .pi, distance = sqrt(random.next()) * 0.9
+            return (x: cos(angle) * distance, y: sin(angle) * distance,
+                    radius: 0.04 + random.next() * 0.06, load: 0.35 + random.next() * 0.65)
+        }
         // A few waves round the rim, for tips with a broken outline.
         let ripples = (0..<4).map { _ in random.next() * 2 * .pi }
         func rim(_ angle: Double) -> Double {
@@ -414,6 +431,12 @@ enum BrushTipImage {
                 case .pixel:
                     // Never stamped from an image; filled square.
                     alpha = 1
+                case .bristle:
+                    // The heaviest hair over this spot.
+                    alpha = reach < 1 ? hairs.reduce(0) { most, hair in
+                        let apart = hypot(dx - hair.x, dy - hair.y) / hair.radius
+                        return apart < 1 ? max(most, hair.load * min(1, (1 - apart) * 3)) : most
+                    } : 0
                 case .airbrush:
                     alpha = reach < 1 ? 1 - reach * reach : 0
                 case .chalk:
