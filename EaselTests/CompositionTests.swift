@@ -4,11 +4,14 @@ import Testing
 
 @Suite("Composition")
 struct CompositionTests {
-    @Test func blankDocumentIsOneUntouchedWhiteLayer() {
+    @Test func blankDocumentIsOneUntouchedTransparentLayer() {
         let composition = Composition.blank(size: CGSize(width: 10, height: 6))
         #expect(composition.layers.count == 1)
         #expect(composition.isUntouchedBlank)
-        #expect(TestImages.pixel(composition.layers[0].image.cgImage, x: 5, y: 3).red > 250)
+        #expect(TestImages.pixel(composition.layers[0].image.cgImage, x: 5, y: 3).alpha == 0)
+        // A fill can still be asked for.
+        let white = Composition.blank(size: CGSize(width: 10, height: 6), fill: .white)
+        #expect(TestImages.pixel(white.layers[0].image.cgImage, x: 5, y: 3).red > 250)
     }
 
     @Test func renderingStacksLayersInOrder() {

@@ -231,8 +231,8 @@ struct NodeToolTests {
         let path = try #require(state.activeLayer?.vector?.paths.first)
         #expect(path.fill == nil && path.stroke != nil)
         let image = CompositionRenderer.render(state.composition)
-        // Hollow now: the middle shows the white background.
-        #expect(TestImages.pixel(image, x: 100, y: 100).red > 240)
+        // Hollow now: the middle shows the see-through background.
+        #expect(TestImages.pixel(image, x: 100, y: 100).alpha == 0)
         #expect(TestImages.isRed(image, x: 50, y: 100))
     }
 

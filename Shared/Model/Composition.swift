@@ -25,8 +25,8 @@ struct Composition: Equatable, Sendable {
         self.groups = groups
     }
 
-    /// A new picture: a white background to paint on.
-    static func blank(size: CGSize = defaultSize, fill: RGBAColor = .white) -> Composition {
+    /// A new picture: a see-through layer to paint on, unless a fill is asked for.
+    static func blank(size: CGSize = defaultSize, fill: RGBAColor = .clear) -> Composition {
         let image = Bitmap.solid(size: size, color: fill)
         let background = Layer(
             name: String(localized: "Layer.DefaultName.Background"),
