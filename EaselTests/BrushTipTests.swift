@@ -243,6 +243,28 @@ struct BrushTipTests {
         #expect(glazed.green < 250 && glazed.red > 200)
     }
 
+    @Test func oilPaintPicksUpTheColourItIsDraggedThrough() throws {
+        // Yellow on the right of the layer; a blue stroke from left to right.
+        let layer = Bitmap.render(size: CGSize(width: 100, height: 40)) { context in
+            context.setFillColor(RGBAColor(red: 1, green: 1, blue: 0).cgColor)
+            context.fill(CGRect(x: 25, y: 0, width: 75, height: 40))
+        }
+        var oil = stroke(.oil, size: 10, from: CGPoint(x: 5, y: 20), to: CGPoint(x: 95, y: 20))
+        oil.settings.color = RGBAColor(red: 0, green: 0, blue: 1)
+        oil.pickup = PaintSource(pixels: try #require(Bitmap.pixels(of: layer)))
+        let dabs = oil.dabs
+        let start = try #require(dabs.first?.color), end = try #require(dabs.last?.color)
+        // Blue until it reaches the yellow, then more and more yellow.
+        #expect(start.blue > 0.9 && start.red < 0.1)
+        #expect(end.red > 0.7 && end.blue < 0.4, "\(end)")
+        let image = Painter.paint(oil, onto: layer)
+        let mixed = TestImages.pixel(image, x: 90, y: 20)
+        #expect(mixed.red > 150 && mixed.green > 150, "\(mixed)")
+        // Without a layer to mix with, it is simply the brush's colour.
+        oil.pickup = nil
+        #expect(oil.dabs.allSatisfy { $0.color == nil })
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha

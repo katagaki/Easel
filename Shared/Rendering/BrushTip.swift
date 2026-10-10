@@ -48,6 +48,9 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// A see-through wash that pools darker at its edges and settles into
     /// the paper.
     case watercolor
+    /// Thick paint that picks up the colours it is dragged through and
+    /// mixes them into what it lays down.
+    case oil
 
     var id: String { rawValue }
 
@@ -73,6 +76,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .confetti: return "Brush.Tip.Confetti"
         case .neon: return "Brush.Tip.Neon"
         case .watercolor: return "Brush.Tip.Watercolor"
+        case .oil: return "Brush.Tip.Oil"
         }
     }
 
@@ -98,6 +102,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .confetti: return "party.popper"
         case .neon: return "lightbulb.max"
         case .watercolor: return "drop.halffull"
+        case .oil: return "paintpalette"
         }
     }
 
@@ -113,7 +118,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crayon: return 0.1
         case .stipple: return 0.3
         case .pixel: return 0.25
-        case .bristle, .dryBrush, .flat: return 0.03
+        case .bristle, .dryBrush, .flat, .oil: return 0.03
         case .spatter: return 0.35
         case .sponge: return 0.35
         case .foliage: return 0.45
@@ -164,6 +169,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
         case .bristle, .dryBrush, .flat: return 0.9
+        case .oil: return 1
         case .spatter, .foliage, .stars, .confetti: return 1
         case .sponge: return 0.7
         }
@@ -189,13 +195,13 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti, .neon, .watercolor: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat, .spatter, .sponge, .foliage, .stars, .confetti, .neon, .watercolor, .oil: return 0
         }
     }
 
     /// Tips that always lie the same way to the stroke: a brush's hairs
     /// trail behind it, so each keeps to its own streak.
-    var followsStroke: Bool { self == .bristle || self == .dryBrush || self == .flat }
+    var followsStroke: Bool { [.bristle, .dryBrush, .flat, .oil].contains(self) }
 
     /// How far a brush goes before it has run dry, in brush widths; nil
     /// for tips that never run out.
@@ -412,7 +418,35 @@ extension Stroke {
             }
             covered += length
         }
+        if let pickup, !isEraser { mix(&result, from: pickup) }
         return result
+    }
+
+    /// Works out each dab's colour as a loaded brush mixes it: paint picked
+    /// up from where it passes stirs into what is on the brush, so the
+    /// stroke starts in the brush's colour and drifts toward what it drags
+    /// through.
+    private func mix(_ dabs: inout [BrushDab], from pickup: PaintSource) {
+        let p3 = settings.color.cgColor.converted(to: Bitmap.colorSpace, intent: .defaultIntent, options: nil)?.components
+            ?? [settings.color.red, settings.color.green, settings.color.blue]
+        var load = (Double(p3[0]), Double(p3[1]), Double(p3[2]))
+        var last = dabs.first?.center
+        for index in dabs.indices {
+            let dab = dabs[index]
+            let travelled = last.map { hypot(dab.center.x - $0.x, dab.center.y - $0.y) } ?? 0
+            last = dab.center
+            if let found = pickup.color(around: dab.center, reach: dab.diameter * 0.3) {
+                // The further it goes through a colour, the more it takes on;
+                // over a few widths, most of it.
+                let take: Double = (1 - exp(-travelled / max(settings.size * 3, 1))) * found.alpha
+                let red: Double = load.0 + (found.red - load.0) * take
+                let green: Double = load.1 + (found.green - load.1) * take
+                let blue: Double = load.2 + (found.blue - load.2) * take
+                load = (red, green, blue)
+            }
+            dabs[index].color = CGColor(colorSpace: Bitmap.colorSpace, components: [load.0, load.1, load.2, 1])
+                .flatMap(RGBAColor.init) ?? settings.color
+        }
     }
 
     /// The angle a flat nib lies at for this point: across the way Apple
@@ -467,6 +501,28 @@ extension Stroke {
             context.restoreGState()
             return
         }
+        if pickup != nil, !isEraser {
+            // Every dab its own mixed colour: filled through the tip's shape
+            // rather than tinting a stamp for each.
+            let mask = BrushTipImage.mask(settings.tip, softness: settings.softness)
+            for dab in dabs {
+                context.saveGState()
+                context.translateBy(x: dab.center.x, y: dab.center.y)
+                context.rotate(by: dab.angle)
+                context.scaleBy(x: 1, y: dab.roundness)
+                context.setAlpha(dab.opacity)
+                let radius = dab.diameter / 2
+                let rect = CGRect(x: -radius, y: -radius, width: dab.diameter, height: dab.diameter)
+                // Upright, as images are drawn.
+                context.translateBy(x: 0, y: radius)
+                context.scaleBy(x: 1, y: -1)
+                context.clip(to: rect.offsetBy(dx: 0, dy: radius), mask: mask)
+                context.setFillColor(paint(of: dab, brush: color).withAlpha(1).cgColor)
+                context.fill(rect.offsetBy(dx: 0, dy: radius))
+                context.restoreGState()
+            }
+            return
+        }
         var tips: [RGBAColor: CGImage] = [:]
         for dab in dabs {
             let paint = paint(of: dab, brush: color)
@@ -490,6 +546,33 @@ enum BrushTipImage {
     private static let size = 128
     private static let cache = TipCache()
     private static let tintCache = TipCache()
+    private static let maskCache = TipCache()
+
+    /// The tip's shape as a grey mask, white where it paints, for filling
+    /// in any colour without tinting a stamp.
+    static func mask(_ tip: BrushTip, softness: Double) -> CGImage {
+        let step = Int((min(max(softness, 0), 1) * 20).rounded())
+        let key = "\(tip.rawValue)-\(step)"
+        if let cached = maskCache.image(for: key) { return cached }
+        let shape = image(tip, softness: softness)
+        var grey = [UInt8](repeating: 0, count: size * size)
+        grey.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size,
+                space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue
+            ) else { return }
+            context.draw(shape, in: CGRect(x: 0, y: 0, width: size, height: size))
+        }
+        let made = CGDataProvider(data: Data(grey) as CFData).flatMap {
+            CGImage(
+                width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: size,
+                space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: 0),
+                provider: $0, decode: nil, shouldInterpolate: true, intent: .defaultIntent
+            )
+        } ?? Bitmap.empty
+        maskCache.store(made, for: key)
+        return made
+    }
 
     /// The tip's image in `color`, kept for the next stroke in that colour.
     static func tinted(_ tip: BrushTip, softness: Double, color: RGBAColor) -> CGImage {
@@ -525,7 +608,8 @@ enum BrushTipImage {
         let grain = (0..<(cells * cells)).map { _ in random.next() }
         // Where each hair of a bristle brush lies, and how thick and how
         // loaded with paint it is.
-        let hairs = (0..<(tip == .dryBrush ? 26 : tip == .flat ? 36 : 45)).map { _ in
+        // Oil paint is thick: so many hairs they mostly run together.
+        let hairs = (0..<(tip == .dryBrush ? 26 : tip == .flat ? 36 : tip == .oil ? 80 : 45)).map { _ in
             let angle = random.next() * 2 * .pi, distance = sqrt(random.next()) * 0.9
             let radius = 0.04 + random.next() * 0.06, load = 0.35 + random.next() * 0.65
             // A flat brush's hairs fill its ferrule edge to edge.
@@ -563,7 +647,7 @@ enum BrushTipImage {
                 case .pixel:
                     // Never stamped from an image; filled square.
                     alpha = 1
-                case .bristle, .dryBrush, .flat:
+                case .bristle, .dryBrush, .flat, .oil:
                     // The heaviest hair over this spot.
                     alpha = reach < 1 || tip == .flat ? hairs.reduce(0) { most, hair in
                         // Drawn long where the tip is squashed flat, so each

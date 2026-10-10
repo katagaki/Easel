@@ -538,6 +538,11 @@ final class EditorState {
                 points: [StrokePoint(location: point, pressure: pressure, azimuth: azimuth, altitude: altitude, time: time)],
                 settings: currentBrush, kind: strokeKind, clip: selection
             )
+            if tool == .brush, currentBrush.tip == .oil, let layer = activeLayer,
+               let pixels = Bitmap.pixels(of: layer.aligned(in: composition.size).image.cgImage) {
+                // Oil paint mixes with the layer as it is now.
+                activeStroke?.pickup = PaintSource(pixels: pixels)
+            }
         case .smudge, .liquify:
             guard paintingBlocker() == nil else { return }
             beginSmudge(at: point)

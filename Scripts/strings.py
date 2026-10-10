@@ -459,6 +459,8 @@ S = {
 "Brush.Preset.Neon": ("Neon Tube", "ネオン管", "네온관", "霓虹灯管", "霓虹燈管"),
 "Brush.Tip.Watercolor": ("Watercolor", "水彩", "수채화", "水彩", "水彩"),
 "Brush.Preset.Watercolor": ("Watercolor Wash", "水彩ウォッシュ", "수채 워시", "水彩晕染", "水彩暈染"),
+"Brush.Tip.Oil": ("Oil", "油彩", "유화", "油画", "油畫"),
+"Brush.Preset.Oil": ("Oil Paint", "油絵の具", "유화 물감", "油画颜料", "油畫顏料"),
 "Brush.Preset.Marker": ("Felt Marker", "フェルトマーカー", "펠트 마커", "毡头马克笔", "氈頭麥克筆"),
 "Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
 "Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),

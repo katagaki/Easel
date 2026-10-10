@@ -404,6 +404,24 @@ extension StrokePreview {
             }
             return
         }
+        if stroke.pickup != nil, !stroke.isEraser {
+            // Mixed paint: the white tip, coloured dab by dab.
+            let tip = context.resolve(Image(decorative: BrushTipImage.tinted(
+                stroke.settings.tip, softness: stroke.settings.softness, color: .white
+            ), scale: 1))
+            for dab in stroke.dabs {
+                var stamp = context
+                let center = dab.center.applying(transform)
+                stamp.translateBy(x: center.x, y: center.y)
+                stamp.rotate(by: .radians(dab.angle))
+                stamp.scaleBy(x: 1, y: dab.roundness)
+                stamp.opacity = dab.opacity
+                stamp.addFilter(.colorMultiply(stroke.paint(of: dab, brush: color).withAlpha(1).color))
+                let size = dab.diameter * scale
+                stamp.draw(tip, in: CGRect(x: -size / 2, y: -size / 2, width: size, height: size))
+            }
+            return
+        }
         var tips: [RGBAColor: GraphicsContext.ResolvedImage] = [:]
         for dab in stroke.dabs {
             let paint = stroke.paint(of: dab, brush: color)

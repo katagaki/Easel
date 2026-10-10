@@ -70,6 +70,36 @@ struct StrokePoint: Equatable, Sendable {
     var time: TimeInterval?
 }
 
+/// The layer's pixels as they were when a stroke began, for a brush that
+/// picks up colour from them.
+final class PaintSource: Equatable, @unchecked Sendable {
+    // Unchecked: the pixels are never changed once made.
+    private let pixels: PixelBuffer
+
+    init(pixels: PixelBuffer) {
+        self.pixels = pixels
+    }
+
+    /// The average colour of a few spots around `point`, Display P3, 0...1,
+    /// with how much paint is there; nil where there is none.
+    func color(around point: CGPoint, reach: Double) -> (red: Double, green: Double, blue: Double, alpha: Double)? {
+        var total = (0.0, 0.0, 0.0, 0.0), weight = 0.0
+        for (dx, dy) in [(0.0, 0.0), (1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let x = Int((point.x + dx * reach).rounded(.down)), y = Int((point.y + dy * reach).rounded(.down))
+            guard (0..<pixels.width).contains(x), (0..<pixels.height).contains(y) else { continue }
+            let color = pixels.color(x: x, y: y)
+            let alpha = color.alpha / 255
+            total = (total.0 + color.red / 255 * alpha, total.1 + color.green / 255 * alpha,
+                     total.2 + color.blue / 255 * alpha, total.3 + alpha)
+            weight += 1
+        }
+        guard weight > 0, total.3 > 0.01 else { return nil }
+        return (total.0 / total.3, total.1 / total.3, total.2 / total.3, total.3 / weight)
+    }
+
+    static func == (lhs: PaintSource, rhs: PaintSource) -> Bool { lhs === rhs }
+}
+
 /// One drag of a brush or eraser, kept as points until it is painted in, so
 /// the canvas can show it on top of the layer meanwhile.
 struct Stroke: Equatable, Sendable {
@@ -91,6 +121,8 @@ struct Stroke: Equatable, Sendable {
     var kind: Kind
     /// The selection it is confined to.
     var clip: Selection?
+    /// What a paint-mixing brush picks colour up from.
+    var pickup: PaintSource?
 
     init(points: [StrokePoint], settings: BrushSettings, kind: Kind, clip: Selection? = nil) {
         self.points = points
