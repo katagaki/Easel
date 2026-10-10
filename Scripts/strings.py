@@ -442,6 +442,8 @@ S = {
 "Brush.Preset.Bristle": ("Bristle Brush", "毛のブラシ", "강모 브러시", "鬃毛刷", "鬃毛刷"),
 "Brush.Tip.DryBrush": ("Dry Brush", "ドライブラシ", "드라이 브러시", "干笔", "乾筆"),
 "Brush.Preset.DryBrush": ("Dry Brush", "ドライブラシ", "드라이 브러시", "干笔", "乾筆"),
+"Brush.Tip.Flat": ("Flat", "平筆", "평붓", "平头笔", "平頭筆"),
+"Brush.Preset.Flat": ("Flat Brush", "平筆", "평붓", "平头笔", "平頭筆"),
 "Brush.Preset.Marker": ("Felt Marker", "フェルトマーカー", "펠트 마커", "毡头马克笔", "氈頭麥克筆"),
 "Brush.Dynamics": ("Dynamics", "ダイナミクス", "다이내믹스", "动态", "動態"),
 "Options.Taper": ("Taper", "入り抜き", "끝 가늘게", "笔锋", "筆鋒"),

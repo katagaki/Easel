@@ -97,6 +97,11 @@ struct BrushPreset: Codable, Hashable, Identifiable, Sendable {
             settings.tip = .dryBrush
             return settings
         }()),
+        BrushPreset(name: String(localized: "Brush.Preset.Flat"), settings: {
+            var settings = BrushSettings(size: 44, usesPressure: false)
+            settings.tip = .flat
+            return settings
+        }()),
     ]
 }
 

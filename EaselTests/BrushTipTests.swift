@@ -144,6 +144,19 @@ struct BrushTipTests {
         #expect(loaded.first!.opacity == loaded.last!.opacity)
     }
 
+    @Test func aFlatBrushPaintsABroadBandWhicheverWayItGoes() {
+        func thickness(from: CGPoint, to: CGPoint, x: Int? = nil, y: Int? = nil) -> Int {
+            let image = Painter.paint(stroke(.flat, size: 30, from: from, to: to), onto: Bitmap.render(size: CGSize(width: 100, height: 100)) { _ in })
+            if let x { return (0..<100).filter { TestImages.pixel(image, x: x, y: $0).alpha > 60 }.count }
+            return (0..<100).filter { TestImages.pixel(image, x: $0, y: y!).alpha > 60 }.count
+        }
+        // Across, then down: as broad either way, as it turns to lie across.
+        let across = thickness(from: CGPoint(x: 10, y: 50), to: CGPoint(x: 90, y: 50), x: 50)
+        let down = thickness(from: CGPoint(x: 50, y: 10), to: CGPoint(x: 50, y: 90), y: 50)
+        #expect(across > 20 && down > 20)
+        #expect(abs(across - down) < 6)
+    }
+
     @Test func airbrushBuildsUpSoftly() {
         let image = Painter.paint(stroke(.airbrush, size: 20), onto: canvas)
         let middle = TestImages.pixel(image, x: 50, y: 20).alpha

@@ -30,6 +30,8 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
     /// A brush with little paint left: broken streaks over the paper's
     /// tooth, fading as it runs dry.
     case dryBrush
+    /// A flat brush dragged broadside: a wide band of hair streaks.
+    case flat
 
     var id: String { rawValue }
 
@@ -47,6 +49,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .pixel: return "Brush.Tip.Pixel"
         case .bristle: return "Brush.Tip.Bristle"
         case .dryBrush: return "Brush.Tip.DryBrush"
+        case .flat: return "Brush.Tip.Flat"
         }
     }
 
@@ -64,6 +67,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .pixel: return "square.grid.3x3.square"
         case .bristle: return "paintbrush"
         case .dryBrush: return "paintbrush.pointed"
+        case .flat: return "rectangle.portrait"
         }
     }
 
@@ -79,7 +83,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .crayon: return 0.1
         case .stipple: return 0.3
         case .pixel: return 0.25
-        case .bristle, .dryBrush: return 0.03
+        case .bristle, .dryBrush, .flat: return 0.03
         }
     }
 
@@ -88,6 +92,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .calligraphy: return 0.22
         case .marker: return 0.45
+        case .flat: return 0.3
         case .charcoal: return 0.6
         default: return 1
         }
@@ -110,7 +115,7 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .chalk: return 0.75
         case .charcoal: return 0.95
         case .crayon, .stipple, .pixel: return 1
-        case .bristle, .dryBrush: return 0.9
+        case .bristle, .dryBrush, .flat: return 0.9
         }
     }
 
@@ -133,13 +138,13 @@ enum BrushTip: String, Codable, CaseIterable, Identifiable, Sendable {
         case .charcoal: return 0.55
         case .crayon: return 0.8
         case .dryBrush: return 0.4
-        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle: return 0
+        case .round, .calligraphy, .airbrush, .marker, .stipple, .pixel, .bristle, .flat: return 0
         }
     }
 
     /// Tips that always lie the same way to the stroke: a brush's hairs
     /// trail behind it, so each keeps to its own streak.
-    var followsStroke: Bool { self == .bristle || self == .dryBrush }
+    var followsStroke: Bool { self == .bristle || self == .dryBrush || self == .flat }
 
     /// How far a brush goes before it has run dry, in brush widths; nil
     /// for tips that never run out.
@@ -414,10 +419,12 @@ enum BrushTipImage {
         let grain = (0..<(cells * cells)).map { _ in random.next() }
         // Where each hair of a bristle brush lies, and how thick and how
         // loaded with paint it is.
-        let hairs = (0..<(tip == .dryBrush ? 26 : 45)).map { _ in
+        let hairs = (0..<(tip == .dryBrush ? 26 : tip == .flat ? 36 : 45)).map { _ in
             let angle = random.next() * 2 * .pi, distance = sqrt(random.next()) * 0.9
-            return (x: cos(angle) * distance, y: sin(angle) * distance,
-                    radius: 0.04 + random.next() * 0.06, load: 0.35 + random.next() * 0.65)
+            let radius = 0.04 + random.next() * 0.06, load = 0.35 + random.next() * 0.65
+            // A flat brush's hairs fill its ferrule edge to edge.
+            if tip == .flat { return (x: (random.next() - 0.5) * 1.8, y: (random.next() - 0.5) * 1.4, radius: radius, load: load) }
+            return (x: cos(angle) * distance, y: sin(angle) * distance, radius: radius, load: load)
         }
         // A few waves round the rim, for tips with a broken outline.
         let ripples = (0..<4).map { _ in random.next() * 2 * .pi }
@@ -446,10 +453,12 @@ enum BrushTipImage {
                 case .pixel:
                     // Never stamped from an image; filled square.
                     alpha = 1
-                case .bristle, .dryBrush:
+                case .bristle, .dryBrush, .flat:
                     // The heaviest hair over this spot.
-                    alpha = reach < 1 ? hairs.reduce(0) { most, hair in
-                        let apart = hypot(dx - hair.x, dy - hair.y) / hair.radius
+                    alpha = reach < 1 || tip == .flat ? hairs.reduce(0) { most, hair in
+                        // Drawn long where the tip is squashed flat, so each
+                        // hair comes out round.
+                        let apart = hypot(dx - hair.x, (dy - hair.y) * tip.roundness) / hair.radius
                         return apart < 1 ? max(most, hair.load * min(1, (1 - apart) * 3)) : most
                     } : 0
                 case .airbrush:
