@@ -64,8 +64,9 @@ struct DocumentView: View {
         .accessibilityIdentifier("export")
     }
 
-    /// Renaming, and — for a plain picture, which flattens when saved —
-    /// turning the file into an Easel image that keeps its layers.
+    /// Renaming, and — for a plain picture, which flattens when saved, or a
+    /// file that cannot be saved at all — turning the file into an Easel
+    /// image that keeps its layers.
     @ViewBuilder
     private var titleMenu: some View {
         RenameButton()
@@ -82,7 +83,11 @@ struct DocumentView: View {
                     }
                 }
             } footer: {
-                Text("TitleMenu.ConvertToEasel.Footer")
+                if DocumentConversion.keepsOriginal(fileURL) {
+                    Text("TitleMenu.ConvertToEasel.Footer.ReadOnly")
+                } else {
+                    Text("TitleMenu.ConvertToEasel.Footer")
+                }
             }
         }
     }

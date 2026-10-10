@@ -16171,6 +16171,41 @@
         }
       }
     },
+    "TitleMenu.ConvertToEasel.Footer.ReadOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes to this file can’t be saved. Save them in an Easel image beside it to keep its layers; the original stays as it is."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このファイルへの変更は保存できません。レイヤーを保持するには、横にEasel画像を作成して保存してください。元のファイルはそのまま残ります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 파일의 변경 사항은 저장할 수 없습니다. 레이어를 유지하려면 옆에 Easel 이미지를 만들어 저장하십시오. 원본은 그대로 유지됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法存储对此文件的更改。在其旁边创建 Easel 图像以保留其图层，原始文件将保持不变。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法儲存對此檔案的變更。在其旁邊建立 Easel 影像以保留其圖層，原始檔案將保持不變。"
+          }
+        }
+      }
+    },
     "Tool.Blur": {
       "extractionState": "manual",
       "localizations": {

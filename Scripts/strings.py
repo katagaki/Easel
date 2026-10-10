@@ -307,6 +307,7 @@ S = {
 "Text.Size": ("Size", "サイズ", "크기", "大小", "大小"),
 "TitleMenu.ConvertToEasel": ("Keep Layers", "レイヤーを保持", "레이어 유지", "保留图层", "保留圖層"),
 "TitleMenu.ConvertToEasel.Footer": ("Pictures are flattened when saved. Turn this file into an Easel image to keep its layers.", "画像ファイルは保存時に統合されます。レイヤーを保持するには、このファイルをEasel画像に変換してください。", "사진 파일은 저장할 때 병합됩니다. 레이어를 유지하려면 이 파일을 Easel 이미지로 변환하십시오.", "图片在存储时会被拼合。将此文件转换为 Easel 图像以保留其图层。", "圖片在儲存時會被平面化。將此檔案轉換為 Easel 影像以保留其圖層。"),
+"TitleMenu.ConvertToEasel.Footer.ReadOnly": ("Changes to this file can’t be saved. Save them in an Easel image beside it to keep its layers; the original stays as it is.", "このファイルへの変更は保存できません。レイヤーを保持するには、横にEasel画像を作成して保存してください。元のファイルはそのまま残ります。", "이 파일의 변경 사항은 저장할 수 없습니다. 레이어를 유지하려면 옆에 Easel 이미지를 만들어 저장하십시오. 원본은 그대로 유지됩니다.", "无法存储对此文件的更改。在其旁边创建 Easel 图像以保留其图层，原始文件将保持不变。", "無法儲存對此檔案的變更。在其旁邊建立 Easel 影像以保留其圖層，原始檔案將保持不變。"),
 "Tool.Blur": ("Blur", "ぼかし", "흐림", "模糊", "模糊"),
 "Tool.Liquify": ("Liquify", "ゆがみ", "픽셀 유동화", "液化", "液化"),
 "Tool.Heal": ("Heal", "修復", "복구", "修复", "修復"),
